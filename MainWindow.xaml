@@ -1,0 +1,108 @@
+﻿<Window x:Class="币安量化机器人.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AI 量化交易机器人 · 毛坯框架"
+        MinWidth="1200" MinHeight="800"
+        FontFamily="Microsoft YaHei"
+        WindowStartupLocation="CenterScreen"
+        Background="White">
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="56"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="32"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="260"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 顶部栏：Padding 放 Border 上 -->
+        <Border Grid.Row="0" Grid.ColumnSpan="2" Background="#243B4A" CornerRadius="8" Padding="12">
+            <DockPanel LastChildFill="True">
+                <TextBlock Text="AI 智能量化交易终端（毛坯）"
+                           Foreground="White" FontSize="18" FontWeight="Bold"
+                           VerticalAlignment="Center" DockPanel.Dock="Left"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="设置" Margin="8,0,0,0" Height="28" MinWidth="72"/>
+                    <Button Content="帮助" Margin="8,0,0,0" Height="28" MinWidth="72"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- 左侧菜单 -->
+        <Border Grid.Row="1" Grid.Column="0" Margin="8,8,12,8" Background="#F3F5F7" CornerRadius="8">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="12">
+                    <TextBlock Text="功能菜单" FontWeight="Bold" FontSize="16" Margin="0,0,0,8"/>
+                    <Separator/>
+
+                    <!-- 市场与行情 -->
+                    <Button Content="📊 实时行情"           Tag="行情"       Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+                    <Button Content="💱 资金费率与合约信息" Tag="资金费率"   Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+
+                    <!-- 策略与 AI -->
+                    <Button Content="⚙ 策略配置"           Tag="策略配置"   Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+                    <Button Content="📚 策略库 / 模板"       Tag="策略库"     Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+                    <Button Content="🧠 AI 模型中心"        Tag="AI"         Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+                    <Button Content="🔎 参数优化 / 前向分析" Tag="优化"       Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+
+                    <!-- 研发与验证 -->
+                    <Button Content="📈 历史回测"           Tag="回测"       Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+                    <Button Content="📝 纸交易（模拟盘）"    Tag="纸交易"     Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+
+                    <!-- 实盘与风控 -->
+                    <Button Content="💹 交易执行"           Tag="交易"       Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+                    <Button Content="📑 持仓与订单"         Tag="持仓订单"   Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+                    <Button Content="🧮 风险控制"           Tag="风控"       Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+                    <Button Content="🚨 预警与通知"         Tag="预警"       Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+
+                    <!-- 账户与连接 -->
+                    <Button Content="👤 账户与资金"         Tag="账户"       Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+                    <Button Content="🔑 交易所连接 / API 管理" Tag="API"     Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+
+                    <!-- 系统 -->
+                    <Button Content="🛠 系统设置"           Tag="设置"       Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+                    <Button Content="🧾 日志与诊断"         Tag="诊断"       Margin="0,8,0,0" Height="40" Click="NavButton_Click"/>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- 右侧内容区 -->
+        <Border Grid.Row="1" Grid.Column="1" Margin="0,8,0,8"
+                BorderBrush="#E1E6EB" BorderThickness="1" CornerRadius="8">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Background="#F8FAFB" Padding="8">
+                    <DockPanel LastChildFill="False">
+                        <TextBlock x:Name="SectionTitle" Text="欢迎使用 · 请选择左侧功能"
+                                   FontWeight="Bold" FontSize="16" VerticalAlignment="Center"
+                                   DockPanel.Dock="Left"/>
+                    </DockPanel>
+                </Border>
+
+                <Grid Grid.Row="1" x:Name="MainContentHost" Background="White">
+                    <TextBlock Text="这里是内容区占位（后续挂接：K线图、下单面板、风控面板等）"
+                               Foreground="#7A869A" FontSize="15" TextWrapping="Wrap"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"/>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- 状态栏 -->
+        <StatusBar Grid.Row="2" Grid.ColumnSpan="2" Background="#F3F5F7">
+            <StatusBarItem>
+                <TextBlock x:Name="StatusText" Text="状态：就绪"/>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock Text="© 量化终端 毛坯版"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>
