@@ -8,12 +8,12 @@ using System.Windows.Controls;
 
 namespace 币安量化机器人.Modules.Optimize
 {
-    public partial class WFOView : UserControl
+    public partial class WfoOptimizer : UserControl
     {
         readonly Random _rng = new(123);
         readonly DataTable _table = new();
 
-        public WFOView()
+        public WfoOptimizer()
         {
             InitializeComponent();
 

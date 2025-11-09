@@ -2,6 +2,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using 币安量化机器人.Services;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -12,21 +13,31 @@ namespace 币安量化机器人.Modules.AI
     {
         private readonly ObservableCollection<ModelRow> _all = new();
         private readonly ICollectionView _view;
+        private readonly AiForecastService _aiService = ServiceLocator.Ai;
 
         public ModelHub()
         {
             InitializeComponent();
 
-            // 假数据：可跑；后续接 MLflow / 自建服务替换
-            _all.Add(new ModelRow { Name = "SignalRanker", Version = 3, Stage = "Production", Metric = "F1=0.81", UpdatedAt = DateTime.Now.AddHours(-2).ToString("yyyy-MM-dd HH:mm") });
-            _all.Add(new ModelRow { Name = "SignalRanker", Version = 4, Stage = "Staging", Metric = "F1=0.83", UpdatedAt = DateTime.Now.AddMinutes(-30).ToString("yyyy-MM-dd HH:mm") });
-            _all.Add(new ModelRow { Name = "RiskScaler", Version = 1, Stage = "Draft", Metric = "RMSE=0.42", UpdatedAt = DateTime.Now.AddDays(-1).ToString("yyyy-MM-dd HH:mm") });
+            foreach (var artifact in _aiService.Models)
+            {
+                _all.Add(new ModelRow
+                {
+                    Name = artifact.Name,
+                    Version = Version.Parse(artifact.Version).Major,
+                    Stage = artifact.Stage,
+                    Metric = artifact.Metric,
+                    UpdatedAt = artifact.UpdatedAt.ToString("yyyy-MM-dd HH:mm"),
+                    Description = artifact.Description
+                });
+            }
 
             _view = CollectionViewSource.GetDefaultView(_all);
             GridModels.ItemsSource = _view;
 
             GridModels.SelectionChanged += (_, __) => UpdateDetail();
             if (_all.Any()) GridModels.SelectedIndex = 0;
+            StatusText.Text = $"状态：已加载 {_all.Count} 个上线模型";
         }
 
         private void UpdateDetail()
@@ -34,8 +45,7 @@ namespace 币安量化机器人.Modules.AI
             if (GridModels.SelectedItem is ModelRow r)
             {
                 DetailTitle.Text = $"{r.Name} v{r.Version} · {r.Stage}";
-                DetailInfo.Text = $"主指标：{r.Metric}\n更新时间：{r.UpdatedAt}\n\n" +
-                                   $"阶段说明：Draft→Staging→Production（归档为 Archived）。";
+                DetailInfo.Text = $"主指标：{r.Metric}\n更新时间：{r.UpdatedAt}\n\n{r.Description}";
             }
         }
 
@@ -54,62 +64,28 @@ namespace 币安量化机器人.Modules.AI
 
         private void Train_Click(object sender, RoutedEventArgs e)
         {
-            StatusText.Text = "状态：已提交训练任务（占位）。";
-            MessageBox.Show("已提交训练任务（占位）。后续接入训练服务/队列。", "训练任务", MessageBoxButton.OK, MessageBoxImage.Information);
+            StatusText.Text = "状态：训练由外部流水线负责，请在 CICD 中触发";
+            MessageBox.Show("模型训练由离线管道执行，请在 MLFlow/CI 中触发任务。", "训练任务", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void Register_Click(object sender, RoutedEventArgs e)
         {
-            var name = (_all.FirstOrDefault()?.Name) ?? "NewModel";
-            var latest = _all.Where(x => x.Name == name).Select(x => x.Version).DefaultIfEmpty(0).Max();
-            var ver = latest + 1;
-            _all.Add(new ModelRow { Name = name, Version = ver, Stage = "Draft", Metric = "N/A", UpdatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm") });
-            _view.Refresh();
-            StatusText.Text = $"状态：已注册 {name} v{ver}（Draft）。";
+            MessageBox.Show("模型注册由自动化部署完成，此处仅展示线上模型状态。", "模型注册", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void PromoteStaging_Click(object sender, RoutedEventArgs e)
         {
-            if (GridModels.SelectedItem is not ModelRow r) return;
-            r.Stage = "Staging";
-            r.UpdatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
-            _view.Refresh();
-            UpdateDetail();
-            StatusText.Text = $"状态：{r.Name} v{r.Version} 提升到 Staging。";
+            MessageBox.Show("上线流程由 Release 系统控制，此处仅同步展示模型阶段。", "模型阶段", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void PromoteProd_Click(object sender, RoutedEventArgs e)
         {
-            if (GridModels.SelectedItem is not ModelRow r) return;
-
-            // 同名模型仅允许一个 Production，其他 Production 先归档
-            foreach (var x in _all.Where(x => x.Name == r.Name && x.Stage == "Production"))
-                x.Stage = "Archived";
-
-            r.Stage = "Production";
-            r.UpdatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
-            _view.Refresh();
-            UpdateDetail();
-            StatusText.Text = $"状态：{r.Name} v{r.Version} 提升到 Production（旧 Prod 已归档）。";
+            MessageBox.Show("请在部署中心执行 Production 切换。", "模型上线", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void Rollback_Click(object sender, RoutedEventArgs e)
         {
-            if (GridModels.SelectedItem is not ModelRow r) return;
-            var prev = _all.Where(x => x.Name == r.Name && x.Version < r.Version)
-                           .OrderByDescending(x => x.Version).FirstOrDefault();
-            if (prev == null)
-            {
-                MessageBox.Show("没有更早版本可回滚。", "回滚", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
-            r.Stage = "Archived";
-            prev.Stage = "Production";
-            prev.UpdatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
-            _view.Refresh();
-            GridModels.SelectedItem = prev;
-            UpdateDetail();
-            StatusText.Text = $"状态：已回滚到 {prev.Name} v{prev.Version}（Production）。";
+            MessageBox.Show("回滚操作请在部署流水线执行。", "回滚", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void CreateAB_Click(object sender, RoutedEventArgs e)
@@ -139,6 +115,7 @@ namespace 币安量化机器人.Modules.AI
         }
         public string Metric { get; set; } = "N/A";
         public string UpdatedAt { get; set; } = "";
+        public string Description { get; set; } = "";
 
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged(string propertyName) =>
