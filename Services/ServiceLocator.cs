@@ -5,17 +5,26 @@ namespace 币安量化机器人.Services;
 
 public static class ServiceLocator
 {
+    private static DataCacheService? _cacheInstance;
+    private static readonly object _cacheLock = new();
+
     static ServiceLocator()
     {
         AppSettingsService.Load();
     }
 
-    private static readonly Lazy<DataCacheService> CacheFactory = new(() =>
+    public static async Task InitializeAsync()
     {
-        var cache = new DataCacheService();
-        cache.InitializeAsync().GetAwaiter().GetResult();
-        return cache;
-    });
+        if (_cacheInstance != null) return;
+
+        lock (_cacheLock)
+        {
+            if (_cacheInstance != null) return;
+            _cacheInstance = new DataCacheService();
+        }
+
+        await _cacheInstance.InitializeAsync().ConfigureAwait(false);
+    }
 
     private static readonly Lazy<BinanceApiClient> ApiFactory = new(() => new BinanceApiClient());
     private static readonly Lazy<AiForecastService> AiFactory = new(() => new AiForecastService(Api, Cache));
@@ -26,7 +35,7 @@ public static class ServiceLocator
     private static readonly Lazy<AutoTradeEngine> AutoTradeFactory = new(() =>
         new AutoTradeEngine(Api, Ai, Risk, Notification, Settings));
 
-    public static DataCacheService Cache => CacheFactory.Value;
+    public static DataCacheService Cache => _cacheInstance ?? throw new InvalidOperationException("ServiceLocator has not been initialized. Call InitializeAsync() first.");
     public static BinanceApiClient Api => ApiFactory.Value;
     public static AiForecastService Ai => AiFactory.Value;
     public static RiskEngine Risk => RiskFactory.Value;
