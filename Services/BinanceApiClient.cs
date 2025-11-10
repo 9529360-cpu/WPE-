@@ -16,6 +16,7 @@ public class BinanceApiClient : IDisposable
 {
     private const string RestEndpoint = "https://fapi.binance.com";
     private readonly HttpClient _httpClient;
+    private readonly bool _shouldDisposeHttpClient;
     private readonly JsonSerializerOptions _serializerOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true
@@ -26,10 +27,19 @@ public class BinanceApiClient : IDisposable
 
     public BinanceApiClient(HttpClient? httpClient = null)
     {
-        _httpClient = httpClient ?? new HttpClient
+        if (httpClient is null)
         {
-            BaseAddress = new Uri(RestEndpoint)
-        };
+            _httpClient = new HttpClient
+            {
+                BaseAddress = new Uri(RestEndpoint)
+            };
+            _shouldDisposeHttpClient = true;
+        }
+        else
+        {
+            _httpClient = httpClient;
+            _shouldDisposeHttpClient = false;
+        }
     }
 
     public void SetApiCredentials(string apiKey, string secretKey)
@@ -382,7 +392,10 @@ public async Task<IReadOnlyList<PositionSnapshot>> GetPositionsAsync(Cancellatio
 
     public void Dispose()
     {
-        _httpClient.Dispose();
+        if (_shouldDisposeHttpClient)
+        {
+            _httpClient.Dispose();
+        }
     }
 
     private record FundingRateDto
