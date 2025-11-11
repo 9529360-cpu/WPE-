@@ -7,6 +7,8 @@ using 币安量化机器人.Application.Backtesting;
 using 币安量化机器人.Core.Abstractions;
 using 币安量化机器人.Core.Models;
 using 币安量化机器人.Models;
+using 币安量化机器人.Services.Resilience;
+using 币安量化机器人.Services.Performance;
 
 namespace 币安量化机器人.Services.AI;
 
@@ -21,18 +23,20 @@ namespace 币安量化机器人.Services.AI;
 /// 4. 学习反馈机制
 /// 5. 预测性决策
 /// 
+/// 🆕 Phase 3 增强功能：
+/// 1. 集成弹性恢复服务 (ResilienceService)
+/// 2. 集成性能优化服务 (PerformanceOptimizationService)
+/// 3. 增强异常处理和恢复
+/// 4. 智能缓存和批处理
+/// 5. 全面的健康监控
+/// 
 /// 核心职责：
 /// 1. 全局状态感知和监控
 /// 2. 工作流智能调度（回测→模拟→实盘）
 /// 3. 模块间协同控制
 /// 4. 持续学习和优化
 /// 5. 自适应决策引擎
-/// 
-/// 工作原理：
-/// - 状态机管理：跟踪系统当前处于哪个阶段（回测、模拟、实盘）
-/// - 事件驱动：各模块通过事件总线向协调器报告状态
-/// - 决策引擎：基于规则和历史数据做出智能决策
-/// - 自主调度：根据各阶段结果自动进入下一阶段
+/// 6. 弹性恢复和性能优化
 /// </remarks>
 public class AICentralCoordinator : IDisposable
 {
@@ -42,9 +46,13 @@ public class AICentralCoordinator : IDisposable
     private readonly LearningModule _learningModule;
     private readonly ResourceManager _resourceManager;
 
-    // 🆕 Phase 2: 新增组件
+    // 🆕 Phase 2: 智能组件
     private readonly WorkflowEngine _workflowEngine;
     private readonly DecisionFactorLibrary _factorLibrary;
+
+    // 🆕 Phase 3: 弹性和性能组件
+    private readonly ResilienceService _resilienceService;
+    private readonly PerformanceOptimizationService _performanceService;
 
     // 依赖的模块
     private readonly EnhancedBacktestEngine _backtestEngine;
@@ -92,9 +100,13 @@ public class AICentralCoordinator : IDisposable
             _eventBus,
             _resourceManager);
 
-        // 🆕 Phase 2: 初始化新组件
+        // 🆕 Phase 2: 初始化智能组件
         _factorLibrary = new DecisionFactorLibrary();
         _workflowEngine = new WorkflowEngine(_stateManager, _workflowOrchestrator, _eventBus);
+
+        // 🆕 Phase 3: 初始化弹性和性能组件
+        _resilienceService = new ResilienceService();
+        _performanceService = new PerformanceOptimizationService();
 
         // 🆕 将事件总线注入回测引擎
         _backtestEngine.SetEventBus(_eventBus);
@@ -105,6 +117,8 @@ public class AICentralCoordinator : IDisposable
         LogService.Info("🧠 [AICentralCoordinator] 增强版中央AI协调器已初始化");
         LogService.Info("   ✅ 智能工作流引擎已加载");
         LogService.Info("   ✅ 决策因子库已加载 ({Count}个因子)", _factorLibrary.GetFactors().Count);
+        LogService.Info("   ✅ 弹性恢复服务已加载");
+        LogService.Info("   ✅ 性能优化服务已加载");
     }
 
     #region 状态访问
@@ -205,7 +219,7 @@ public class AICentralCoordinator : IDisposable
     }
 
     /// <summary>
-    /// 🆕 增强版 AI大脑主控制循环
+    /// 🆕 增强版 AI大脑主控制循环 (Phase 3: 集成弹性和性能)
     /// </summary>
     private async Task MainControlLoopAsync(CancellationToken ct)
     {
@@ -213,46 +227,91 @@ public class AICentralCoordinator : IDisposable
         {
             while (!ct.IsCancellationRequested)
             {
-                // 1. 收集全系统状态
-                SystemState systemState = await CollectSystemStateAsync(ct);
-                _stateManager.UpdateState(systemState);
-
-                // 🆕 2. 计算决策因子得分
-                Dictionary<string, decimal> factorScores = await CalculateDecisionFactorsAsync(systemState, ct);
-                decimal weightedScore = _factorLibrary.CalculateWeightedScore(factorScores);
-
-                LogService.Debug("[AICentralCoordinator] 决策因子综合得分: {Score:F3}", weightedScore);
-
-                // 3. AI决策分析（集成因子得分）
-                AIDecision decisions = await _decisionEngine.AnalyzeAsync(systemState, ct);
-                decisions.FactorScore = weightedScore;
-                decisions.FactorBreakdown = factorScores;
-
-                LogService.Debug("[AICentralCoordinator] AI决策: {Decision}", decisions.PrimaryAction);
-
-                // 🆕 4. 自动化工作流转换（如果启用）
-                if (_autoDecisionEnabled)
+                try
                 {
-                    bool transitioned = await _workflowEngine.EvaluateAndTransitionAsync(ct);
-                    if (transitioned)
+                    // 使用性能监控记录操作
+                    using (_performanceService.RecordOperation("MainControlLoop"))
                     {
-                        LogService.Info("✅ [AICentralCoordinator] 工作流自动转换成功");
+                        // 1. 收集全系统状态
+                        SystemState systemState = await CollectSystemStateAsync(ct);
+                        _stateManager.UpdateState(systemState);
+
+                        // 🆕 2. 计算决策因子得分 (使用缓存)
+                        Dictionary<string, decimal> factorScores = await _performanceService.GetOrCreateCachedAsync(
+                            "decision_factors",
+                            async () => await CalculateDecisionFactorsAsync(systemState, ct),
+                            TimeSpan.FromMinutes(1)  // 缓存1分钟
+                        );
+
+                        decimal weightedScore = _factorLibrary.CalculateWeightedScore(factorScores);
+                        LogService.Debug("[AICentralCoordinator] 决策因子综合得分: {Score:F3}", weightedScore);
+
+                        // 3. AI决策分析（集成因子得分）
+                        AIDecision decisions = await _decisionEngine.AnalyzeAsync(systemState, ct);
+                        decisions.FactorScore = weightedScore;
+                        decisions.FactorBreakdown = factorScores;
+
+                        LogService.Debug("[AICentralCoordinator] AI决策: {Decision}", decisions.PrimaryAction);
+
+                        // 🆕 4. 自动化工作流转换（如果启用）
+                        if (_autoDecisionEnabled)
+                        {
+                            bool transitioned = await _workflowEngine.EvaluateAndTransitionAsync(ct);
+                            if (transitioned)
+                            {
+                                LogService.Info("✅ [AICentralCoordinator] 工作流自动转换成功");
+                            }
+                        }
+
+                        // 5. 执行工作流编排
+                        await _workflowOrchestrator.ExecuteAsync(decisions, ct);
+
+                        // 6. 学习优化（带因子反馈）
+                        await _learningModule.UpdateKnowledgeAsync(systemState, decisions, ct);
+                        await UpdateFactorWeightsAsync(systemState, decisions, ct);
+
+                        // 7. 定期清理历史记录
+                        _workflowEngine.CleanupHistory(100);
                     }
+
+                    // 8. 等待下一个周期（根据当前阶段调整）
+                    TimeSpan interval = GetControlLoopInterval();
+                    await Task.Delay(interval, ct);
                 }
+                catch (TaskCanceledException)
+                {
+                    // 正常取消
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // 🆕 Phase 3: 增强异常处理
+                    LogService.Error(ex, "[AICentralCoordinator] 主循环迭代异常");
 
-                // 5. 执行工作流编排
-                await _workflowOrchestrator.ExecuteAsync(decisions, ct);
+                    // 报告故障给弹性服务
+                    bool recovered = await _resilienceService.ReportFailureAsync(
+                        "AICentralCoordinator.MainLoop",
+                        ex
+                    );
 
-                // 6. 学习优化（带因子反馈）
-                await _learningModule.UpdateKnowledgeAsync(systemState, decisions, ct);
-                await UpdateFactorWeightsAsync(systemState, decisions, ct);
+                    if (!recovered)
+                    {
+                        // 检测到严重异常
+                        _resilienceService.DetectSystemAnomaly("AICentralCoordinator", ex);
 
-                // 7. 定期清理历史记录
-                _workflowEngine.CleanupHistory(100);
+                        // 检查系统健康
+                        var health = _resilienceService.GetSystemHealth();
+                        if (!health.IsHealthy)
+                        {
+                            LogService.Error("🚨 [AICentralCoordinator] 系统健康异常，触发紧急停止");
+                            await EmergencyStopAsync("系统健康检查失败");
+                            break;
+                        }
+                    }
 
-                // 8. 等待下一个周期（根据当前阶段调整）
-                TimeSpan interval = GetControlLoopInterval();
-                await Task.Delay(interval, ct);
+                    // 短暂等待后重试
+                    await Task.Delay(TimeSpan.FromSeconds(5), ct);
+                }
             }
         }
         catch (OperationCanceledException)
@@ -261,7 +320,11 @@ public class AICentralCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "[AICentralCoordinator] 主循环异常");
+            LogService.Error(ex, "[AICentralCoordinator] 主循环致命异常");
+            
+            // 报告严重故障
+            _resilienceService.DetectSystemAnomaly("AICentralCoordinator", ex);
+            
             throw;
         }
     }
@@ -313,41 +376,68 @@ public class AICentralCoordinator : IDisposable
     }
 
     /// <summary>
-    /// 准备市场数据供因子计算使用
+    /// 准备市场数据供因子计算使用 (Phase 3: 增强降级策略)
     /// </summary>
     private async Task<MarketData> PrepareMarketDataAsync(CancellationToken ct)
     {
         try
         {
-            // 获取BTC价格数据（作为市场基准）
-            IReadOnlyList<decimal> closes = await _apiClient.GetKlineClosesAsync("BTCUSDT", "1h", 100, ct);
-            IReadOnlyList<decimal> highs = await _apiClient.GetKlineHighsAsync("BTCUSDT", "1h", 100, ct);
-            IReadOnlyList<decimal> lows = await _apiClient.GetKlineLowsAsync("BTCUSDT", "1h", 100, ct);
-            IReadOnlyList<decimal> volumes = await _apiClient.GetKlineVolumesAsync("BTCUSDT", "1h", 100, ct);
+            // 使用智能缓存
+            var marketData = await _performanceService.GetOrCreateCachedAsync(
+                "market_data_btcusdt",
+                async () =>
+                {
+                    // 获取BTC价格数据（作为市场基准）
+                    IReadOnlyList<decimal> closes = await _apiClient.GetKlineClosesAsync("BTCUSDT", "1h", 100, ct);
+                    IReadOnlyList<decimal> highs = await _apiClient.GetKlineHighsAsync("BTCUSDT", "1h", 100, ct);
+                    IReadOnlyList<decimal> lows = await _apiClient.GetKlineLowsAsync("BTCUSDT", "1h", 100, ct);
+                    IReadOnlyList<decimal> volumes = await _apiClient.GetKlineVolumesAsync("BTCUSDT", "1h", 100, ct);
 
-            return new MarketData
-            {
-                ClosePrices = closes.ToList(),
-                HighPrices = highs.ToList(),
-                LowPrices = lows.ToList(),
-                Volumes = volumes.ToList(),
-                MarketCap = 1_000_000_000_000, // BTC市值（示例）
-                LongShortRatio = 1.2m,
-                InterestRate = 0.045m,
-                InterestRateChange = 0
-            };
+                    return new MarketData
+                    {
+                        ClosePrices = closes.ToList(),
+                        HighPrices = highs.ToList(),
+                        LowPrices = lows.ToList(),
+                        Volumes = volumes.ToList(),
+                        MarketCap = 1_000_000_000_000,
+                        LongShortRatio = 1.2m,
+                        InterestRate = 0.045m,
+                        InterestRateChange = 0,
+                        DataQuality = 1.0m  // 完整数据
+                    };
+                },
+                TimeSpan.FromMinutes(5)  // 缓存5分钟
+            );
+
+            return marketData!;
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "[AICentralCoordinator] 准备市场数据失败");
+            LogService.Warning(ex, "[AICentralCoordinator] 获取市场数据失败，使用降级策略");
 
-            // 返回默认数据
+            // 🆕 Phase 3: 数据降级策略
+            // 1. 尝试从缓存获取旧数据
+            try
+            {
+                var cachedData = _cacheService.Get<MarketData>("market_data_btcusdt_backup");
+                if (cachedData != null && cachedData.ClosePrices.Any())
+                {
+                    LogService.Info("[AICentralCoordinator] 使用缓存的历史数据 (备份)");
+                    cachedData.DataQuality = 0.5m;  // 标记数据质量降低
+                    return cachedData;
+                }
+            }
+            catch { }
+
+            // 2. 返回默认安全数据
+            LogService.Warning("[AICentralCoordinator] 使用默认市场数据");
             return new MarketData
             {
-                ClosePrices = new List<decimal>(),
-                HighPrices = new List<decimal>(),
-                LowPrices = new List<decimal>(),
-                Volumes = new List<decimal>()
+                ClosePrices = new List<decimal> { 50000m },  // 默认BTC价格
+                HighPrices = new List<decimal> { 51000m },
+                LowPrices = new List<decimal> { 49000m },
+                Volumes = new List<decimal> { 1000m },
+                DataQuality = 0.1m  // 最低质量
             };
         }
     }
