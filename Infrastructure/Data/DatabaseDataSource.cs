@@ -22,7 +22,7 @@ public class DatabaseDataSource : IDataSource
 
     public async IAsyncEnumerable<RawDataFrame> ReadAsync(DataQuery query, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await using SqliteConnection connection = new SqliteConnection(_connectionString);
+        await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
         SqliteCommand command = connection.CreateCommand();
@@ -34,7 +34,7 @@ public class DatabaseDataSource : IDataSource
         await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
-            Dictionary<string, object> payload = new Dictionary<string, object>
+            var payload = new Dictionary<string, object>
             {
                 ["open"] = reader.GetDouble(1),
                 ["high"] = reader.GetDouble(2),

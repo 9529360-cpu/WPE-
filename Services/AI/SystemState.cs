@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using 币安量化机器人.Models;
 
 namespace 币安量化机器人.Services.AI;
@@ -15,6 +16,65 @@ public class SystemState
     public required StrategyStatus StrategyStatus { get; init; }
     public required RiskMetrics RiskMetrics { get; init; }
     public required SystemResources SystemResources { get; init; }
+
+    // 新增：回测结果历史
+    public List<BacktestSummary> BacktestResults { get; init; } = new();
+
+    // 新增：优化结果历史
+    public List<OptimizationSummary> OptimizationResults { get; init; } = new();
+
+    // 新增：模拟交易开始时间
+    public DateTime SimulationStartTime { get; set; }
+
+    // 新增：实盘交易开始时间
+    public DateTime LiveTradingStartTime { get; set; }
+
+    /// <summary>
+    /// 克隆状态（用于快照）
+    /// </summary>
+    public SystemState Clone()
+    {
+        return new SystemState
+        {
+            Timestamp = Timestamp,
+            CurrentStage = CurrentStage,
+            MarketCondition = MarketCondition,
+            AccountStatus = AccountStatus,
+            StrategyStatus = StrategyStatus,
+            RiskMetrics = RiskMetrics,
+            SystemResources = SystemResources,
+            BacktestResults = new List<BacktestSummary>(BacktestResults),
+            OptimizationResults = new List<OptimizationSummary>(OptimizationResults),
+            SimulationStartTime = SimulationStartTime,
+            LiveTradingStartTime = LiveTradingStartTime
+        };
+    }
+}
+
+/// <summary>
+/// 回测结果摘要
+/// </summary>
+public class BacktestSummary
+{
+    public DateTime Timestamp { get; set; }
+    public string StrategyName { get; set; } = string.Empty;
+    public decimal TotalReturn { get; set; }
+    public decimal SharpeRatio { get; set; }
+    public decimal MaxDrawdown { get; set; }
+    public decimal WinRate { get; set; }
+    public int TotalTrades { get; set; }
+}
+
+/// <summary>
+/// 优化结果摘要
+/// </summary>
+public class OptimizationSummary
+{
+    public DateTime Timestamp { get; set; }
+    public string Method { get; set; } = string.Empty;
+    public decimal BestScore { get; set; }
+    public Dictionary<string, object> BestParameters { get; set; } = new();
+    public int Iterations { get; set; }
 }
 
 /// <summary>
@@ -75,15 +135,18 @@ public class AccountStatus
     public int OpenPositionCount { get; init; }
     public DateTime Timestamp { get; init; }
 
+    // 新增：连续亏损天数
+    public int DailyLossCount { get; set; }
+
     /// <summary>
     /// 今日收益率
     /// </summary>
-    public double TodayReturnPercent => NetValue == 0 ? 0 : (double)(TodayPnL / NetValue);
+    public decimal TodayReturnPercent => NetValue == 0 ? 0 : TodayPnL / NetValue;
 
     /// <summary>
     /// 总收益率
     /// </summary>
-    public double TotalReturnPercent => NetValue == 0 ? 0 : (double)(TotalPnL / NetValue);
+    public decimal TotalReturnPercent => NetValue == 0 ? 0 : TotalPnL / NetValue;
 
     /// <summary>
     /// 是否盈利
