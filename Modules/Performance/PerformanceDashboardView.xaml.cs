@@ -63,7 +63,15 @@ public partial class PerformanceDashboardView : UserControl
             // 🔧 确保账户存在
             if (_accountManager.SimulatedAccount == null)
             {
+                LogService.Info("[PerformanceDashboardView] 模拟账户不存在，正在创建...");
                 _accountManager.CreateSimulatedAccount("模拟账户", 100m);
+            }
+
+            // 🔧 确保有激活账户
+            if (!_accountManager.HasActiveAccount)
+            {
+                LogService.Info("[PerformanceDashboardView] 没有激活账户，正在激活模拟账户...");
+                _accountManager.SwitchToSimulated();
             }
 
             // 生成绩效报告
@@ -77,6 +85,15 @@ public partial class PerformanceDashboardView : UserControl
                 UpdateTradeStatistics(report);
                 UpdateRiskMetrics(report);
                 RenderEquityCurve(report);
+            }
+            else
+            {
+                LogService.Warning("[PerformanceDashboardView] 绩效报告为空");
+                if (StatusText != null)
+                {
+                    StatusText.Text = "绩效数据不可用";
+                }
+                return;
             }
 
             if (StatusText != null)
@@ -99,36 +116,69 @@ public partial class PerformanceDashboardView : UserControl
     /// </summary>
     private void UpdateSummaryCards(PerformanceReport report)
     {
-        // 总收益率
-        TotalReturnText.Text = $"{report.TotalReturn:P2}";
-        TotalReturnText.Foreground = report.TotalReturn >= 0
-            ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
-            : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
+        try
+        {
+            // 总收益率
+            if (TotalReturnText != null)
+            {
+                TotalReturnText.Text = $"{report.TotalReturn:P2}";
+                TotalReturnText.Foreground = report.TotalReturn >= 0
+                    ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
+                    : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
+            }
 
-        TotalReturnChange.Text = $"本月 {report.MonthlyReturn:+0.00%;-0.00%;0.00%}";
-        TotalReturnChange.Foreground = report.MonthlyReturn >= 0
-            ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
-            : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
+            if (TotalReturnChange != null)
+            {
+                TotalReturnChange.Text = $"本月 {report.MonthlyReturn:+0.00%;-0.00%;0.00%}";
+                TotalReturnChange.Foreground = report.MonthlyReturn >= 0
+                    ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
+                    : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
+            }
 
-        // 夏普比率
-        SharpeRatioText.Text = $"{report.SharpeRatio:F2}";
-        SharpeRatioText.Foreground = GetSharpeRatioColor(report.SharpeRatio);
-        SharpeRatingText.Text = GetSharpeRatioRating(report.SharpeRatio);
-        SharpeRatingText.Foreground = GetSharpeRatioColor(report.SharpeRatio);
+            // 夏普比率
+            if (SharpeRatioText != null)
+            {
+                SharpeRatioText.Text = $"{report.SharpeRatio:F2}";
+                SharpeRatioText.Foreground = GetSharpeRatioColor(report.SharpeRatio);
+            }
 
-        // 最大回撤
-        MaxDrawdownText.Text = $"{report.MaxDrawdown:P2}";
-        MaxDrawdownText.Foreground = GetDrawdownColor(report.MaxDrawdown);
-        DrawdownStatusText.Text = GetDrawdownStatus(report.MaxDrawdown);
-        DrawdownStatusText.Foreground = GetDrawdownColor(report.MaxDrawdown);
+            if (SharpeRatingText != null)
+            {
+                SharpeRatingText.Text = GetSharpeRatioRating(report.SharpeRatio);
+                SharpeRatingText.Foreground = GetSharpeRatioColor(report.SharpeRatio);
+            }
 
-        // 胜率
-        WinRateText.Text = $"{report.WinRate:P0}";
-        WinRateText.Foreground = report.WinRate >= 0.5
-            ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
-            : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
+            // 最大回撤
+            if (MaxDrawdownText != null)
+            {
+                MaxDrawdownText.Text = $"{report.MaxDrawdown:P2}";
+                MaxDrawdownText.Foreground = GetDrawdownColor(report.MaxDrawdown);
+            }
 
-        WinRateStatusText.Text = $"{report.WinningTrades}/{report.TotalTrades} 笔";
+            if (DrawdownStatusText != null)
+            {
+                DrawdownStatusText.Text = GetDrawdownStatus(report.MaxDrawdown);
+                DrawdownStatusText.Foreground = GetDrawdownColor(report.MaxDrawdown);
+            }
+
+            // 胜率
+            if (WinRateText != null)
+            {
+                WinRateText.Text = $"{report.WinRate:P0}";
+                WinRateText.Foreground = report.WinRate >= 0.5
+                    ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
+                    : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
+            }
+
+            if (WinRateStatusText != null)
+            {
+                WinRateStatusText.Text = $"{report.WinningTrades}/{report.TotalTrades} 笔";
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[PerformanceDashboardView] 更新汇总卡片失败");
+        }
     }
 
     /// <summary>
@@ -136,20 +186,42 @@ public partial class PerformanceDashboardView : UserControl
     /// </summary>
     private void UpdateReturnStatistics(PerformanceReport report)
     {
-        DailyReturnText.Text = $"{report.DailyReturn:P2}";
-        DailyReturnText.Foreground = GetReturnColor(report.DailyReturn);
+        try
+        {
+            if (DailyReturnText != null)
+            {
+                DailyReturnText.Text = $"{report.DailyReturn:P2}";
+                DailyReturnText.Foreground = GetReturnColor(report.DailyReturn);
+            }
 
-        WeeklyReturnText.Text = $"{report.WeeklyReturn:P2}";
-        WeeklyReturnText.Foreground = GetReturnColor(report.WeeklyReturn);
+            if (WeeklyReturnText != null)
+            {
+                WeeklyReturnText.Text = $"{report.WeeklyReturn:P2}";
+                WeeklyReturnText.Foreground = GetReturnColor(report.WeeklyReturn);
+            }
 
-        MonthlyReturnText.Text = $"{report.MonthlyReturn:P2}";
-        MonthlyReturnText.Foreground = GetReturnColor(report.MonthlyReturn);
+            if (MonthlyReturnText != null)
+            {
+                MonthlyReturnText.Text = $"{report.MonthlyReturn:P2}";
+                MonthlyReturnText.Foreground = GetReturnColor(report.MonthlyReturn);
+            }
 
-        AnnualizedReturnText.Text = $"{report.AnnualizedReturn:P2}";
-        AnnualizedReturnText.Foreground = GetReturnColor(report.AnnualizedReturn);
+            if (AnnualizedReturnText != null)
+            {
+                AnnualizedReturnText.Text = $"{report.AnnualizedReturn:P2}";
+                AnnualizedReturnText.Foreground = GetReturnColor(report.AnnualizedReturn);
+            }
 
-        CumulativeReturnText.Text = $"{report.TotalReturn:P2}";
-        CumulativeReturnText.Foreground = GetReturnColor(report.TotalReturn);
+            if (CumulativeReturnText != null)
+            {
+                CumulativeReturnText.Text = $"{report.TotalReturn:P2}";
+                CumulativeReturnText.Foreground = GetReturnColor(report.TotalReturn);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[PerformanceDashboardView] 更新收益率统计失败");
+        }
     }
 
     /// <summary>
@@ -157,14 +229,40 @@ public partial class PerformanceDashboardView : UserControl
     /// </summary>
     private void UpdateTradeStatistics(PerformanceReport report)
     {
-        TotalTradesText.Text = $"{report.TotalTrades} 笔";
-        TradeWinRateText.Text = $"{report.WinRate:P0}";
-        AvgWinText.Text = $"{report.AverageWin:F2} USDT";
-        AvgLossText.Text = $"{Math.Abs(report.AverageLoss):F2} USDT";
-        ProfitFactorText.Text = $"{report.ProfitFactor:F2}";
-        ProfitFactorText.Foreground = report.ProfitFactor >= 1.5
-            ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
-            : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
+        try
+        {
+            if (TotalTradesText != null)
+            {
+                TotalTradesText.Text = $"{report.TotalTrades} 笔";
+            }
+
+            if (TradeWinRateText != null)
+            {
+                TradeWinRateText.Text = $"{report.WinRate:P0}";
+            }
+
+            if (AvgWinText != null)
+            {
+                AvgWinText.Text = $"{report.AverageWin:F2} USDT";
+            }
+
+            if (AvgLossText != null)
+            {
+                AvgLossText.Text = $"{Math.Abs(report.AverageLoss):F2} USDT";
+            }
+
+            if (ProfitFactorText != null)
+            {
+                ProfitFactorText.Text = $"{report.ProfitFactor:F2}";
+                ProfitFactorText.Foreground = report.ProfitFactor >= 1.5
+                    ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
+                    : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[PerformanceDashboardView] 更新交易统计失败");
+        }
     }
 
     /// <summary>
@@ -172,21 +270,40 @@ public partial class PerformanceDashboardView : UserControl
     /// </summary>
     private void UpdateRiskMetrics(PerformanceReport report)
     {
-        RiskSharpeText.Text = $"{report.SharpeRatio:F2}";
-        RiskSharpeText.Foreground = GetSharpeRatioColor(report.SharpeRatio);
+        try
+        {
+            if (RiskSharpeText != null)
+            {
+                RiskSharpeText.Text = $"{report.SharpeRatio:F2}";
+                RiskSharpeText.Foreground = GetSharpeRatioColor(report.SharpeRatio);
+            }
 
-        SortinoRatioText.Text = $"{report.SortinoRatio:F2}";
-        SortinoRatioText.Foreground = GetSharpeRatioColor(report.SortinoRatio);
+            if (SortinoRatioText != null)
+            {
+                SortinoRatioText.Text = $"{report.SortinoRatio:F2}";
+                SortinoRatioText.Foreground = GetSharpeRatioColor(report.SortinoRatio);
+            }
 
-        CalmarRatioText.Text = $"{report.CalmarRatio:F2}";
-        CalmarRatioText.Foreground = report.CalmarRatio >= 1.0
-            ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
-            : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
+            if (CalmarRatioText != null)
+            {
+                CalmarRatioText.Text = $"{report.CalmarRatio:F2}";
+                CalmarRatioText.Foreground = report.CalmarRatio >= 1.0
+                    ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
+                    : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
+            }
 
-        ExpectancyText.Text = $"{report.Expectancy:F2} USDT";
-        ExpectancyText.Foreground = report.Expectancy >= 0
-            ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
-            : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
+            if (ExpectancyText != null)
+            {
+                ExpectancyText.Text = $"{report.Expectancy:F2} USDT";
+                ExpectancyText.Foreground = report.Expectancy >= 0
+                    ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
+                    : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[PerformanceDashboardView] 更新风险指标失败");
+        }
     }
 
     /// <summary>
@@ -196,10 +313,16 @@ public partial class PerformanceDashboardView : UserControl
     {
         try
         {
+            if (EquityPlot == null)
+            {
+                LogService.Warning("[PerformanceDashboardView] EquityPlot 控件未加载");
+                return;
+            }
+
             Plot plt = EquityPlot.Plot;
             plt.Clear();
 
-            if (!report.EquityCurve.Any())
+            if (report.EquityCurve == null || !report.EquityCurve.Any())
             {
                 plt.Title("暂无净值数据");
                 EquityPlot.Refresh();
@@ -257,10 +380,22 @@ public partial class PerformanceDashboardView : UserControl
     /// </summary>
     private async void AccountType_Changed(object sender, SelectionChangedEventArgs e)
     {
-        if (AccountTypeCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+        try
         {
-            _currentAccountType = tag == "Live" ? AccountType.Live : AccountType.Simulated;
-            await LoadPerformanceDataAsync();
+            if (AccountTypeCombo == null || AccountTypeCombo.SelectedItem == null)
+            {
+                return;
+            }
+
+            if (AccountTypeCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+            {
+                _currentAccountType = tag == "Live" ? AccountType.Live : AccountType.Simulated;
+                await LoadPerformanceDataAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[PerformanceDashboardView] 账户类型切换失败");
         }
     }
 
