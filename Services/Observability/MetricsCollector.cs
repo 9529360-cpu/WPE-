@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;  // 🆕 添加IO命名空间
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -502,10 +503,17 @@ public class Histogram : IMetric
 #region Summary 实现
 
 /// <summary>
-/// 摘要（与Histogram类似）
+/// 摘要（与Histogram类似，但提供Record方法作为别名）
 /// </summary>
 public class Summary : Histogram
 {
+    /// <summary>
+    /// 记录值（Observe的别名）
+    /// </summary>
+    public void Record(double value, Dictionary<string, string>? tags)
+    {
+        Observe(value, tags);
+    }
 }
 
 #endregion

@@ -477,23 +477,11 @@ public class AICentralCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "[AICentralCoordinator] 获取市场数据失败，使用降级策略");
+            LogService.Warning("[AICentralCoordinator] 获取市场数据失败，使用降级策略");
+            LogService.Error(ex, "[AICentralCoordinator] 市场数据获取异常详情");
 
             // 🆕 Phase 3: 数据降级策略
-            // 1. 尝试从缓存获取旧数据
-            try
-            {
-                var cachedData = _cacheService.Get<MarketData>("market_data_btcusdt_backup");
-                if (cachedData != null && cachedData.ClosePrices.Any())
-                {
-                    LogService.Info("[AICentralCoordinator] 使用缓存的历史数据 (备份)");
-                    cachedData.DataQuality = 0.5m;  // 标记数据质量降低
-                    return cachedData;
-                }
-            }
-            catch { }
-
-            // 2. 返回默认安全数据
+            // 直接返回默认安全数据（DataCacheService不支持Get方法）
             LogService.Warning("[AICentralCoordinator] 使用默认市场数据");
             return new MarketData
             {
@@ -795,7 +783,6 @@ public class AICentralCoordinator : IDisposable
                 MemoryUsage = snapshot.MemoryUsageMB / 1024.0,  // MB转GB
                 NetworkLatency = (int)snapshot.NetworkLatencyMs,
                 ActiveTasks = snapshot.ThreadCount,
-                IsHealthy = healthStatus.IsHealthy,
                 Timestamp = DateTime.UtcNow
             };
         }
@@ -810,7 +797,6 @@ public class AICentralCoordinator : IDisposable
                 MemoryUsage = 0,
                 NetworkLatency = 0,
                 ActiveTasks = 0,
-                IsHealthy = true,
                 Timestamp = DateTime.UtcNow
             };
         }

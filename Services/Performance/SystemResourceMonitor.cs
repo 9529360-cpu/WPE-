@@ -58,7 +58,8 @@ public class SystemResourceMonitor : IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "[SystemResourceMonitor] 无法创建CPU性能计数器");
+            LogService.Warning("[SystemResourceMonitor] 无法创建CPU性能计数器");
+            LogService.Error(ex, "[SystemResourceMonitor] CPU性能计数器创建失败详情");
             _cpuCounter = null;
         }
 
@@ -190,7 +191,8 @@ public class SystemResourceMonitor : IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "[SystemResourceMonitor] 测量网络延迟失败");
+            LogService.Warning("[SystemResourceMonitor] 测量网络延迟失败");
+            LogService.Error(ex, "[SystemResourceMonitor] 网络延迟测量异常详情");
             _networkLatency = -1; // -1表示测量失败
             return _networkLatency;
         }
