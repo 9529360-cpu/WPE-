@@ -321,6 +321,9 @@ public static class ServiceLocator
                 Cache
             );
 
+            // 将全局闸门接入执行引擎
+            _aiCoordinator.AttachGlobalGateTo(executionEngine);
+
             LogService.Info("🧠 [ServiceLocator] 中央AI协调器已创建");
         }
 

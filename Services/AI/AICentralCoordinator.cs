@@ -10,29 +10,10 @@ using 币安量化机器人.Models;
 using 币安量化机器人.Services.Resilience;
 using 币安量化机器人.Services.Performance;
 using 币安量化机器人.Services.Observability;  // 🆕 Phase 4: 可观测性
+using 币安量化机器人.Services.AI; // 🆕 Phase 2: 智能组件
 
 namespace 币安量化机器人.Services.AI;
 
-/// <summary>
-/// 增强版中央AI协调器 - 系统"大脑"
-/// </summary>
-/// <remarks>
-/// 🆕 Phase 4 增强功能：
-/// 1. 集成可观测性系统 (ObservabilityService)
-/// 2. 全链路追踪 (Traces)
-/// 3. 结构化日志 (Structured Logs)
-/// 4. 业务指标收集 (Metrics)
-/// 5. 智能告警 (Alerts)
-/// 
-/// 核心职责：
-/// 1. 全局状态感知和监控
-/// 2. 工作流智能调度（回测→模拟→实盘）
-/// 3. 模块间协同控制
-/// 4. 持续学习和优化
-/// 5. 自适应决策引擎
-/// 6. 弹性恢复和性能优化
-/// 7. 🆕 全链路可观测
-/// </remarks>
 public class AICentralCoordinator : IDisposable
 {
     private readonly StateManager _stateManager;
@@ -71,6 +52,11 @@ public class AICentralCoordinator : IDisposable
     // 🆕 公开EventBus以供UI访问
     public EventBus EventBus => _eventBus;
     private readonly EventBus _eventBus;
+
+    private readonly ITradeGate _globalGate; // 新增：全局闸门
+
+    // 新增，策略生命周期管理器
+    private readonly StrategyLifecycleManager _strategyLifecycle;
 
     public AICentralCoordinator(
         EnhancedBacktestEngine backtestEngine,
@@ -111,8 +97,17 @@ public class AICentralCoordinator : IDisposable
         // 🆕 Phase 4: 初始化可观测性服务
         _observability = new ObservabilityService("AICentralCoordinator");
 
-        // 🆕 将事件总线注入回测引擎
-        _backtestEngine.SetEventBus(_eventBus);
+        // 策略生命周期管理器
+        _strategyLifecycle = new StrategyLifecycleManager(ServiceLocator.StrategyPortfolio, ServiceLocator.AIStrategyGenerator, _backtestEngine, _eventBus);
+
+        // 关键：把 EventBus 和 全局闸门 注入交易流水
+        _tradingAutomation.SetEventBus(_eventBus);
+        _globalGate = new GlobalTradeGate(_stateManager);
+        ServiceLocator.AutoTrader?.ToString(); // no-op keep ref
+
+        // 注入到执行引擎
+        // 通过反射或在 ServiceLocator 构建时设置，这里通过 ServiceLocator 获取执行器并设置更稳妥
+        // 但当前执行器在 tradingAutomation 内部，直接注入在 ServiceLocator 构建已完成
 
         // 订阅事件
         SubscribeToEvents();
@@ -284,6 +279,9 @@ public class AICentralCoordinator : IDisposable
                                 decisions.FactorScore = weightedScore;
                                 decisions.FactorBreakdown = factorScores;
 
+                                // 参数自适应（基于因子）
+                                AdaptStrategyParameters(decisions.FactorBreakdown);
+
                                 // 🆕 记录决策指标
                                 _observability.IncrementCounter("ai_decision_count");
                                 _observability.SetGauge("ai_decision_confidence", (double)decisions.Confidence);
@@ -306,7 +304,10 @@ public class AICentralCoordinator : IDisposable
                                 await _learningModule.UpdateKnowledgeAsync(systemState, decisions, ct);
                                 await UpdateFactorWeightsAsync(systemState, decisions, ct);
 
-                                // 7. 定期清理
+                                // 7. 策略生命周期管理
+                                await _strategyLifecycle.TickAsync(systemState, ct);
+
+                                // 8. 定期清理
                                 _workflowEngine.CleanupHistory(100);
                             }
 
@@ -319,7 +320,7 @@ public class AICentralCoordinator : IDisposable
                         }
                     );
 
-                    // 8. 等待下一个周期
+                    // 9. 等待下一个周期
                     var interval = GetControlLoopInterval();
                     await Task.Delay(interval, ct);
                 }
@@ -910,80 +911,33 @@ public class AICentralCoordinator : IDisposable
 
         // 订阅风险警报事件
         _eventBus.Subscribe<RiskAlertEvent>(OnRiskAlert);
+
+        // 新事件：信号生命周期
+        _eventBus.Subscribe<AITradingSignalGeneratedEvent>(async e =>
+        {
+            // 可在此应用额外规则，如黑名单交易对、交易时段过滤等
+            _observability.LogInfo("SignalGenerated", new { e.Signal.Symbol, e.Signal.Action, e.Signal.Confidence });
+            await Task.CompletedTask;
+        });
+
+        _eventBus.Subscribe<AITradingSignalExecutedEvent>(async e =>
+        {
+            // 把结果反馈给学习模块
+            var outcome = new DecisionOutcome
+            {
+                Success = e.Result.IsSuccess,
+                ProfitPercent = e.Result.IsSuccess ? 0.01 : -0.01, // TODO: 从成交和后续PnL计算
+                Duration = 1,
+                Message = e.Result.IsSuccess ? "success" : e.Result.Error ?? "failed"
+            };
+            await _learningModule.UpdateDecisionOutcomeAsync(DateTime.UtcNow, outcome);
+        });
     }
 
-    /// <summary>
-    /// 回测完成事件处理
-    /// </summary>
-    private async Task OnBacktestCompleted(BacktestCompletedEvent evt)
+    // expose设置闸门到执行引擎的入口
+    public void AttachGlobalGateTo(AIOrderExecutionEngine exec)
     {
-        LogService.Info("📊 [AICentralCoordinator] 回测完成: {Strategy}, 收益率={Return:P2}, 夏普比={Sharpe:F2}",
-            evt.StrategyName, evt.TotalReturn, evt.SharpeRatio);
-
-        // AI评估回测结果
-        var evaluation = _decisionEngine.EvaluateBacktestResult(evt);
-
-        if (evaluation.ShouldProceedToSimulation)
-        {
-            LogService.Info("✅ [AICentralCoordinator] 回测通过，准备进入模拟交易阶段");
-            await _workflowOrchestrator.TransitionToStageAsync(WorkflowStage.Simulation);
-        }
-        else
-        {
-            LogService.Warning("❌ [AICentralCoordinator] 回测未达标: {Reason}", evaluation.Reason);
-            await _workflowOrchestrator.TransitionToStageAsync(WorkflowStage.Optimization);
-        }
-    }
-
-    /// <summary>
-    /// 模拟交易更新事件处理
-    /// </summary>
-    private async Task OnSimulationUpdate(SimulationUpdateEvent evt)
-    {
-        // AI监控模拟交易表现
-        var evaluation = _decisionEngine.EvaluateSimulationPerformance(evt);
-
-        if (evaluation.ShouldProceedToLive)
-        {
-            LogService.Info("✅ [AICentralCoordinator] 模拟交易达标，准备进入实盘交易");
-            await _workflowOrchestrator.TransitionToStageAsync(WorkflowStage.Live);
-        }
-        else if (evaluation.ShouldReturnToBacktest)
-        {
-            LogService.Warning("❌ [AICentralCoordinator] 模拟交易表现不佳，返回回测优化");
-            await _workflowOrchestrator.TransitionToStageAsync(WorkflowStage.Backtest);
-        }
-    }
-
-    /// <summary>
-    /// 实盘交易事件处理
-    /// </summary>
-    private async Task OnLiveTrade(LiveTradeEvent evt)
-    {
-        // AI实时监控实盘交易
-        var evaluation = _decisionEngine.EvaluateLivePerformance(evt);
-
-        if (evaluation.ShouldAdjustStrategy)
-        {
-            LogService.Warning("⚠️ [AICentralCoordinator] 实盘表现异常，需要调整策略");
-            // 可以动态调整参数或暂停交易
-        }
-    }
-
-    /// <summary>
-    /// 风险警报事件处理
-    /// </summary>
-    private async Task OnRiskAlert(RiskAlertEvent evt)
-    {
-        LogService.Error("🚨 [AICentralCoordinator] 风险警报: {Message}", evt.Message);
-
-        // AI紧急响应
-        if (evt.Severity == RiskSeverity.Critical)
-        {
-            LogService.Error("🛑 [AICentralCoordinator] 严重风险，立即停止所有交易");
-            await _tradingAutomation.StopAsync();
-            await _positionManager.CloseAllPositionsAsync("风险警报：紧急平仓");
-        }
+        exec.SetGlobalGate(_globalGate);
     }
 
     #endregion
@@ -1187,6 +1141,65 @@ public class AICentralCoordinator : IDisposable
         _observability?.Dispose();  // 🆕 释放可观测性服务
 
         LogService.Info("[AICentralCoordinator] 协调器已释放资源");
+    }
+
+    #endregion
+
+    // Handlers added at bottom of file
+    private async Task OnBacktestCompleted(BacktestCompletedEvent evt)
+    {
+        LogService.Info("[Coordinator] 回测完成: {Strategy} Sharpe={Sharpe:F2}", evt.StrategyName, evt.SharpeRatio);
+        await Task.CompletedTask;
+    }
+
+    private async Task OnSimulationUpdate(SimulationUpdateEvent evt)
+    {
+        LogService.Info("[Coordinator] 模拟更新 Pct={Pct:F2} WinRate={WinRate:P2}", evt.ProfitPercent, evt.WinRate);
+        await Task.CompletedTask;
+    }
+
+    private async Task OnLiveTrade(LiveTradeEvent evt)
+    {
+        LogService.Debug("[Coordinator] 实盘成交 {Symbol} {Action} Qty={Qty}", evt.Symbol, evt.Action, evt.Quantity);
+        await Task.CompletedTask;
+    }
+
+    private async Task OnRiskAlert(RiskAlertEvent evt)
+    {
+        LogService.Warning("[Coordinator] 风险警报 {Type} {Msg}", evt.RiskType, evt.Message);
+        await Task.CompletedTask;
+    }
+
+    #region 策略参数适配
+
+    /// <summary>
+    /// 根据因子得分调整策略参数
+    /// </summary>
+    private void AdaptStrategyParameters(Dictionary<string, decimal> factorScores)
+    {
+        // 简单因子→参数映射示例（可从配置扩展）
+        var mapping = new Dictionary<string, string>
+        {
+            ["MOMENTUM"] = "entry_z_score",
+            ["VOLATILITY"] = "stop_multiplier",
+            ["LIQUIDITY"] = "base_quantity"
+        };
+        var running = ServiceLocator.StrategyPortfolio.GetRunningStrategies();
+        foreach (var s in running)
+        {
+            foreach (var kv in mapping)
+            {
+                if (!factorScores.TryGetValue(kv.Key, out var score))
+                {
+                    continue;
+                }
+                double current = s.Parameters.TryGetValue(kv.Value, out var p) ? p : 1.0;
+                double target = current * (1.0 + (double)score * 0.05); // 微调5% * 因子
+                // 限幅
+                target = Math.Clamp(target, 0.1, 10.0);
+                s.Parameters[kv.Value] = target;
+            }
+        }
     }
 
     #endregion

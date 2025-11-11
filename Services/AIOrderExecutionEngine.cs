@@ -9,20 +9,16 @@ namespace 币安量化机器人.Services;
 /// <summary>
 /// AI订单执行引擎 - 统一处理模拟和真实订单
 /// </summary>
-/// <remarks>
-/// 核心职责:
-/// 1. AI信号转订单请求
-/// 2. 风控检查
-/// 3. 根据账户类型选择执行器 (模拟/真实)
-/// 4. 更新账户状态
-/// 5. 记录执行结果
-/// </remarks>
 public class AIOrderExecutionEngine
 {
     private readonly TradingAccountManager _accountManager;
     private readonly SimulatedOrderExecutor _simulatedExecutor;
     private readonly LiveOrderExecutor _liveExecutor;
     private readonly AIRiskManager _riskManager;
+
+    // 全局交易闸门（由中央协调器设置）
+    private ITradeGate? _globalGate;
+    public void SetGlobalGate(ITradeGate gate) => _globalGate = gate;
 
     public AIOrderExecutionEngine(
         TradingAccountManager accountManager,
@@ -52,15 +48,22 @@ public class AIOrderExecutionEngine
                 return OrderExecutionResult.Failed("没有激活的账户");
             }
 
+            // 全局闸门检查
+            if (_globalGate != null)
+            {
+                var gateDecision = _globalGate.Permit(signal, account);
+                if (!gateDecision.Allowed)
+                {
+                    return OrderExecutionResult.Rejected($"全局拒绝: {gateDecision.Reason}");
+                }
+            }
+
             // 2. AI信号转订单请求
             OrderRequest orderRequest = ConvertSignalToOrder(signal, account);
 
             // 3. 风控检查
             if (!_riskManager.ApproveSignal(signal))
             {
-                LogService.Warning("订单被风控拒绝: {Symbol} {Action} 信心度={Confidence}",
-                    signal.Symbol, signal.Action, signal.Confidence);
-
                 return OrderExecutionResult.Rejected("风控拒绝");
             }
 
@@ -68,12 +71,10 @@ public class AIOrderExecutionEngine
             OrderExecutionResult result;
             if (account.Type == AccountType.Simulated)
             {
-                LogService.Info("使用模拟账户执行");
                 result = await _simulatedExecutor.ExecuteAsync(orderRequest, account, ct);
             }
             else
             {
-                LogService.Warning("⚠️ 使用真实账户执行");
                 result = await _liveExecutor.ExecuteAsync(orderRequest, account, ct);
             }
 
@@ -82,9 +83,6 @@ public class AIOrderExecutionEngine
             {
                 account.TotalTrades++;
                 account.LastTradeAt = DateTime.UtcNow;
-
-                LogService.Info("✅ 订单执行成功: {Account} {OrderId} @ {Price}",
-                    account.Name, result.OrderId, result.ExecutedPrice);
             }
 
             return result;

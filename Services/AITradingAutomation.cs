@@ -20,6 +20,10 @@ public class AITradingAutomation
     private bool _isRunning;
     private CancellationTokenSource? _cts;
 
+    // 由中央协调器注入
+    private EventBus? _eventBus;
+    public void SetEventBus(EventBus bus) => _eventBus = bus;
+
     public AITradingAutomation(
         BinanceStreamClient streamClient,
         MarketDataPreprocessor dataProcessor,
@@ -134,28 +138,56 @@ public class AITradingAutomation
             LogService.Info("🧠 AI信号: {Symbol} {Action} 信心度={Confidence:P0} 理由={Reason}",
                 signal.Symbol, signal.Action, signal.Confidence, signal.Reason ?? string.Empty);
 
-            // 🆕 3. 广播信号到所有订阅者 (UI、日志、监控等)
+            // 广播到UI
             _signalBroadcaster.BroadcastSignal(signal, "AITradingAutomation");
 
+            if (_eventBus != null)
+            {
+                await _eventBus.PublishAsync(new AITradingSignalGeneratedEvent
+                {
+                    Signal = signal,
+                    Source = "AITradingAutomation",
+                    Timestamp = DateTime.UtcNow
+                });
+            }
+
             // 4. 执行交易 (如果不是Hold)
+            OrderExecutionResult result;
             if (signal.Action != SignalAction.Hold)
             {
-                OrderExecutionResult result = await _executionEngine.ExecuteSignalAsync(signal);
-
-                if (result.IsSuccess)
-                {
-                    LogService.Info("✅ 订单执行成功: {OrderId} @ {Price}",
-                        result.OrderId ?? string.Empty, result.ExecutedPrice);
-                }
-                else
-                {
-                    // 保证 params 不为 null
-                    LogService.Warning("❌ 订单执行失败: {Reason}", result.Error ?? string.Empty);
-                }
+                result = await _executionEngine.ExecuteSignalAsync(signal);
             }
             else
             {
-                LogService.Debug("⏸️ AI建议观望");
+                result = OrderExecutionResult.Rejected("Hold");
+            }
+
+            if (_eventBus != null)
+            {
+                await _eventBus.PublishAsync(new AITradingSignalExecutedEvent
+                {
+                    Signal = signal,
+                    Result = result,
+                    Timestamp = DateTime.UtcNow
+                });
+            }
+
+            if (result.IsSuccess)
+            {
+                LogService.Info("✅ 订单执行成功: {OrderId} @ {Price}",
+                    result.OrderId ?? string.Empty, result.ExecutedPrice);
+            }
+            else if (!result.IsSuccess && string.Equals(result.Error, "Hold", StringComparison.OrdinalIgnoreCase))
+            {
+                LogService.Debug("⏸️ 信号被忽略(Hold)");
+            }
+            else if (!result.IsSuccess && string.Equals(result.Error, "风控拒绝", StringComparison.OrdinalIgnoreCase))
+            {
+                LogService.Debug("⏸️ 信号被风控拒绝");
+            }
+            else if (!result.IsSuccess)
+            {
+                LogService.Warning("❌ 订单执行失败: {Reason}", result.Error ?? string.Empty);
             }
         }
         catch (Exception ex)
