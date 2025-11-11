@@ -53,6 +53,7 @@ public class AICentralCoordinator : IDisposable
     // 🆕 Phase 3: 弹性和性能组件
     private readonly ResilienceService _resilienceService;
     private readonly PerformanceOptimizationService _performanceService;
+    private readonly SystemResourceMonitor _resourceMonitor;
 
     // 依赖的模块
     private readonly EnhancedBacktestEngine _backtestEngine;
@@ -107,6 +108,7 @@ public class AICentralCoordinator : IDisposable
         // 🆕 Phase 3: 初始化弹性和性能组件
         _resilienceService = new ResilienceService();
         _performanceService = new PerformanceOptimizationService();
+        _resourceMonitor = new SystemResourceMonitor();
 
         // 🆕 将事件总线注入回测引擎
         _backtestEngine.SetEventBus(_eventBus);
@@ -119,6 +121,7 @@ public class AICentralCoordinator : IDisposable
         LogService.Info("   ✅ 决策因子库已加载 ({Count}个因子)", _factorLibrary.GetFactors().Count);
         LogService.Info("   ✅ 弹性恢复服务已加载");
         LogService.Info("   ✅ 性能优化服务已加载");
+        LogService.Info("   ✅ 系统资源监控器已加载");
     }
 
     #region 状态访问
@@ -443,20 +446,97 @@ public class AICentralCoordinator : IDisposable
     }
 
     /// <summary>
-    /// 更新因子权重（学习反馈）
+    /// 更新因子权重（学习反馈） - Phase 3增强版
     /// </summary>
     private async Task UpdateFactorWeightsAsync(
         SystemState systemState,
         AIDecision decision,
         CancellationToken ct)
     {
+        try
+        {
+            // 🆕 Phase 3: 实现因子权重的动态调整
+            
+            // 1. 获取最近的决策结果
+            DecisionOutcome? lastOutcome = await GetLastDecisionOutcomeAsync(ct);
+            
+            // 2. 获取当前因子权重
+            Dictionary<string, decimal> currentWeights = _factorLibrary.GetFactorWeights();
+            
+            // 3. 使用学习模块优化权重
+            Dictionary<string, decimal> optimizedWeights = await _learningModule.OptimizeFactorWeightsAsync(
+                currentWeights,
+                systemState,
+                decision,
+                lastOutcome,
+                ct
+            );
+            
+            // 4. 如果权重有变化，更新因子库
+            if (!WeightsAreEqual(currentWeights, optimizedWeights))
+            {
+                _factorLibrary.UpdateFactorWeights(optimizedWeights);
+                LogService.Info("✅ [AICentralCoordinator] 因子权重已更新");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[AICentralCoordinator] 更新因子权重失败");
+        }
+    }
+
+    /// <summary>
+    /// 🆕 获取最近的决策结果
+    /// </summary>
+    private async Task<DecisionOutcome?> GetLastDecisionOutcomeAsync(CancellationToken ct)
+    {
+        // TODO: 从交易历史获取最近一笔交易的结果
+        // 这里返回模拟数据
         await Task.CompletedTask;
+        
+        TradingAccount? account = _accountManager.ActiveAccount;
+        if (account == null || account.TotalTrades == 0)
+        {
+            return null;
+        }
 
-        // TODO: 实现因子权重的动态调整
-        // 基于历史表现优化因子权重
-        // 使用强化学习或遗传算法
+        // 简化实现：基于最近的盈亏
+        return new DecisionOutcome
+        {
+            Success = account.TodayPnL >= 0,
+            ProfitPercent = account.TodayReturnPercent,
+            Duration = 1.0, // 假设持续1小时
+            Message = account.TodayPnL >= 0 ? "盈利" : "亏损"
+        };
+    }
 
-        LogService.Debug("[AICentralCoordinator] 因子权重更新完成");
+    /// <summary>
+    /// 🆕 比较权重是否相等
+    /// </summary>
+    private bool WeightsAreEqual(
+        Dictionary<string, decimal> weights1,
+        Dictionary<string, decimal> weights2)
+    {
+        if (weights1.Count != weights2.Count)
+        {
+            return false;
+        }
+
+        foreach (var (key, value1) in weights1)
+        {
+            if (!weights2.TryGetValue(key, out decimal value2))
+            {
+                return false;
+            }
+
+            // 权重差异小于0.001视为相等
+            if (Math.Abs(value1 - value2) > 0.001m)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     #endregion
@@ -638,17 +718,41 @@ public class AICentralCoordinator : IDisposable
     }
 
     /// <summary>
-    /// 收集系统资源
+    /// 收集系统资源 (Phase 3: 实现真实监控)
     /// </summary>
     private SystemResources CollectSystemResources()
     {
-        return new SystemResources
+        try
         {
-            CpuUsage = 0, // TODO: 实现CPU使用率监控
-            MemoryUsage = 0,
-            NetworkLatency = 0,
-            Timestamp = DateTime.UtcNow
-        };
+            // 🆕 Phase 3: 使用SystemResourceMonitor获取真实数据
+            var snapshot = _resourceMonitor.GetSnapshot();
+            var healthStatus = _resourceMonitor.GetHealthStatus();
+
+            return new SystemResources
+            {
+                CpuUsage = snapshot.CpuUsagePercent / 100.0,  // 转换为0-1范围
+                MemoryUsage = snapshot.MemoryUsageMB / 1024.0,  // MB转GB
+                NetworkLatency = (int)snapshot.NetworkLatencyMs,
+                ActiveTasks = snapshot.ThreadCount,
+                IsHealthy = healthStatus.IsHealthy,
+                Timestamp = DateTime.UtcNow
+            };
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[AICentralCoordinator] 收集系统资源失败");
+            
+            // 返回默认值
+            return new SystemResources
+            {
+                CpuUsage = 0,
+                MemoryUsage = 0,
+                NetworkLatency = 0,
+                ActiveTasks = 0,
+                IsHealthy = true,
+                Timestamp = DateTime.UtcNow
+            };
+        }
     }
 
     #endregion
@@ -992,6 +1096,7 @@ public class AICentralCoordinator : IDisposable
         _mainLoopCts?.Cancel();
         _mainLoopCts?.Dispose();
         _eventBus.Dispose();
+        _resourceMonitor?.Dispose();  // 🆕 释放资源监控器
 
         LogService.Info("[AICentralCoordinator] 协调器已释放资源");
     }

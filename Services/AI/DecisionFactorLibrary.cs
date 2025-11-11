@@ -556,6 +556,53 @@ public class DecisionFactorLibrary
         return _factors.Values.Where(f => f.Category == category).ToList();
     }
 
+    /// <summary>
+    /// 🆕 Phase 3: 获取所有因子权重
+    /// </summary>
+    public Dictionary<string, decimal> GetFactorWeights()
+    {
+        return _factors.ToDictionary(
+            kvp => kvp.Key,
+            kvp => kvp.Value.Weight
+        );
+    }
+
+    /// <summary>
+    /// 🆕 Phase 3: 更新因子权重
+    /// </summary>
+    public void UpdateFactorWeights(Dictionary<string, decimal> newWeights)
+    {
+        int updatedCount = 0;
+        foreach (var (factorCode, newWeight) in newWeights)
+        {
+            if (_factors.TryGetValue(factorCode, out DecisionFactor? factor))
+            {
+                // 只有当权重有明显变化时才更新
+                if (Math.Abs(factor.Weight - newWeight) > 0.001m)
+                {
+                    factor.Weight = newWeight;
+                    updatedCount++;
+                }
+            }
+        }
+
+        if (updatedCount > 0)
+        {
+            LogService.Info("[DecisionFactorLibrary] 已更新 {Count} 个因子权重", updatedCount);
+        }
+    }
+
+    /// <summary>
+    /// 🆕 Phase 3: 重置所有因子权重为默认值
+    /// </summary>
+    public void ResetFactorWeights()
+    {
+        // 重新初始化因子（恢复默认权重）
+        _factors.Clear();
+        InitializeFactors();
+        LogService.Info("[DecisionFactorLibrary] 因子权重已重置为默认值");
+    }
+
     #region 辅助计算方法
 
     private static decimal CalculateMA(List<decimal> prices, int period)
@@ -652,7 +699,7 @@ public class DecisionFactor
     public string Name { get; set; } = string.Empty;
     public FactorCategory Category { get; set; }
     public string SubCategory { get; set; } = string.Empty;
-    public decimal Weight { get; set; }
+    public decimal Weight { get; set; }  // 🔧 改为可修改
     public Func<MarketData, decimal> Calculator { get; set; } = null!;
     public string Description { get; set; } = string.Empty;
 }

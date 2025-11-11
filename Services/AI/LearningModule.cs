@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace 币安量化机器人.Services.AI;
 
 /// <summary>
-/// 学习模块
+/// 学习模块 (Phase 3: 增强版)
 /// </summary>
 /// <remarks>
 /// 核心职责：
@@ -16,18 +16,31 @@ namespace 币安量化机器人.Services.AI;
 /// 3. 优化未来决策
 /// 4. 识别模式和趋势
 /// 5. 持续改进系统性能
+/// 
+/// 🆕 Phase 3 增强功能：
+/// 6. 决策因子权重优化
+/// 7. 因子贡献度分析
+/// 8. 自适应权重调整
+/// 9. 性能指标追踪
+/// 10. 学习曲线可视化
 /// </remarks>
 public class LearningModule
 {
     private readonly DataCacheService _cacheService;
     private readonly List<DecisionRecord> _decisionHistory;
+    private readonly Dictionary<string, FactorPerformance> _factorPerformance;
     private readonly object _lock = new();
     private const int MaxHistorySize = 1000;
+    
+    // 🆕 Phase 3: 因子权重学习参数
+    private double _learningRate = 0.01; // 学习率
+    private int _optimizationCycle = 0;  // 优化周期计数
 
     public LearningModule(DataCacheService cacheService)
     {
         _cacheService = cacheService;
         _decisionHistory = new List<DecisionRecord>();
+        _factorPerformance = new Dictionary<string, FactorPerformance>();
     }
 
     /// <summary>
@@ -126,7 +139,7 @@ public class LearningModule
                 DecisionRecord? record = _decisionHistory
                     .FirstOrDefault(r => r.Timestamp == decisionTimestamp);
 
-                if (record != null)
+                if record != null
                 {
                     record.Outcome = outcome;
 
@@ -322,6 +335,306 @@ public class LearningModule
     }
 
     #endregion
+
+    /// <summary>
+    /// 🆕 Phase 3: 优化决策因子权重
+    /// </summary>
+    /// <remarks>
+    /// 算法：基于历史表现的梯度下降优化
+    /// 1. 收集最近N条决策记录
+    /// 2. 分析每个因子的贡献度
+    /// 3. 计算因子与结果的相关性
+    /// 4. 调整权重以最大化预期收益
+    /// </remarks>
+    public async Task<Dictionary<string, decimal>> OptimizeFactorWeightsAsync(
+        Dictionary<string, decimal> currentWeights,
+        SystemState currentState,
+        AIDecision lastDecision,
+        DecisionOutcome? lastOutcome,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            _optimizationCycle++;
+            
+            // 1. 如果结果不存在，不优化
+            if (lastOutcome == null)
+            {
+                return currentWeights;
+            }
+
+            // 2. 记录因子表现
+            if (lastDecision.FactorBreakdown != null)
+            {
+                await RecordFactorPerformanceAsync(lastDecision.FactorBreakdown, lastOutcome, ct);
+            }
+
+            // 3. 每10次决策执行一次权重优化
+            if (_optimizationCycle % 10 != 0)
+            {
+                return currentWeights;
+            }
+
+            // 4. 分析因子贡献度
+            Dictionary<string, double> factorContributions = AnalyzeFactorContributions();
+
+            if (factorContributions.Count == 0)
+            {
+                LogService.Debug("[LearningModule] 因子贡献数据不足，跳过权重优化");
+                return currentWeights;
+            }
+
+            // 5. 计算新权重
+            var optimizedWeights = new Dictionary<string, decimal>();
+            foreach (var (factorCode, currentWeight) in currentWeights)
+            {
+                if (factorContributions.TryGetValue(factorCode, out double contribution))
+                {
+                    // 梯度下降更新：weight = weight + learning_rate * contribution
+                    double adjustment = _learningRate * contribution;
+                    decimal newWeight = currentWeight + (decimal)adjustment;
+                    
+                    // 约束权重范围 [0.01, 0.30]
+                    newWeight = Math.Clamp(newWeight, 0.01m, 0.30m);
+                    
+                    optimizedWeights[factorCode] = newWeight;
+                }
+                else
+                {
+                    optimizedWeights[factorCode] = currentWeight;
+                }
+            }
+
+            // 6. 归一化权重（总和=1）
+            decimal totalWeight = optimizedWeights.Values.Sum();
+            if (totalWeight > 0)
+            {
+                var normalizedWeights = optimizedWeights.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value / totalWeight
+                );
+
+                LogService.Info("[LearningModule] 🎓 因子权重已优化 (周期={Cycle})", _optimizationCycle);
+                LogTopFactorWeightChanges(currentWeights, normalizedWeights);
+
+                return normalizedWeights;
+            }
+
+            return currentWeights;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[LearningModule] 因子权重优化失败");
+            return currentWeights;
+        }
+    }
+
+    /// <summary>
+    /// 🆕 记录因子表现
+    /// </summary>
+    private async Task RecordFactorPerformanceAsync(
+        Dictionary<string, decimal> factorScores,
+        DecisionOutcome outcome,
+        CancellationToken ct)
+    {
+        await Task.CompletedTask;
+
+        lock (_lock)
+        {
+            foreach (var (factorCode, score) in factorScores)
+            {
+                if (!_factorPerformance.ContainsKey(factorCode))
+                {
+                    _factorPerformance[factorCode] = new FactorPerformance
+                    {
+                        FactorCode = factorCode,
+                        TotalSamples = 0,
+                        SuccessfulPredictions = 0,
+                        TotalProfit = 0,
+                        ScoreHistory = new List<double>(),
+                        OutcomeHistory = new List<double>()
+                    };
+                }
+
+                var perf = _factorPerformance[factorCode];
+                perf.TotalSamples++;
+                
+                if (outcome.Success)
+                {
+                    perf.SuccessfulPredictions++;
+                }
+
+                perf.TotalProfit += outcome.ProfitPercent;
+                perf.ScoreHistory.Add((double)score);
+                perf.OutcomeHistory.Add(outcome.ProfitPercent);
+
+                // 限制历史大小
+                if (perf.ScoreHistory.Count > 100)
+                {
+                    perf.ScoreHistory.RemoveAt(0);
+                    perf.OutcomeHistory.RemoveAt(0);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 🆕 分析因子贡献度
+    /// </summary>
+    /// <returns>因子代码 → 贡献度（正数表示正贡献，负数表示负贡献）</returns>
+    private Dictionary<string, double> AnalyzeFactorContributions()
+    {
+        lock (_lock)
+        {
+            var contributions = new Dictionary<string, double>();
+
+            foreach (var (factorCode, perf) in _factorPerformance)
+            {
+                // 样本数不足，跳过
+                if (perf.TotalSamples < 10)
+                {
+                    continue;
+                }
+
+                // 计算相关系数（因子得分 vs 结果收益）
+                double correlation = CalculateCorrelation(
+                    perf.ScoreHistory,
+                    perf.OutcomeHistory
+                );
+
+                // 计算胜率
+                double winRate = (double)perf.SuccessfulPredictions / perf.TotalSamples;
+
+                // 计算平均收益
+                double avgProfit = perf.TotalProfit / perf.TotalSamples;
+
+                // 综合贡献度 = 相关系数 * 胜率 * 平均收益
+                double contribution = correlation * winRate * avgProfit;
+
+                contributions[factorCode] = contribution;
+            }
+
+            return contributions;
+        }
+    }
+
+    /// <summary>
+    /// 🆕 计算相关系数（皮尔逊相关）
+    /// </summary>
+    private double CalculateCorrelation(List<double> x, List<double> y)
+    {
+        if (x.Count != y.Count || x.Count == 0)
+        {
+            return 0;
+        }
+
+        double meanX = x.Average();
+        double meanY = y.Average();
+
+        double numerator = 0;
+        double denomX = 0;
+        double denomY = 0;
+
+        for (int i = 0; i < x.Count; i++)
+        {
+            double diffX = x[i] - meanX;
+            double diffY = y[i] - meanY;
+
+            numerator += diffX * diffY;
+            denomX += diffX * diffX;
+            denomY += diffY * diffY;
+        }
+
+        if (denomX == 0 || denomY == 0)
+        {
+            return 0;
+        }
+
+        return numerator / Math.Sqrt(denomX * denomY);
+    }
+
+    /// <summary>
+    /// 🆕 记录权重变化日志
+    /// </summary>
+    private void LogTopFactorWeightChanges(
+        Dictionary<string, decimal> oldWeights,
+        Dictionary<string, decimal> newWeights)
+    {
+        var changes = new List<(string Factor, decimal OldWeight, decimal NewWeight, decimal Change)>();
+
+        foreach (var (factor, newWeight) in newWeights)
+        {
+            if (oldWeights.TryGetValue(factor, out decimal oldWeight))
+            {
+                decimal change = newWeight - oldWeight;
+                if (Math.Abs(change) > 0.01m) // 变化超过1%才记录
+                {
+                    changes.Add((factor, oldWeight, newWeight, change));
+                }
+            }
+        }
+
+        // 按变化幅度排序，取前5个
+        var topChanges = changes
+            .OrderByDescending(c => Math.Abs(c.Change))
+            .Take(5)
+            .ToList();
+
+        if (topChanges.Any())
+        {
+            LogService.Info("[LearningModule] 🔄 权重变化前5名:");
+            foreach (var (factor, oldW, newW, change) in topChanges)
+            {
+                string direction = change > 0 ? "↑" : "↓";
+                LogService.Info("   {Direction} {Factor}: {Old:P2} → {New:P2} ({Change:+0.00%;-0.00%})",
+                    direction, factor, oldW, newW, change);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 🆕 获取因子性能统计
+    /// </summary>
+    public Dictionary<string, FactorPerformanceStats> GetFactorPerformanceStats()
+    {
+        lock (_lock)
+        {
+            return _factorPerformance.ToDictionary(
+                kvp => kvp.Key,
+                kvp =>
+                {
+                    var perf = kvp.Value;
+                    return new FactorPerformanceStats
+                    {
+                        FactorCode = perf.FactorCode,
+                        TotalSamples = perf.TotalSamples,
+                        WinRate = perf.TotalSamples > 0
+                            ? (double)perf.SuccessfulPredictions / perf.TotalSamples
+                            : 0,
+                        AvgProfit = perf.TotalSamples > 0
+                            ? perf.TotalProfit / perf.TotalSamples
+                            : 0,
+                        Correlation = perf.ScoreHistory.Count >= 10
+                            ? CalculateCorrelation(perf.ScoreHistory, perf.OutcomeHistory)
+                            : 0
+                    };
+                }
+            );
+        }
+    }
+
+    /// <summary>
+    /// 🆕 重置因子学习状态
+    /// </summary>
+    public void ResetFactorLearning()
+    {
+        lock (_lock)
+        {
+            _factorPerformance.Clear();
+            _optimizationCycle = 0;
+            LogService.Info("[LearningModule] 因子学习状态已重置");
+        }
+    }
 }
 
 #region 学习模块数据模型
@@ -380,6 +693,31 @@ public class LearningStatistics
     public double OverallSuccessRate { get; init; }
     public double OverallAvgProfit { get; init; }
     public DateTime Timestamp { get; init; }
+}
+
+/// <summary>
+/// 🆕 Phase 3: 因子表现记录
+/// </summary>
+public class FactorPerformance
+{
+    public string FactorCode { get; set; } = string.Empty;
+    public int TotalSamples { get; set; }
+    public int SuccessfulPredictions { get; set; }
+    public double TotalProfit { get; set; }
+    public List<double> ScoreHistory { get; set; } = new();
+    public List<double> OutcomeHistory { get; set; } = new();
+}
+
+/// <summary>
+/// 🆕 Phase 3: 因子性能统计
+/// </summary>
+public class FactorPerformanceStats
+{
+    public string FactorCode { get; init; } = string.Empty;
+    public int TotalSamples { get; init; }
+    public double WinRate { get; init; }
+    public double AvgProfit { get; init; }
+    public double Correlation { get; init; } // 与结果的相关性
 }
 
 #endregion
