@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -111,16 +111,16 @@ public class SystemResourceMonitor : IDisposable
             else
             {
                 // 手动计算CPU使用率
-                DateTime currentTime = DateTime.UtcNow;
-                TimeSpan currentTotalProcessorTime = _currentProcess.TotalProcessorTime;
+                var currentTime = DateTime.UtcNow;
+                var currentTotalProcessorTime = _currentProcess.TotalProcessorTime;
 
-                double elapsedMilliseconds = (currentTime - _lastSampleTime).TotalMilliseconds;
-                double processorTimeMilliseconds = (currentTotalProcessorTime - _totalProcessorTime).TotalMilliseconds;
+                var elapsedMilliseconds = (currentTime - _lastSampleTime).TotalMilliseconds;
+                var processorTimeMilliseconds = (currentTotalProcessorTime - _totalProcessorTime).TotalMilliseconds;
 
                 if (elapsedMilliseconds > 0)
                 {
                     // CPU使用率 = (进程CPU时间 / 实际时间) / CPU核心数
-                    int processorCount = Environment.ProcessorCount;
+                    var processorCount = Environment.ProcessorCount;
                     _cpuUsage = (processorTimeMilliseconds / elapsedMilliseconds / processorCount) * 100;
                     _cpuUsage = Math.Clamp(_cpuUsage, 0, 100);
                 }

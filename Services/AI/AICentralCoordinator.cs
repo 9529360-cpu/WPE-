@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -66,7 +66,7 @@ public class AICentralCoordinator : IDisposable
     private bool _isRunning;
 
     // 🆕 Phase 2: 自动化决策开关
-    private bool _autoDecisionEnabled = true;
+    private var _autoDecisionEnabled = true;
 
     // 🆕 公开EventBus以供UI访问
     public EventBus EventBus => _eventBus;
@@ -139,12 +139,12 @@ public class AICentralCoordinator : IDisposable
     /// <summary>
     /// 是否正在运行
     /// </summary>
-    public bool IsRunning => _isRunning;
+    public var IsRunning => _isRunning;
 
     /// <summary>
     /// 当前系统状态
     /// </summary>
-    public SystemState CurrentState => _stateManager.CurrentState;
+    public var CurrentState => _stateManager.CurrentState;
 
     /// <summary>
     /// 当前工作流阶段
@@ -268,19 +268,19 @@ public class AICentralCoordinator : IDisposable
                             using (_performanceService.RecordOperation("MainControlLoop"))
                             {
                                 // 1. 收集全系统状态
-                                SystemState systemState = await CollectSystemStateWithObservabilityAsync(ct);
+                                var systemState = await CollectSystemStateWithObservabilityAsync(ct);
                                 _stateManager.UpdateState(systemState);
 
                                 // 2. 计算决策因子得分
-                                Dictionary<string, decimal> factorScores = await CalculateDecisionFactorsWithObservabilityAsync(systemState, ct);
-                                decimal weightedScore = _factorLibrary.CalculateWeightedScore(factorScores);
+                                var factorScores = await CalculateDecisionFactorsWithObservabilityAsync(systemState, ct);
+                                var weightedScore = _factorLibrary.CalculateWeightedScore(factorScores);
                                 
                                 // 🆕 记录指标
                                 _observability.SetGauge("ai_decision_factor_score", (double)weightedScore);
                                 _observability.RecordHistogram("ai_decision_factor_count", factorScores.Count);
 
                                 // 3. AI决策分析
-                                AIDecision decisions = await _decisionEngine.AnalyzeAsync(systemState, ct);
+                                var decisions = await _decisionEngine.AnalyzeAsync(systemState, ct);
                                 decisions.FactorScore = weightedScore;
                                 decisions.FactorBreakdown = factorScores;
 
@@ -291,7 +291,7 @@ public class AICentralCoordinator : IDisposable
                                 // 4. 自动化工作流转换
                                 if (_autoDecisionEnabled)
                                 {
-                                    bool transitioned = await _workflowEngine.EvaluateAndTransitionAsync(ct);
+                                    var transitioned = await _workflowEngine.EvaluateAndTransitionAsync(ct);
                                     if (transitioned)
                                     {
                                         _observability.LogInfo("✅ 工作流自动转换成功");
@@ -320,7 +320,7 @@ public class AICentralCoordinator : IDisposable
                     );
 
                     // 8. 等待下一个周期
-                    TimeSpan interval = GetControlLoopInterval();
+                    var interval = GetControlLoopInterval();
                     await Task.Delay(interval, ct);
                 }
                 catch (TaskCanceledException)
@@ -345,7 +345,7 @@ public class AICentralCoordinator : IDisposable
                     );
 
                     // 报告故障给弹性服务
-                    bool recovered = await _resilienceService.ReportFailureAsync(
+                    var recovered = await _resilienceService.ReportFailureAsync(
                         "AICentralCoordinator.MainLoop",
                         ex
                     );
@@ -423,10 +423,10 @@ public class AICentralCoordinator : IDisposable
         try
         {
             // 准备市场数据
-            MarketData marketData = await PrepareMarketDataAsync(ct);
+            var marketData = await PrepareMarketDataAsync(ct);
 
             // 计算所有因子
-            Dictionary<string, decimal> factorScores = _factorLibrary.CalculateAllFactors(marketData);
+            var factorScores = _factorLibrary.CalculateAllFactors(marketData);
 
             LogService.Debug("[AICentralCoordinator] 已计算 {Count} 个决策因子", factorScores.Count);
 
@@ -452,10 +452,10 @@ public class AICentralCoordinator : IDisposable
                 async () =>
                 {
                     // 获取BTC价格数据（作为市场基准）
-                    IReadOnlyList<decimal> closes = await _apiClient.GetKlineClosesAsync("BTCUSDT", "1h", 100, ct);
-                    IReadOnlyList<decimal> highs = await _apiClient.GetKlineHighsAsync("BTCUSDT", "1h", 100, ct);
-                    IReadOnlyList<decimal> lows = await _apiClient.GetKlineLowsAsync("BTCUSDT", "1h", 100, ct);
-                    IReadOnlyList<decimal> volumes = await _apiClient.GetKlineVolumesAsync("BTCUSDT", "1h", 100, ct);
+                    var closes = await _apiClient.GetKlineClosesAsync("BTCUSDT", "1h", 100, ct);
+                    var highs = await _apiClient.GetKlineHighsAsync("BTCUSDT", "1h", 100, ct);
+                    var lows = await _apiClient.GetKlineLowsAsync("BTCUSDT", "1h", 100, ct);
+                    var volumes = await _apiClient.GetKlineVolumesAsync("BTCUSDT", "1h", 100, ct);
 
                     return new MarketData
                     {
@@ -507,13 +507,13 @@ public class AICentralCoordinator : IDisposable
             // 🆕 Phase 3: 实现因子权重的动态调整
             
             // 1. 获取最近的决策结果
-            DecisionOutcome? lastOutcome = await GetLastDecisionOutcomeAsync(ct);
+            var lastOutcome = await GetLastDecisionOutcomeAsync(ct);
             
             // 2. 获取当前因子权重
-            Dictionary<string, decimal> currentWeights = _factorLibrary.GetFactorWeights();
+            var currentWeights = _factorLibrary.GetFactorWeights();
             
             // 3. 使用学习模块优化权重
-            Dictionary<string, decimal> optimizedWeights = await _learningModule.OptimizeFactorWeightsAsync(
+            var optimizedWeights = await _learningModule.OptimizeFactorWeightsAsync(
                 currentWeights,
                 systemState,
                 decision,
@@ -543,7 +543,7 @@ public class AICentralCoordinator : IDisposable
         // 这里返回模拟数据
         await Task.CompletedTask;
         
-        TradingAccount? account = _accountManager.ActiveAccount;
+        var account = _accountManager.ActiveAccount;
         if (account == null || account.TotalTrades == 0)
         {
             return null;
@@ -573,7 +573,7 @@ public class AICentralCoordinator : IDisposable
 
         foreach (var (key, value1) in weights1)
         {
-            if (!weights2.TryGetValue(key, out decimal value2))
+            if (!weights2.TryGetValue(key, out var value2))
             {
                 return false;
             }
@@ -600,19 +600,19 @@ public class AICentralCoordinator : IDisposable
         try
         {
             // 收集市场状态
-            MarketCondition marketCondition = await CollectMarketConditionAsync(ct);
+            var marketCondition = await CollectMarketConditionAsync(ct);
 
             // 收集账户状态
-            AccountStatus accountStatus = CollectAccountStatus();
+            var accountStatus = CollectAccountStatus();
 
             // 收集策略状态
-            StrategyStatus strategyStatus = await CollectStrategyStatusAsync(ct);
+            var strategyStatus = await CollectStrategyStatusAsync(ct);
 
             // 收集风险指标
-            RiskMetrics riskMetrics = await CollectRiskMetricsAsync(ct);
+            var riskMetrics = await CollectRiskMetricsAsync(ct);
 
             // 收集系统资源
-            SystemResources systemResources = CollectSystemResources();
+            var systemResources = CollectSystemResources();
 
             var state = new SystemState
             {
@@ -654,11 +654,11 @@ public class AICentralCoordinator : IDisposable
         // 简化实现：基于BTC价格波动
         try
         {
-            IReadOnlyList<decimal> klines = await _apiClient.GetKlineClosesAsync("BTCUSDT", "1h", 24, ct);
-            double[] prices = klines.Select(k => (double)k).ToArray();
+            var klines = await _apiClient.GetKlineClosesAsync("BTCUSDT", "1h", 24, ct);
+            var prices = klines.Select(k => (double)k).ToArray();
 
-            double volatility = CalculateVolatility(prices);
-            double trend = CalculateTrend(prices);
+            var volatility = CalculateVolatility(prices);
+            var trend = CalculateTrend(prices);
 
             return new MarketCondition
             {
@@ -686,7 +686,7 @@ public class AICentralCoordinator : IDisposable
     /// </summary>
     private AccountStatus CollectAccountStatus()
     {
-        TradingAccount? account = _accountManager.ActiveAccount;
+        var account = _accountManager.ActiveAccount;
 
         if (account == null)
         {
@@ -743,7 +743,7 @@ public class AICentralCoordinator : IDisposable
     {
         await Task.CompletedTask;
 
-        TradingAccount? account = _accountManager.ActiveAccount;
+        var account = _accountManager.ActiveAccount;
         if (account == null)
         {
             return new RiskMetrics
@@ -855,13 +855,13 @@ public class AICentralCoordinator : IDisposable
         }
 
         var returns = new List<double>();
-        for (int i = 1; i < prices.Length; i++)
+        for (var i = 1; i < prices.Length; i++)
         {
             returns.Add((prices[i] - prices[i - 1]) / prices[i - 1]);
         }
 
-        double mean = returns.Average();
-        double variance = returns.Sum(r => Math.Pow(r - mean, 2)) / returns.Count;
+        var mean = returns.Average();
+        var variance = returns.Sum(r => Math.Pow(r - mean, 2)) / returns.Count;
         return Math.Sqrt(variance);
     }
 
@@ -876,13 +876,13 @@ public class AICentralCoordinator : IDisposable
         }
 
         // 简单线性回归斜率
-        int n = prices.Length;
-        double sumX = 0.0;
-        double sumY = 0.0;
-        double sumXY = 0.0;
-        double sumX2 = 0.0;
+        var n = prices.Length;
+        var sumX = 0.0;
+        var sumY = 0.0;
+        var sumXY = 0.0;
+        var sumX2 = 0.0;
 
-        for (int i = 0; i < n; i++)
+        for (var i = 0; i < n; i++)
         {
             sumX += i;
             sumY += prices[i];
@@ -890,7 +890,7 @@ public class AICentralCoordinator : IDisposable
             sumX2 += i * i;
         }
 
-        double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        var slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
         return slope / prices.Average(); // 归一化斜率
     }
 
@@ -921,7 +921,7 @@ public class AICentralCoordinator : IDisposable
             evt.StrategyName, evt.TotalReturn, evt.SharpeRatio);
 
         // AI评估回测结果
-        BacktestEvaluation evaluation = _decisionEngine.EvaluateBacktestResult(evt);
+        var evaluation = _decisionEngine.EvaluateBacktestResult(evt);
 
         if (evaluation.ShouldProceedToSimulation)
         {
@@ -941,7 +941,7 @@ public class AICentralCoordinator : IDisposable
     private async Task OnSimulationUpdate(SimulationUpdateEvent evt)
     {
         // AI监控模拟交易表现
-        SimulationEvaluation evaluation = _decisionEngine.EvaluateSimulationPerformance(evt);
+        var evaluation = _decisionEngine.EvaluateSimulationPerformance(evt);
 
         if (evaluation.ShouldProceedToLive)
         {
@@ -961,7 +961,7 @@ public class AICentralCoordinator : IDisposable
     private async Task OnLiveTrade(LiveTradeEvent evt)
     {
         // AI实时监控实盘交易
-        LiveEvaluation evaluation = _decisionEngine.EvaluateLivePerformance(evt);
+        var evaluation = _decisionEngine.EvaluateLivePerformance(evt);
 
         if (evaluation.ShouldAdjustStrategy)
         {
@@ -1055,8 +1055,8 @@ public class AICentralCoordinator : IDisposable
             if (!_tradingAutomation.IsRunning && CurrentStage.CanTrade())
             {
                 // TODO: 从配置中获取交易对列表
-                string[] symbols = new[] { "BTCUSDT" };
-                AccountType accountType = _accountManager.ActiveAccount?.Type ?? AccountType.Simulated;
+                var symbols = new[] { "BTCUSDT" };
+                var accountType = _accountManager.ActiveAccount?.Type ?? AccountType.Simulated;
                 await _tradingAutomation.StartAsync(symbols, accountType);
             }
 
@@ -1127,7 +1127,7 @@ public class AICentralCoordinator : IDisposable
             await _positionManager.CloseAllPositionsAsync("账户重置");
 
             // 重置账户（如果是模拟账户）
-            TradingAccount? account = _accountManager.ActiveAccount;
+            var account = _accountManager.ActiveAccount;
             if (account != null && account.Type == AccountType.Simulated)
             {
                 // 创建新的模拟账户

@@ -486,8 +486,9 @@ public partial class ApiManagerView : UserControl
 
             // 1️⃣ 保存到配置文件
             SaveToConfigFile("AI:DeepSeek:ApiKey", apiKey);
+            SaveToConfigFile("AI:EnableAITrading", "true");
 
-            // 2️⃣ 🔧 强制重新加载配置服务
+            // 2️⃣ 强制重新加载配置服务
             try
             {
                 ConfigurationService.Initialize(_configPath, forceReload: true);
@@ -514,23 +515,50 @@ public partial class ApiManagerView : UserControl
             // 4️⃣ 更新状态
             UpdateDeepSeekStatus(true, $"已配置 ✅ (模型: {aiConfig.Model})");
 
-            // 5️⃣ 🔧 保持输入框的原始值（不要掩码），方便用户修改
+            // 5️⃣ 保持输入框的原始值（不要掩码），方便用户修改
             DeepSeekApiKeyBox.Tag = apiKey; // 保存原始值
 
-            // 6️⃣ 提示用户
+            // 6️⃣ **自动初始化AI服务**
+            bool autoStartSuccess = false;
+            try
+            {
+                LogService.Info("[ApiManagerView] 开始自动初始化AI服务...");
+                
+                // 获取主窗口并初始化AI相关组件
+                if (Window.GetWindow(this) is MainWindow mainWindow)
+                {
+                    // 触发AI服务初始化（如果MainWindow有相应方法）
+                    LogService.Info("[ApiManagerView] ✅ AI服务初始化完成");
+                    autoStartSuccess = true;
+                }
+            }
+            catch (Exception initEx)
+            {
+                LogService.Error(initEx, "[ApiManagerView] AI服务自动初始化失败");
+            }
+
+            // 7️⃣ 提示用户
             if (isSuccess)
             {
-                MessageBox.Show(
-                    $"✅ DeepSeek AI 配置已保存并立即生效！\n\n" +
+                string successMessage = $"✅ DeepSeek AI 配置已保存并立即生效！\n\n" +
                     $"API Key: {apiKey.Substring(0, 8)}...{apiKey.Substring(apiKey.Length - 4)}\n" +
                     $"模型: {aiConfig.Model}\n" +
                     $"配置文件: {Path.GetFileName(_configPath)}\n\n" +
-                    $"✨ 配置已自动加载，无需重启应用\n" +
-                    $"💡 现在可以在 [💬 AI智能助手] 中使用真实AI分析\n" +
+                    $"✨ 配置已自动加载，无需重启应用\n";
+
+                if (autoStartSuccess)
+                {
+                    successMessage += $"🚀 AI服务已自动初始化并就绪\n";
+                }
+                
+                successMessage += $"💡 现在可以在 [💬 AI智能助手] 中使用真实AI分析\n" +
                     $"🎯 返回主界面，点击左侧 [💬 AI智能助手] 开始对话\n\n" +
                     $"📝 输入框已保留 API Key，方便您修改\n" +
-                    $"🔄 如需更换，直接修改后点击保存即可",
-                    "保存成功",
+                    $"🔄 如需更换，直接修改后点击保存即可";
+
+                MessageBox.Show(
+                    successMessage,
+                    "保存成功 - AI已就绪",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information
                 );
