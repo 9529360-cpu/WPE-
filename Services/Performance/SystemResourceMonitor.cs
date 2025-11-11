@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -279,10 +279,25 @@ public class SystemResourceMonitor : IDisposable
     {
         var issues = new System.Collections.Generic.List<string>();
 
-        if (!cpu) issues.Add("CPU使用率过高");
-        if (!memory) issues.Add("内存使用过高");
-        if (!network) issues.Add("网络延迟过高");
-        if (!thread) issues.Add("线程数过多");
+        if (!cpu)
+        {
+            issues.Add("CPU使用率过高");
+        }
+
+        if (!memory)
+        {
+            issues.Add("内存使用过高");
+        }
+
+        if (!network)
+        {
+            issues.Add("网络延迟过高");
+        }
+
+        if (!thread)
+        {
+            issues.Add("线程数过多");
+        }
 
         return issues.ToArray();
     }

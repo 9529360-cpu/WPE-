@@ -328,7 +328,7 @@ public partial class ApiManagerView : UserControl
             // 2️⃣ 🔧 强制重新加载配置服务
             try
             {
-                ConfigurationService.Initialize(_configPath, forceReload: true);
+                ConfigurationService.Initialize(_configPath);
                 LogService.Info("[ApiManagerView] 配置服务已重新加载");
             }
             catch (Exception reloadEx)
@@ -491,7 +491,7 @@ public partial class ApiManagerView : UserControl
             // 2️⃣ 强制重新加载配置服务
             try
             {
-                ConfigurationService.Initialize(_configPath, forceReload: true);
+                ConfigurationService.Initialize(_configPath);
                 LogService.Info("[ApiManagerView] 配置服务已重新加载 - DeepSeek API Key 已更新");
             }
             catch (Exception reloadEx)

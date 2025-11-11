@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using Microsoft.Extensions.Configuration;
+using 币安量化机器人.Models.Configuration;
+using Serilog.Events;
 
 namespace 币安量化机器人.Services;
 
@@ -25,7 +27,6 @@ public static class ConfigurationService
                 .SetBasePath(basePath)
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                 .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production"}.json", optional: true, reloadOnChange: true)
-                .AddEnvironmentVariables("TRADING_") // 🔧 新增：支持环境变量 (前缀: TRADING_)
                 .Build();
 
             LogService.Info("配置服务初始化成功");
@@ -127,8 +128,6 @@ public static class ConfigurationService
         LogService.Warning("[ConfigService] ⚠️ 未配置 Binance API 凭证");
         return (string.Empty, string.Empty);
     }
-
-    // ...existing code...
 
     /// <summary>
     /// 获取应用基本信息

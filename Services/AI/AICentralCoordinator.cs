@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -66,7 +66,7 @@ public class AICentralCoordinator : IDisposable
     private bool _isRunning;
 
     // 🆕 Phase 2: 自动化决策开关
-    private var _autoDecisionEnabled = true;
+    private bool _autoDecisionEnabled = true;
 
     // 🆕 公开EventBus以供UI访问
     public EventBus EventBus => _eventBus;
@@ -139,12 +139,12 @@ public class AICentralCoordinator : IDisposable
     /// <summary>
     /// 是否正在运行
     /// </summary>
-    public var IsRunning => _isRunning;
+    public bool IsRunning => _isRunning;
 
     /// <summary>
     /// 当前系统状态
     /// </summary>
-    public var CurrentState => _stateManager.CurrentState;
+    public SystemState CurrentState => _stateManager.CurrentState;
 
     /// <summary>
     /// 当前工作流阶段
