@@ -139,7 +139,7 @@ public class LearningModule
                 DecisionRecord? record = _decisionHistory
                     .FirstOrDefault(r => r.Timestamp == decisionTimestamp);
 
-                if record != null
+                if (record != null)
                 {
                     record.Outcome = outcome;
 
