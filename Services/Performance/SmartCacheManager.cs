@@ -5,16 +5,15 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace 币安量化机器人.Services.Performance;
 
 /// <summary>
-/// 智能缓存管理器
+/// 智能缓存管理器（简化版）
 /// </summary>
 /// <remarks>
 /// 核心功能:
-/// 1. 多级缓存 (L1内存)
+/// 1. L1内存缓存
 /// 2. 智能预热
 /// 3. 自动过期策略
 /// 4. 热点数据识别
@@ -27,7 +26,7 @@ namespace 币安量化机器人.Services.Performance;
 /// </remarks>
 public class SmartCacheManager : IDisposable
 {
-    private readonly IMemoryCache _l1Cache;
+    private readonly ConcurrentDictionary<string, CacheItem> _cache;
     private readonly ConcurrentDictionary<string, CacheEntry> _metadata;
     private readonly ConcurrentDictionary<string, int> _accessFrequency;
     private readonly Timer _cleanupTimer;
@@ -35,7 +34,7 @@ public class SmartCacheManager : IDisposable
 
     // 缓存配置
     private readonly TimeSpan _defaultExpiration;
-    private readonly int _maxL1Size;
+    private readonly int _maxCacheSize;
 
     // 统计信息
     private long _hitCount;
@@ -44,15 +43,12 @@ public class SmartCacheManager : IDisposable
 
     public SmartCacheManager(
         TimeSpan? defaultExpiration = null,
-        int maxL1SizeMB = 512)
+        int maxCacheSize = 10000)
     {
         _defaultExpiration = defaultExpiration ?? TimeSpan.FromMinutes(15);
-        _maxL1Size = maxL1SizeMB * 1024 * 1024;
+        _maxCacheSize = maxCacheSize;
 
-        _l1Cache = new MemoryCache(new MemoryCacheOptions
-        {
-            SizeLimit = maxL1SizeMB * 1024 * 1024
-        });
+        _cache = new ConcurrentDictionary<string, CacheItem>();
         _metadata = new ConcurrentDictionary<string, CacheEntry>();
         _accessFrequency = new ConcurrentDictionary<string, int>();
 
@@ -62,8 +58,8 @@ public class SmartCacheManager : IDisposable
         // 定期输出统计
         _statsTimer = new Timer(StatsCallback, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
 
-        LogService.Info("[SmartCacheManager] 智能缓存管理器已启动: MaxSize={MaxSize}MB, DefaultExpiration={Expiration}",
-            maxL1SizeMB, _defaultExpiration);
+        LogService.Info("[SmartCacheManager] 智能缓存管理器已启动: MaxSize={MaxSize}, DefaultExpiration={Expiration}",
+            maxCacheSize, _defaultExpiration);
     }
 
     #region 基础缓存操作
@@ -73,21 +69,30 @@ public class SmartCacheManager : IDisposable
     /// </summary>
     public T Get<T>(string key) where T : class
     {
-        // 尝试从L1获取
-        if (_l1Cache.TryGetValue(key, out T value))
+        if (_cache.TryGetValue(key, out CacheItem item))
         {
-            // 记录命中
-            Interlocked.Increment(ref _hitCount);
-            RecordAccess(key);
-
-            // 更新元数据
-            if (_metadata.TryGetValue(key, out CacheEntry entry))
+            // 检查是否过期
+            if (item.ExpiresAt > DateTime.UtcNow)
             {
-                entry.LastAccess = DateTime.UtcNow;
-                entry.AccessCount++;
-            }
+                // 记录命中
+                Interlocked.Increment(ref _hitCount);
+                RecordAccess(key);
 
-            return value;
+                // 更新元数据
+                if (_metadata.TryGetValue(key, out CacheEntry entry))
+                {
+                    entry.LastAccess = DateTime.UtcNow;
+                    entry.AccessCount++;
+                }
+
+                return item.Value as T;
+            }
+            else
+            {
+                // 已过期，删除
+                _cache.TryRemove(key, out _);
+                _metadata.TryRemove(key, out _);
+            }
         }
 
         // 记录未命中
@@ -127,21 +132,20 @@ public class SmartCacheManager : IDisposable
     {
         TimeSpan exp = expiration ?? _defaultExpiration;
 
-        // 创建缓存选项
-        var options = new MemoryCacheEntryOptions
+        // 检查缓存大小
+        if (_cache.Count >= _maxCacheSize)
         {
-            AbsoluteExpirationRelativeToNow = exp,
-            Size = 1
+            TrimCache();
+        }
+
+        // 创建缓存项
+        var item = new CacheItem
+        {
+            Value = value,
+            ExpiresAt = DateTime.UtcNow.Add(exp)
         };
 
-        options.RegisterPostEvictionCallback((k, v, reason, state) =>
-        {
-            Interlocked.Increment(ref _evictionCount);
-            LogService.Debug("[SmartCacheManager] 缓存项被移除: Key={Key}, Reason={Reason}", k, reason);
-        });
-
-        // 添加到L1
-        _l1Cache.Set(key, value, options);
+        _cache[key] = item;
 
         // 更新元数据
         var entry = new CacheEntry
@@ -163,7 +167,7 @@ public class SmartCacheManager : IDisposable
     /// </summary>
     public void Remove(string key)
     {
-        _l1Cache.Remove(key);
+        _cache.TryRemove(key, out _);
         _metadata.TryRemove(key, out _);
         _accessFrequency.TryRemove(key, out _);
     }
@@ -173,7 +177,7 @@ public class SmartCacheManager : IDisposable
     /// </summary>
     public void RemoveByPattern(string pattern)
     {
-        var keysToRemove = _metadata.Keys
+        var keysToRemove = _cache.Keys
             .Where(k => k.Contains(pattern, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
@@ -191,10 +195,7 @@ public class SmartCacheManager : IDisposable
     /// </summary>
     public void Clear()
     {
-        if (_l1Cache is MemoryCache memoryCache)
-        {
-            memoryCache.Compact(1.0);
-        }
+        _cache.Clear();
         _metadata.Clear();
         _accessFrequency.Clear();
 
@@ -253,7 +254,7 @@ public class SmartCacheManager : IDisposable
             .OrderByDescending(kvp => kvp.Value)
             .Take(topN)
             .Select(kvp => kvp.Key)
-            .Where(k => !_l1Cache.TryGetValue(k, out _)) // 过滤已缓存的
+            .Where(k => !_cache.ContainsKey(k)) // 过滤已缓存的
             .ToList();
 
         if (hotKeys.Count > 0)
@@ -286,7 +287,7 @@ public class SmartCacheManager : IDisposable
             {
                 Key = kvp.Key,
                 AccessCount = kvp.Value,
-                IsInCache = _l1Cache.TryGetValue(kvp.Key, out _)
+                IsInCache = _cache.ContainsKey(kvp.Key)
             })
             .ToList();
     }
@@ -301,7 +302,7 @@ public class SmartCacheManager : IDisposable
         long total = hits + misses;
 
         long totalSize = _metadata.Values.Sum(e => e.Size);
-        int entryCount = _metadata.Count;
+        int entryCount = _cache.Count;
 
         return new CacheStatistics
         {
@@ -311,7 +312,7 @@ public class SmartCacheManager : IDisposable
             EntryCount = entryCount,
             TotalSizeBytes = totalSize,
             EvictionCount = Interlocked.Read(ref _evictionCount),
-            L1CacheCount = _l1Cache.Count()
+            L1CacheCount = entryCount
         };
     }
 
@@ -326,14 +327,27 @@ public class SmartCacheManager : IDisposable
     {
         try
         {
-            // 清理过期的元数据
             DateTime now = DateTime.UtcNow;
-            var expiredKeys = _metadata
+
+            // 清理过期的缓存项
+            var expiredKeys = _cache
                 .Where(kvp => kvp.Value.ExpiresAt < now)
                 .Select(kvp => kvp.Key)
                 .ToList();
 
             foreach (string key in expiredKeys)
+            {
+                Remove(key);
+                Interlocked.Increment(ref _evictionCount);
+            }
+
+            // 清理过期的元数据
+            var expiredMetaKeys = _metadata
+                .Where(kvp => kvp.Value.ExpiresAt < now)
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            foreach (string key in expiredMetaKeys)
             {
                 _metadata.TryRemove(key, out _);
             }
@@ -355,9 +369,8 @@ public class SmartCacheManager : IDisposable
                     expiredKeys.Count, lowFreqKeys.Count);
             }
 
-            // 检查内存使用
-            long totalSize = _metadata.Values.Sum(e => e.Size);
-            if (totalSize > _maxL1Size * 0.9) // 超过90%触发清理
+            // 检查缓存大小
+            if (_cache.Count > _maxCacheSize * 0.9) // 超过90%触发清理
             {
                 TrimCache();
             }
@@ -385,6 +398,7 @@ public class SmartCacheManager : IDisposable
         foreach (string key in entriesToRemove)
         {
             Remove(key);
+            Interlocked.Increment(ref _evictionCount);
         }
 
         LogService.Info("[SmartCacheManager] 修剪完成: Removed={Count}", entriesToRemove.Count);
@@ -431,13 +445,21 @@ public class SmartCacheManager : IDisposable
     {
         _cleanupTimer?.Dispose();
         _statsTimer?.Dispose();
-        _l1Cache?.Dispose();
 
         LogService.Info("[SmartCacheManager] 已释放资源");
     }
 }
 
 #region 数据模型
+
+/// <summary>
+/// 缓存项
+/// </summary>
+internal class CacheItem
+{
+    public object Value { get; set; } = null!;
+    public DateTime ExpiresAt { get; set; }
+}
 
 /// <summary>
 /// 缓存条目元数据

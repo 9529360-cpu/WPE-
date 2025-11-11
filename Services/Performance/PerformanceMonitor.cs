@@ -188,7 +188,7 @@ public class PerformanceMonitor : IDisposable
         long total = Interlocked.Read(ref _totalRequests);
         long failed = Interlocked.Read(ref _failedRequests);
 
-        var times = _responseTimes.ToArray();
+        double[] times = _responseTimes.ToArray();
 
         return new RequestStatistics
         {
@@ -304,7 +304,7 @@ public class PerformanceMonitor : IDisposable
             return 0;
         }
 
-        var sorted = values.OrderBy(v => v).ToArray();
+        double[] sorted = values.OrderBy(v => v).ToArray();
         int index = (int)(sorted.Length * percentile);
         index = Math.Min(index, sorted.Length - 1);
 
@@ -371,8 +371,8 @@ internal class MetricCollector
 
     public MetricSnapshot GetSnapshot()
     {
-        var durations = _durations.ToArray();
-        var sorted = durations.OrderBy(d => d).ToArray();
+        double[] durations = _durations.ToArray();
+        double[] sorted = durations.OrderBy(d => d).ToArray();
 
         return new MetricSnapshot
         {
