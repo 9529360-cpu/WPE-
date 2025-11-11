@@ -4,59 +4,39 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+             xmlns:performance="clr-namespace:币安量化机器人.Modules.Performance"
              mc:Ignorable="d" 
              d:DesignHeight="800" d:DesignWidth="1400">
-    <!-- 移除 Loaded 事件，改用 ViewModel 初始化 -->
     <UserControl.DataContext>
-        <performance:PerformanceDashboardViewModel xmlns:performance="clr-namespace:币安量化机器人.Modules.Performance" />
+        <performance:PerformanceDashboardViewModel />
     </UserControl.DataContext>
+
     <Grid Background="#F9FAFB">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- 顶部标题栏 -->
-        <Border Grid.Row="0" Background="White" Padding="24,20" 
-                BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+        <!-- 顶部标题栏（专业精简版） -->
+        <Border Grid.Row="0" Background="White" Padding="24,16" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- 标题 -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <TextBlock Text="📈" FontSize="24" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                    <StackPanel>
-                        <TextBlock Text="绩效分析仪表盘" FontSize="20" FontWeight="Bold" Foreground="#111827"/>
-                        <TextBlock Text="{Binding Status}" FontSize="13" Foreground="#6B7280" Margin="0,4,0,0"/>
-                    </StackPanel>
+                <!-- 标题与状态 -->
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="绩效分析仪表盘" FontSize="18" FontWeight="Bold" Foreground="#111827"/>
+                    <TextBlock Text="{Binding Status}" FontSize="12" Foreground="#6B7280" Margin="0,4,0,0"/>
                 </StackPanel>
 
-                <!-- 账户选择 -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" 
-                           HorizontalAlignment="Center" Margin="40,0">
-                    <TextBlock Text="账户:" FontSize="13" Foreground="#6B7280" 
-                               VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <ComboBox Width="150" Height="32" SelectedItem="{Binding AccountType}"/>
-                </StackPanel>
-
-                <!-- 操作按钮 -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button Content="📥 导出" 
-                            Width="90" Height="36" Margin="0,0,8,0"
-                            Background="#F3F4F6" Foreground="#374151"
-                            BorderBrush="#D1D5DB" BorderThickness="1"
-                            FontSize="13" FontWeight="SemiBold"
-                            Command="{Binding ExportCommand}"/>
-                    <Button Content="🔄 刷新" 
-                            Width="90" Height="36"
-                            Background="#3B82F6" Foreground="White"
-                            BorderThickness="0"
-                            FontSize="13" FontWeight="SemiBold"
-                            Command="{Binding RefreshCommand}"/>
+                <!-- 账户选择（保留必要交互） -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="账户" FontSize="12" Foreground="#6B7280" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox Width="160" Height="32"
+                              ItemsSource="{Binding AccountTypes}"
+                              SelectedItem="{Binding AccountType, Mode=TwoWay}"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -64,7 +44,7 @@
         <!-- 主内容区 -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="24">
-                <!-- 关键指标卡片 -->
+                <!-- 关键指标卡片（自适应布局） -->
                 <ItemsControl ItemsSource="{Binding CoreKpis}" Margin="0,0,0,24">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -73,35 +53,30 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="White" CornerRadius="12" BorderBrush="#E5E7EB" BorderThickness="1" Padding="20" Margin="0,0,12,12" Width="210">
+                            <Border Background="White" CornerRadius="10" BorderBrush="#E5E7EB" BorderThickness="1" Padding="16" Margin="0,0,12,12" Width="210">
                                 <StackPanel>
-                                    <TextBlock Text="{Binding Title}" FontSize="13" Foreground="#6B7280" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding ValueText}" FontSize="28" FontWeight="Bold" Margin="0,8,0,0" Foreground="{Binding ValueBrush}"/>
-                                    <TextBlock Text="{Binding SubText}" FontSize="12" Margin="0,4,0,0" Foreground="{Binding SubBrush}"/>
+                                    <TextBlock Text="{Binding Title}" FontSize="12" Foreground="#6B7280"/>
+                                    <TextBlock Text="{Binding ValueText}" FontSize="26" FontWeight="Bold" Margin="0,6,0,0" Foreground="{Binding ValueBrush}"/>
+                                    <TextBlock Text="{Binding SubText}" FontSize="11" Margin="0,4,0,0" Foreground="{Binding SubBrush}"/>
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <!-- 保留原净值曲线、收益率统计、交易统计、风险指标等，后续再 MVVM 化 -->
                 <!-- 净值曲线图 -->
-                <Border Background="White" CornerRadius="12" 
-                        BorderBrush="#E5E7EB" BorderThickness="1" Padding="20" Margin="0,0,0,24">
+                <Border Background="White" CornerRadius="10" BorderBrush="#E5E7EB" BorderThickness="1" Padding="16" Margin="0,0,0,24">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="400"/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="💰 净值曲线" 
-                                   FontSize="16" FontWeight="Bold" Foreground="#111827" Margin="0,0,0,16"/>
+                        <TextBlock Grid.Row="0" Text="净值曲线" FontSize="15" FontWeight="Bold" Foreground="#111827" Margin="0,0,0,12"/>
                         <ScottPlot:WpfPlot x:Name="EquityPlot" Grid.Row="1" Background="White"/>
                     </Grid>
                 </Border>
 
-                <!-- 详细统计 -->
-                <!-- 原内容保留 (为简洁未动) -->
-                <!-- TODO: 后续继续替换为绑定 -->
+                <!-- 其余区域后续 MVVM 化，先保持精简 -->
             </StackPanel>
         </ScrollViewer>
     </Grid>

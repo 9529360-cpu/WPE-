@@ -23,6 +23,9 @@ public partial class PerformanceDashboardViewModel : ObservableObject
     [ObservableProperty]
     private AccountType _accountType = AccountType.Simulated;
 
+    // 账户类型枚举供下拉绑定
+    public AccountType[] AccountTypes { get; } = new[] { AccountType.Simulated, AccountType.Live };
+
     public ObservableCollection<KpiItem> CoreKpis { get; } = new();
 
     public IAsyncRelayCommand RefreshCommand { get; }
