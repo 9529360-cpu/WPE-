@@ -328,6 +328,7 @@ public partial class ApiManagerView : UserControl
             // 2️⃣ 🔧 强制重新加载配置服务
             try
             {
+                // ✅ 传入配置文件路径（不是目录）
                 ConfigurationService.Initialize(_configPath);
                 LogService.Info("[ApiManagerView] 配置服务已重新加载");
             }

@@ -13,128 +13,138 @@ public static class ConfigurationService
 {
     private static IConfiguration? _configuration;
     private static readonly object _lock = new();
+    private static string? _configFilePath;
 
     /// <summary>
     /// 初始化配置（支持环境变量）
     /// </summary>
-    public static void Initialize(string? basePath = null)
+    public static void Initialize(string? configFilePathOrBaseDir = null)
     {
         lock (_lock)
         {
-            basePath ??= AppDomain.CurrentDomain.BaseDirectory;
-
             try
             {
+                // 1. 确定配置文件路径
+                _configFilePath = ResolveConfigFilePath(configFilePathOrBaseDir);
+                
+                if (!File.Exists(_configFilePath))
+                {
+                    LogService.Warning("[ConfigService] 配置文件不存在: {Path}", _configFilePath);
+                    _configuration = new ConfigurationBuilder().Build();
+                    LogService.Info("配置服务初始化成功 (使用空配置)");
+                    return;
+                }
+
+                // 2. 构建配置
+                string baseDir = Path.GetDirectoryName(_configFilePath)!;
+                string fileName = Path.GetFileName(_configFilePath);
+
                 _configuration = new ConfigurationBuilder()
-                    .SetBasePath(basePath)
-                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                    .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production"}.json", optional: true, reloadOnChange: true)
+                    .SetBasePath(baseDir)
+                    .AddJsonFile(fileName, optional: true, reloadOnChange: true)
                     .Build();
 
-                LogService.Info("配置服务初始化成功");
-                
-                // 🔧 检查环境变量配置
-                CheckEnvironmentVariables();
+                LogService.Info("配置服务初始化成功: {Path}", _configFilePath);
             }
             catch (Exception ex)
             {
-                // 如果配置文件不存在，创建一个空的配置
-                LogService.Error(ex, "配置文件加载失败，使用默认配置");
+                LogService.Error(ex, "配置文件加载失败，使用空配置");
                 _configuration = new ConfigurationBuilder().Build();
             }
         }
     }
 
     /// <summary>
-    /// 🔧 检查环境变量配置
+    /// 解析配置文件路径
     /// </summary>
-    private static void CheckEnvironmentVariables()
+    private static string ResolveConfigFilePath(string? input)
     {
-        string? deepSeekKeyFromEnv = Environment.GetEnvironmentVariable("TRADING_DEEPSEEK_API_KEY");
-        string? binanceKeyFromEnv = Environment.GetEnvironmentVariable("TRADING_BINANCE_API_KEY");
-        string? binanceSecretFromEnv = Environment.GetEnvironmentVariable("TRADING_BINANCE_SECRET_KEY");
-
-        if (!string.IsNullOrEmpty(deepSeekKeyFromEnv))
+        // 1. 如果明确指定了文件路径
+        if (!string.IsNullOrEmpty(input) && File.Exists(input))
         {
-            LogService.Info("[ConfigService] ✅ 从环境变量加载 DeepSeek API Key");
+            return Path.GetFullPath(input);
         }
 
-        if (!string.IsNullOrEmpty(binanceKeyFromEnv))
+        // 2. 如果指定了目录
+        if (!string.IsNullOrEmpty(input) && Directory.Exists(input))
         {
-            LogService.Info("[ConfigService] ✅ 从环境变量加载 Binance API Key");
+            string configInDir = Path.Combine(input, "appsettings.json");
+            if (File.Exists(configInDir))
+            {
+                return configInDir;
+            }
         }
 
-        if (!string.IsNullOrEmpty(binanceSecretFromEnv))
+        // 3. 尝试项目根目录（开发环境）
+        string? projectRoot = Directory.GetParent(AppContext.BaseDirectory)?.Parent?.Parent?.Parent?.FullName;
+        if (projectRoot != null)
         {
-            LogService.Info("[ConfigService] ✅ 从环境变量加载 Binance Secret Key");
+            string projectConfig = Path.Combine(projectRoot, "appsettings.json");
+            if (File.Exists(projectConfig))
+            {
+                return projectConfig;
+            }
         }
+
+        // 4. 回退到运行目录
+        return Path.Combine(AppContext.BaseDirectory, "appsettings.json");
     }
 
     /// <summary>
-    /// 🔧 获取DeepSeek API Key（优先环境变量）
+    /// 获取DeepSeek API Key（优先环境变量）
     /// </summary>
     public static string GetDeepSeekApiKey()
     {
         EnsureInitialized();
 
-        // 1. 优先从环境变量读取
-        string? envKey = Environment.GetEnvironmentVariable("TRADING_DEEPSEEK_API_KEY");
+        // 1. 环境变量
+        string? envKey = Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY");
         if (!string.IsNullOrEmpty(envKey))
         {
-            LogService.Debug("[ConfigService] 使用环境变量的 DeepSeek API Key");
             return envKey;
         }
 
-        // 2. 从配置文件读取
+        // 2. 配置文件
         string? configKey = _configuration!["AI:DeepSeek:ApiKey"];
         if (!string.IsNullOrEmpty(configKey))
         {
-            // 移除可能的隐藏字符 (•)
             configKey = configKey.Replace("•", "");
-            
             if (configKey.StartsWith("sk-") && configKey.Length > 10)
             {
-                LogService.Debug("[ConfigService] 使用配置文件的 DeepSeek API Key");
                 return configKey;
             }
         }
 
-        LogService.Warning("[ConfigService] ⚠️ 未配置 DeepSeek API Key");
         return string.Empty;
     }
 
     /// <summary>
-    /// 🔧 获取Binance API凭证（优先环境变量）
+    /// 获取Binance API凭证（优先环境变量）
     /// </summary>
     public static (string apiKey, string secretKey) GetBinanceCredentials()
     {
         EnsureInitialized();
 
-        // 从环境变量读取
-        string? envApiKey = Environment.GetEnvironmentVariable("TRADING_BINANCE_API_KEY");
-        string? envSecretKey = Environment.GetEnvironmentVariable("TRADING_BINANCE_SECRET_KEY");
+        // 1. 环境变量
+        string? envApiKey = Environment.GetEnvironmentVariable("BINANCE_API_KEY");
+        string? envSecretKey = Environment.GetEnvironmentVariable("BINANCE_SECRET_KEY");
 
         if (!string.IsNullOrEmpty(envApiKey) && !string.IsNullOrEmpty(envSecretKey))
         {
-            LogService.Debug("[ConfigService] 使用环境变量的 Binance 凭证");
             return (envApiKey, envSecretKey);
         }
 
-        // 从配置文件读取
+        // 2. 配置文件
         string? configApiKey = _configuration!["Api:Binance:ApiKey"];
         string? configSecretKey = _configuration!["Api:Binance:SecretKey"];
 
         if (!string.IsNullOrEmpty(configApiKey) && !string.IsNullOrEmpty(configSecretKey))
         {
-            // 移除可能的隐藏字符
             configApiKey = configApiKey.Replace("•", "");
             configSecretKey = configSecretKey.Replace("•", "");
-            
-            LogService.Debug("[ConfigService] 使用配置文件的 Binance 凭证");
             return (configApiKey, configSecretKey);
         }
 
-        LogService.Warning("[ConfigService] ⚠️ 未配置 Binance API 凭证");
         return (string.Empty, string.Empty);
     }
 
@@ -168,9 +178,7 @@ public static class ConfigurationService
                 ? level
                 : LogEventLevel.Information,
             FilePath = _configuration["Logging:FilePath"] ?? "Logs/app-.log",
-            RetainDays = int.TryParse(_configuration["Logging:RetainDays"], out int days)
-                ? days
-                : 30
+            RetainDays = int.TryParse(_configuration["Logging:RetainDays"], out int days) ? days : 30
         };
     }
 
@@ -204,10 +212,6 @@ public static class ConfigurationService
 
         IConfigurationSection section = _configuration!.GetSection("Api:Binance");
         IConfigurationSection breakerSection = _configuration.GetSection("Api:CircuitBreaker");
-
-        // 🔧 优先从环境变量读取 API Key 和 Secret Key
-        string apiKey = Environment.GetEnvironmentVariable("BINANCE_API_KEY")
-                    ?? section["ApiKey"] ?? "";
 
         return new ApiConfig
         {
@@ -286,9 +290,7 @@ public static class ConfigurationService
         {
             IConfigurationSection section = _configuration!.GetSection("AI:DeepSeek");
 
-            // 🔧 优先从环境变量读取 DeepSeek API Key
-            string apiKey = Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY")
-                        ?? section["ApiKey"] ?? "";
+            string apiKey = GetDeepSeekApiKey();
 
             return new AIConfig
             {
@@ -303,7 +305,6 @@ public static class ConfigurationService
         {
             LogService.Error(ex, "[ConfigService] 获取AI配置失败，返回默认值");
             
-            // 返回默认配置
             return new AIConfig
             {
                 DeepSeekApiKey = string.Empty,
@@ -335,12 +336,18 @@ public static class ConfigurationService
     /// <summary>
     /// 获取原始配置值
     /// </summary>
-    /// <param name="key">配置键 (支持冒号分隔,如 "Api:Binance:RestEndpoint")</param>
-    /// <param name="defaultValue">默认值</param>
     public static string GetValue(string key, string defaultValue = "")
     {
         EnsureInitialized();
         return _configuration![key] ?? defaultValue;
+    }
+
+    /// <summary>
+    /// 获取当前配置文件路径
+    /// </summary>
+    public static string GetConfigFilePath()
+    {
+        return _configFilePath ?? Path.Combine(AppContext.BaseDirectory, "appsettings.json");
     }
 
     // 辅助方法
@@ -348,14 +355,8 @@ public static class ConfigurationService
     {
         if (_configuration == null)
         {
-            // 🔧 自动初始化
             LogService.Warning("[ConfigService] 配置未初始化，正在自动初始化...");
             Initialize();
-            
-            if (_configuration == null)
-            {
-                throw new InvalidOperationException("配置服务自动初始化失败，请检查 appsettings.json 文件是否存在");
-            }
         }
     }
 
