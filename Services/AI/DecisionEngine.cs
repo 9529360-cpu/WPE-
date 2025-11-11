@@ -393,6 +393,17 @@ public class AIDecision
     public RiskLevel RiskLevel { get; init; }
     public WorkflowStage RecommendedStage { get; init; }
     public Dictionary<string, object> Parameters { get; init; } = new();
+
+    // 🆕 Phase 2: 决策因子相关
+    /// <summary>
+    /// 决策因子综合得分
+    /// </summary>
+    public decimal FactorScore { get; set; }
+
+    /// <summary>
+    /// 各因子得分明细
+    /// </summary>
+    public Dictionary<string, decimal> FactorBreakdown { get; set; } = new();
 }
 
 /// <summary>

@@ -192,6 +192,63 @@ public class BinanceApiClient : IDisposable
             .ToArray();
     }
 
+    /// <summary>
+    /// 🆕 获取K线最高价列表
+    /// </summary>
+    public async Task<IReadOnlyList<decimal>> GetKlineHighsAsync(string symbol, string interval, int limit = 500, CancellationToken cancellationToken = default)
+    {
+        var query = new Dictionary<string, string?>
+        {
+            ["symbol"] = symbol.ToUpperInvariant(),
+            ["interval"] = interval,
+            ["limit"] = limit.ToString(CultureInfo.InvariantCulture)
+        };
+
+        string raw = await SendPublicAsync<string>(HttpMethod.Get, "/fapi/v1/klines", query, cancellationToken).ConfigureAwait(false);
+        using var doc = JsonDocument.Parse(raw);
+        return doc.RootElement.EnumerateArray()
+            .Select(k => decimal.Parse(k[2].GetString()!, CultureInfo.InvariantCulture)) // 索引2是High
+            .ToArray();
+    }
+
+    /// <summary>
+    /// 🆕 获取K线最低价列表
+    /// </summary>
+    public async Task<IReadOnlyList<decimal>> GetKlineLowsAsync(string symbol, string interval, int limit = 500, CancellationToken cancellationToken = default)
+    {
+        var query = new Dictionary<string, string?>
+        {
+            ["symbol"] = symbol.ToUpperInvariant(),
+            ["interval"] = interval,
+            ["limit"] = limit.ToString(CultureInfo.InvariantCulture)
+        };
+
+        string raw = await SendPublicAsync<string>(HttpMethod.Get, "/fapi/v1/klines", query, cancellationToken).ConfigureAwait(false);
+        using var doc = JsonDocument.Parse(raw);
+        return doc.RootElement.EnumerateArray()
+            .Select(k => decimal.Parse(k[3].GetString()!, CultureInfo.InvariantCulture)) // 索引3是Low
+            .ToArray();
+    }
+
+    /// <summary>
+    /// 🆕 获取K线成交量列表
+    /// </summary>
+    public async Task<IReadOnlyList<decimal>> GetKlineVolumesAsync(string symbol, string interval, int limit = 500, CancellationToken cancellationToken = default)
+    {
+        var query = new Dictionary<string, string?>
+        {
+            ["symbol"] = symbol.ToUpperInvariant(),
+            ["interval"] = interval,
+            ["limit"] = limit.ToString(CultureInfo.InvariantCulture)
+        };
+
+        string raw = await SendPublicAsync<string>(HttpMethod.Get, "/fapi/v1/klines", query, cancellationToken).ConfigureAwait(false);
+        using var doc = JsonDocument.Parse(raw);
+        return doc.RootElement.EnumerateArray()
+            .Select(k => decimal.Parse(k[5].GetString()!, CultureInfo.InvariantCulture)) // 索引5是Volume
+            .ToArray();
+    }
+
     private Dictionary<string, string?> BuildOrderPayload(OrderRequest request)
     {
         var payload = new Dictionary<string, string?>
