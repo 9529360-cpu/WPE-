@@ -41,7 +41,7 @@ public static class PerformanceUtils
         var sb = new StringBuilder(parameters.Count * 32); // 预估容量
         bool first = true;
 
-        foreach (var kvp in parameters)
+        foreach (KeyValuePair<string, string?> kvp in parameters)
         {
             if (kvp.Value is null)
             {
@@ -75,7 +75,7 @@ public static class PerformanceUtils
         Func<TSource, TResult> selector)
     {
         var result = new List<TResult>();
-        foreach (var item in source)
+        foreach (TSource? item in source)
         {
             if (predicate(item))
             {
@@ -93,7 +93,7 @@ public static class PerformanceUtils
     /// </remarks>
     public static T[] RentAndCopy<T>(ICollection<T> source)
     {
-        var array = System.Buffers.ArrayPool<T>.Shared.Rent(source.Count);
+        T[] array = System.Buffers.ArrayPool<T>.Shared.Rent(source.Count);
         try
         {
             source.CopyTo(array, 0);

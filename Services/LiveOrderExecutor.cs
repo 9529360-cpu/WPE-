@@ -45,7 +45,7 @@ public class LiveOrderExecutor
                 request.Symbol, request.Side, request.Quantity, request.Price);
 
             // 1. 调用Binance API下单
-            var response = await _apiClient.PlaceOrderAsync(request, ct);
+            OrderResponse response = await _apiClient.PlaceOrderAsync(request, ct);
 
             // 2. 检查订单状态
             if (response.Status == "FILLED")
@@ -103,8 +103,8 @@ public class LiveOrderExecutor
     {
         try
         {
-            var balances = await _apiClient.GetAccountBalancesAsync(ct);
-            var usdtBalance = balances.FirstOrDefault(b => b.Asset == "USDT");
+            IReadOnlyList<AccountBalance> balances = await _apiClient.GetAccountBalancesAsync(ct);
+            AccountBalance? usdtBalance = balances.FirstOrDefault(b => b.Asset == "USDT");
 
             if (usdtBalance != null)
             {

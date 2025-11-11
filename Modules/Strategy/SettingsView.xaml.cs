@@ -136,7 +136,7 @@ public partial class SettingsView : UserControl
     {
         try
         {
-            var config = BuildConfig();
+            StrategyConfig config = BuildConfig();
             ValidateConfig(config);
             StatusText.Text = "状态：配置校验通过";
             MessageBox.Show("策略配置已校验，可导出或提交到后端。", "保存配置", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -152,7 +152,7 @@ public partial class SettingsView : UserControl
     {
         try
         {
-            var config = BuildConfig();
+            StrategyConfig config = BuildConfig();
             ValidateConfig(config);
 
             Directory.CreateDirectory(_configDirectory);

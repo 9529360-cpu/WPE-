@@ -69,7 +69,7 @@ public class StateManager
     {
         lock (_lock)
         {
-            var oldStage = _currentStage;
+            WorkflowStage oldStage = _currentStage;
             _currentStage = stage;
 
             LogService.Info("[StateManager] 阶段更新: {Old} → {New}",
@@ -93,7 +93,7 @@ public class StateManager
     /// </summary>
     public bool CanTransitionTo(WorkflowStage targetStage)
     {
-        var current = CurrentStage;
+        WorkflowStage current = CurrentStage;
 
         // 可以从任何阶段切换到 Idle 或 Emergency
         if (targetStage is WorkflowStage.Idle or WorkflowStage.Emergency)
@@ -134,7 +134,7 @@ public class StateManager
     /// </summary>
     public string GetSummary()
     {
-        var state = CurrentState;
+        SystemState state = CurrentState;
 
         return $"""
             当前阶段: {CurrentStage.GetIcon()} {CurrentStage.GetDisplayName()}

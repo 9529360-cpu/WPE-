@@ -50,7 +50,7 @@ public class BlacklistManager
 
     private void ClearExpired()
     {
-        foreach (var item in _blacklist.ToArray())
+        foreach (KeyValuePair<string, DateTime> item in _blacklist.ToArray())
         {
             if (item.Value <= DateTime.UtcNow)
             {

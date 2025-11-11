@@ -44,7 +44,7 @@ public partial class DiagnosticsView : UserControl
 
     private void UpdateUptime()
     {
-        var uptime = DateTime.Now - _startTime;
+        TimeSpan uptime = DateTime.Now - _startTime;
         UptimeText.Text = $"{uptime.Days}天{uptime.Hours}小时{uptime.Minutes}分钟";
     }
 

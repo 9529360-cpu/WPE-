@@ -37,7 +37,7 @@ public class NotificationService
     private async Task PostJsonAsync(string url, string payload, CancellationToken cancellationToken)
     {
         using var content = new StringContent(payload, Encoding.UTF8, "application/json");
-        using var response = await _httpClient.PostAsync(url, content, cancellationToken).ConfigureAwait(false);
+        using HttpResponseMessage response = await _httpClient.PostAsync(url, content, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
     }
 }

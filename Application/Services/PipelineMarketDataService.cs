@@ -24,14 +24,14 @@ public class PipelineMarketDataService : IMarketDataService
     public async IAsyncEnumerable<MarketObservation> StreamAsync(string symbol, IEnumerable<TimeSpan> timeframes, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var requested = timeframes.ToHashSet();
-        var start = DateTime.UtcNow.AddHours(-2);
-        var end = DateTime.UtcNow.AddHours(2);
-        var stream = await _orchestrator.StartAsync(symbol, start, end, cancellationToken);
+        DateTime start = DateTime.UtcNow.AddHours(-2);
+        DateTime end = DateTime.UtcNow.AddHours(2);
+        IAsyncEnumerable<RawDataFrame> stream = await _orchestrator.StartAsync(symbol, start, end, cancellationToken);
 
         var fiveBuffer = new List<RawDataFrame>();
         var hourBuffer = new List<RawDataFrame>();
 
-        await foreach (var frame in stream.WithCancellation(cancellationToken))
+        await foreach (RawDataFrame? frame in stream.WithCancellation(cancellationToken))
         {
             if (frame.Source is "quality" or "error")
             {
@@ -69,10 +69,10 @@ public class PipelineMarketDataService : IMarketDataService
 
     public async ValueTask<TimeframeSeries> GetSeriesAsync(string symbol, TimeSpan timeframe, DateTime start, DateTime end, CancellationToken cancellationToken = default)
     {
-        var stream = await _orchestrator.StartAsync(symbol, start, end, cancellationToken);
+        IAsyncEnumerable<RawDataFrame> stream = await _orchestrator.StartAsync(symbol, start, end, cancellationToken);
         var observations = new List<MarketObservation>();
         var buffer = new List<RawDataFrame>();
-        await foreach (var frame in stream.WithCancellation(cancellationToken))
+        await foreach (RawDataFrame? frame in stream.WithCancellation(cancellationToken))
         {
             if (frame.Source is "quality" or "error")
             {
@@ -83,7 +83,7 @@ public class PipelineMarketDataService : IMarketDataService
             int bucketSize = timeframe == TimeSpan.FromMinutes(1) ? 1 : timeframe == TimeSpan.FromMinutes(5) ? 5 : 60;
             if (buffer.Count >= bucketSize)
             {
-                var obs = timeframe == TimeSpan.FromMinutes(1)
+                MarketObservation obs = timeframe == TimeSpan.FromMinutes(1)
                     ? await ToObservationAsync(symbol, timeframe, buffer[^1], cancellationToken)
                     : await AggregateAsync(symbol, timeframe, buffer, cancellationToken);
                 observations.Add(obs);
@@ -105,14 +105,14 @@ public class PipelineMarketDataService : IMarketDataService
             ["volume"] = Convert.ToDouble(frame.Payload["volume"])
         };
 
-        var features = await _featureStore.GetLatestAsync(symbol, cancellationToken);
+        IReadOnlyDictionary<string, double> features = await _featureStore.GetLatestAsync(symbol, cancellationToken);
         return new MarketObservation(symbol, timeframe, frame.Timestamp,
             indicators["open"], indicators["high"], indicators["low"], indicators["close"], indicators["volume"], indicators, features);
     }
 
     private async ValueTask<MarketObservation> AggregateAsync(string symbol, TimeSpan timeframe, IReadOnlyList<RawDataFrame> frames, CancellationToken cancellationToken)
     {
-        var ordered = frames.OrderBy(f => f.Timestamp).ToArray();
+        RawDataFrame[] ordered = frames.OrderBy(f => f.Timestamp).ToArray();
         double open = Convert.ToDouble(ordered.First().Payload["open"]);
         double close = Convert.ToDouble(ordered.Last().Payload["close"]);
         double high = ordered.Max(f => Convert.ToDouble(f.Payload["high"]));
@@ -127,7 +127,7 @@ public class PipelineMarketDataService : IMarketDataService
             ["volume"] = volume
         };
 
-        var features = await _featureStore.GetLatestAsync(symbol, cancellationToken);
+        IReadOnlyDictionary<string, double> features = await _featureStore.GetLatestAsync(symbol, cancellationToken);
         return new MarketObservation(symbol, timeframe, ordered.Last().Timestamp, open, high, low, close, volume, indicators, features);
     }
 }

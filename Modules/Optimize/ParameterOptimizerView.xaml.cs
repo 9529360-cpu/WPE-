@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using ScottPlot;
+using ScottPlot.Plottables;
 using 币安量化机器人.Services;
 using GeneticOptimizationResult = 币安量化机器人.Services.OptimizationResult; // 使用别名避免冲突
 
@@ -75,7 +76,7 @@ public partial class ParameterOptimizerView : UserControl
             _cts = new CancellationTokenSource();
 
             // 构建参数空间
-            var parameterSpace = BuildParameterSpace();
+            Dictionary<string, ParameterRange> parameterSpace = BuildParameterSpace();
 
             // 定义适应度函数 (这里使用模拟函数,实际应调用回测引擎)
             Func<Dictionary<string, double>, Task<double>> fitnessFunction = async (parameters) =>
@@ -115,7 +116,7 @@ public partial class ParameterOptimizerView : UserControl
             int generations = int.Parse(GenerationsBox.Text);
             double mutationRate = double.Parse(MutationRateBox.Text);
 
-            var result = await _geneticOptimizer.OptimizeAsync(
+            GeneticOptimizationResult result = await _geneticOptimizer.OptimizeAsync(
                 parameterSpace,
                 fitnessFunction,
                 populationSize,
@@ -245,7 +246,7 @@ public partial class ParameterOptimizerView : UserControl
     {
         try
         {
-            var plt = FitnessPlot.Plot;
+            Plot plt = FitnessPlot.Plot;
             plt.Clear();
 
             if (!result.GenerationHistory.Any())
@@ -260,14 +261,14 @@ public partial class ParameterOptimizerView : UserControl
             double[] avgFitness = result.GenerationHistory.Select(g => g.AverageFitness).ToArray();
 
             // 最优适应度曲线
-            var bestLine = plt.Add.Scatter(generations, bestFitness);
+            Scatter bestLine = plt.Add.Scatter(generations, bestFitness);
             bestLine.LineWidth = 3;
             bestLine.Color = ScottPlot.Color.FromHex("#10B981");
             bestLine.LegendText = "最优适应度";
             bestLine.MarkerSize = 0;
 
             // 平均适应度曲线
-            var avgLine = plt.Add.Scatter(generations, avgFitness);
+            Scatter avgLine = plt.Add.Scatter(generations, avgFitness);
             avgLine.LineWidth = 2;
             avgLine.Color = ScottPlot.Color.FromHex("#3B82F6");
             avgLine.LegendText = "平均适应度";

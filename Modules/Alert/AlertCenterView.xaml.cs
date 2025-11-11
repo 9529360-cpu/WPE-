@@ -112,7 +112,7 @@ public partial class AlertCenterView : UserControl
             _ => _allNotifications
         };
 
-        foreach (var notification in filtered.OrderByDescending(n => n.Timestamp))
+        foreach (NotificationHistoryItem? notification in filtered.OrderByDescending(n => n.Timestamp))
         {
             _filteredNotifications.Add(notification);
         }
@@ -132,7 +132,7 @@ public partial class AlertCenterView : UserControl
     {
         if (sender is Button button && button.DataContext is PriceAlertItem alert)
         {
-            var result = MessageBox.Show(
+            MessageBoxResult result = MessageBox.Show(
                 $"确定要删除预警 {alert.Symbol} {alert.Condition} {alert.TriggerPrice} 吗?",
                 "确认删除",
                 MessageBoxButton.YesNo,

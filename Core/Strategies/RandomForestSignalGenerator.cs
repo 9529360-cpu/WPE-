@@ -34,7 +34,7 @@ public class RandomForestSignalGenerator : IMachineLearningSignalGenerator
         for (int i = 0; i < _treeCount; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var sample = BootstrapSample(data);
+            IReadOnlyList<ModelFeatureVector> sample = BootstrapSample(data);
             var featureIndices = Enumerable.Range(0, sample.First().Values.Count)
                 .OrderBy(_ => _random.Next())
                 .Take(Math.Min(_featureSampleSize, sample.First().Values.Count))
@@ -74,7 +74,7 @@ public class RandomForestSignalGenerator : IMachineLearningSignalGenerator
         }
 
         int votes = 0;
-        foreach (var tree in _trees)
+        foreach (DecisionStump tree in _trees)
         {
             cancellationToken.ThrowIfCancellationRequested();
             votes += tree.Predict(features.Values) ? 1 : -1;

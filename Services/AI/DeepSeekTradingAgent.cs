@@ -59,7 +59,7 @@ public class DeepSeekTradingAgent
         httpRequest.Headers.TryAddWithoutValidation("Authorization", $"Bearer {cleanApiKey}");
         httpRequest.Headers.TryAddWithoutValidation("Accept", "application/json");
 
-        var response = await _httpClient.SendAsync(httpRequest, ct);
+        HttpResponseMessage response = await _httpClient.SendAsync(httpRequest, ct);
         response.EnsureSuccessStatusCode();
 
         string responseJson = await response.Content.ReadAsStringAsync(ct);
@@ -126,7 +126,7 @@ public class DeepSeekTradingAgent
 
             LogService.Info("[DeepSeekTradingAgent] 发送请求到 DeepSeek API, 消息: {Message}", userMessage.Substring(0, Math.Min(50, userMessage.Length)));
 
-            var response = await _httpClient.SendAsync(httpRequest, ct);
+            HttpResponseMessage response = await _httpClient.SendAsync(httpRequest, ct);
 
             if (!response.IsSuccessStatusCode)
             {

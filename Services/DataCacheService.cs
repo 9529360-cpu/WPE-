@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -119,7 +120,7 @@ public class DataCacheService
                 losing_trades INTEGER DEFAULT 0
             );";
 
-        await using var cmd = connection.CreateCommand();
+        await using SqliteCommand cmd = connection.CreateCommand();
         // Fix: use Environment.NewLine to join multiple DDL statements
         cmd.CommandText = string.Join(Environment.NewLine, new[] { createFunding, createPrices, createAccounts, createOrders, createTrades, createStrategyPerf, createDailyPnl });
         await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
@@ -129,13 +130,13 @@ public class DataCacheService
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
-        await using var transaction = await connection.BeginTransactionAsync().ConfigureAwait(false);
+        await using DbTransaction transaction = await connection.BeginTransactionAsync().ConfigureAwait(false);
 
-        foreach (var snapshot in snapshots)
+        foreach (FundingRateSnapshot snapshot in snapshots)
         {
-            foreach (var point in snapshot.History)
+            foreach (FundingHistoryPoint point in snapshot.History)
             {
-                await using var cmd = connection.CreateCommand();
+                await using SqliteCommand cmd = connection.CreateCommand();
                 cmd.CommandText = "INSERT OR REPLACE INTO funding_rates(symbol, timestamp, rate) VALUES ($symbol, $timestamp, $rate);";
                 cmd.Parameters.AddWithValue("$symbol", snapshot.Symbol);
                 cmd.Parameters.AddWithValue("$timestamp", new DateTimeOffset(point.Timestamp).ToUnixTimeMilliseconds());
@@ -151,13 +152,13 @@ public class DataCacheService
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
-        await using var cmd = connection.CreateCommand();
+        await using SqliteCommand cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT rate FROM funding_rates WHERE symbol = $symbol ORDER BY timestamp DESC LIMIT $limit";
         cmd.Parameters.AddWithValue("$symbol", symbol);
         cmd.Parameters.AddWithValue("$limit", limit);
 
         var results = new List<double>();
-        await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        await using SqliteDataReader reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false))
         {
             results.Add(reader.GetDouble(0));
@@ -171,14 +172,14 @@ public class DataCacheService
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
-        await using var transaction = await connection.BeginTransactionAsync().ConfigureAwait(false);
+        await using DbTransaction transaction = await connection.BeginTransactionAsync().ConfigureAwait(false);
 
-        var now = DateTimeOffset.UtcNow;
+        DateTimeOffset now = DateTimeOffset.UtcNow;
         long timestamp = now.ToUnixTimeMilliseconds();
 
         foreach (decimal close in closes)
         {
-            await using var cmd = connection.CreateCommand();
+            await using SqliteCommand cmd = connection.CreateCommand();
             cmd.CommandText = "INSERT OR REPLACE INTO price_history(symbol, timestamp, close) VALUES ($symbol, $timestamp, $close);";
             cmd.Parameters.AddWithValue("$symbol", symbol);
             cmd.Parameters.AddWithValue("$timestamp", timestamp--);
@@ -193,13 +194,13 @@ public class DataCacheService
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
-        await using var cmd = connection.CreateCommand();
+        await using SqliteCommand cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT close FROM price_history WHERE symbol = $symbol ORDER BY timestamp DESC LIMIT $limit";
         cmd.Parameters.AddWithValue("$symbol", symbol);
         cmd.Parameters.AddWithValue("$limit", limit);
 
         var closes = new List<double>();
-        await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        await using SqliteDataReader reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false))
         {
             closes.Add(reader.GetDouble(0));
@@ -218,7 +219,7 @@ public class DataCacheService
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
-        await using var cmd = connection.CreateCommand();
+        await using SqliteCommand cmd = connection.CreateCommand();
         cmd.CommandText = @"INSERT OR REPLACE INTO accounts(id, label, api_key, encrypted_secret, passphrase_hint, is_primary, is_paper, created_at, notes)
                             VALUES ($id, $label, $api, $secret, $hint, $primary, $paper, $created, $notes);";
         cmd.Parameters.AddWithValue("$id", profile.Id.ToString());
@@ -237,11 +238,11 @@ public class DataCacheService
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
-        await using var cmd = connection.CreateCommand();
+        await using SqliteCommand cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT id, label, api_key, encrypted_secret, passphrase_hint, is_primary, is_paper, created_at, notes FROM accounts";
 
         var result = new List<AccountProfile>();
-        await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        await using SqliteDataReader reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false))
         {
             var profile = new AccountProfile
@@ -266,7 +267,7 @@ public class DataCacheService
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
-        await using var cmd = connection.CreateCommand();
+        await using SqliteCommand cmd = connection.CreateCommand();
         cmd.CommandText = @"INSERT OR REPLACE INTO orders(order_id, symbol, side, type, quantity, price, stop_price, status, filled_qty, avg_fill_price, commission, strategy_name, created_at, updated_at, filled_at)
                             VALUES ($oid, $sym, $side, $type, $qty, $price, $stop, $status, $filled, $avg, $comm, $strat, $created, $updated, $filledAt);";
         cmd.Parameters.AddWithValue("$oid", order.OrderId);
@@ -291,7 +292,7 @@ public class DataCacheService
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
-        await using var cmd = connection.CreateCommand();
+        await using SqliteCommand cmd = connection.CreateCommand();
 
         if (string.IsNullOrWhiteSpace(symbol))
         {
@@ -305,7 +306,7 @@ public class DataCacheService
         cmd.Parameters.AddWithValue("$limit", limit);
 
         var result = new List<OrderHistoryRecord>();
-        await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        await using SqliteDataReader reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false))
         {
             result.Add(new OrderHistoryRecord
@@ -335,7 +336,7 @@ public class DataCacheService
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
-        await using var cmd = connection.CreateCommand();
+        await using SqliteCommand cmd = connection.CreateCommand();
         cmd.CommandText = @"INSERT INTO daily_pnl(date, realized_pnl, trade_count, winning_trades, losing_trades)
                             VALUES ($date, $pnl, $count, $win, $loss)
                             ON CONFLICT(date) DO UPDATE SET
@@ -356,7 +357,7 @@ public class DataCacheService
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
-        await using var cmd = connection.CreateCommand();
+        await using SqliteCommand cmd = connection.CreateCommand();
         cmd.CommandText = @"SELECT date, realized_pnl, unrealized_pnl, total_pnl, trade_count, winning_trades, losing_trades 
                             FROM daily_pnl 
                             ORDER BY date DESC 
@@ -364,7 +365,7 @@ public class DataCacheService
         cmd.Parameters.AddWithValue("$days", days);
 
         var result = new List<DailyPnlSnapshot>();
-        await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        await using SqliteDataReader reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false))
         {
             result.Add(new DailyPnlSnapshot
@@ -388,7 +389,7 @@ public class DataCacheService
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
-        await using var cmd = connection.CreateCommand();
+        await using SqliteCommand cmd = connection.CreateCommand();
         cmd.CommandText = @"INSERT OR REPLACE INTO trades(trade_id, order_id, symbol, side, quantity, price, commission, realized_pnl, timestamp)
                             VALUES ($tid, $oid, $sym, $side, $qty, $price, $comm, $pnl, $ts);";
         cmd.Parameters.AddWithValue("$tid", trade.TradeId);
@@ -415,7 +416,7 @@ public class DataCacheService
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
-        await using var cmd = connection.CreateCommand();
+        await using SqliteCommand cmd = connection.CreateCommand();
         cmd.CommandText = @"INSERT INTO strategy_performance(strategy_name, symbol, total_trades, winning_trades, losing_trades, total_pnl, win_rate, profit_factor, sharpe_ratio, max_drawdown, updated_at)
                             VALUES ($name, $sym, $total, $wins, $losses, $pnl, $wr, $pf, $sr, $dd, $updated)
                             ON CONFLICT(strategy_name, symbol) DO UPDATE SET
@@ -447,14 +448,14 @@ public class DataCacheService
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
-        await using var cmd = connection.CreateCommand();
+        await using SqliteCommand cmd = connection.CreateCommand();
         cmd.CommandText = @"SELECT strategy_name, symbol, total_trades, winning_trades, losing_trades, total_pnl, win_rate, profit_factor, sharpe_ratio, max_drawdown, updated_at
                             FROM strategy_performance 
                             WHERE strategy_name = $name AND symbol = $sym";
         cmd.Parameters.AddWithValue("$name", strategyName);
         cmd.Parameters.AddWithValue("$sym", symbol);
 
-        await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        await using SqliteDataReader reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
         if (await reader.ReadAsync().ConfigureAwait(false))
         {
             return new StrategyPerformanceRecord

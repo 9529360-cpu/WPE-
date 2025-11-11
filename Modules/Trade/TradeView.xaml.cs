@@ -30,7 +30,7 @@ public partial class TradeView : UserControl
         try
         {
             StatusText.Text = "状态：加载交易对...";
-            var tickers = await _api.GetMiniTickersAsync();
+            IReadOnlyList<TickerQuote> tickers = await _api.GetMiniTickersAsync();
             SymbolBox.ItemsSource = tickers.Select(t => t.Symbol).OrderBy(s => s).ToList();
             if (SymbolBox.Items.Count > 0)
             {
@@ -52,8 +52,8 @@ public partial class TradeView : UserControl
         {
             Symbol = SymbolBox.Text.Trim().ToUpperInvariant(),
             Side = (SideBox.SelectedItem as ComboBoxItem)?.Content?.ToString() == "Sell" ? OrderSide.Sell : OrderSide.Buy,
-            Type = Enum.TryParse<OrderType>((TypeBox.SelectedItem as ComboBoxItem)?.Content?.ToString(), out var type) ? type : OrderType.Market,
-            TimeInForce = Enum.TryParse<TimeInForce>((TifBox.SelectedItem as ComboBoxItem)?.Content?.ToString(), out var tif) ? tif : TimeInForce.Gtc
+            Type = Enum.TryParse<OrderType>((TypeBox.SelectedItem as ComboBoxItem)?.Content?.ToString(), out OrderType type) ? type : OrderType.Market,
+            TimeInForce = Enum.TryParse<TimeInForce>((TifBox.SelectedItem as ComboBoxItem)?.Content?.ToString(), out TimeInForce tif) ? tif : TimeInForce.Gtc
         };
 
         if (decimal.TryParse(QuantityBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal qty))
@@ -78,10 +78,10 @@ public partial class TradeView : UserControl
     {
         try
         {
-            var request = BuildRequest();
+            OrderRequest request = BuildRequest();
             ValidateRequest(request);
             StatusText.Text = $"状态：正在发送 {request.Symbol} 单笔订单";
-            var result = await _api.PlaceOrderAsync(request);
+            OrderResponse result = await _api.PlaceOrderAsync(request);
             StatusText.Text = $"状态：订单 {result.OrderId} 已提交，成交 {result.ExecutedQuantity}";
             MessageBox.Show($"订单 {result.OrderId} 状态：{result.Status}\n平均成交价：{result.AvgPrice}", "下单成功", MessageBoxButton.OK, MessageBoxImage.Information);
         }
@@ -96,7 +96,7 @@ public partial class TradeView : UserControl
     {
         try
         {
-            var request = BuildRequest();
+            OrderRequest request = BuildRequest();
             ValidateRequest(request);
             _batchOrders.Add(request);
             StatusText.Text = $"状态：已加入批量（{_batchOrders.Count}）";
@@ -119,7 +119,7 @@ public partial class TradeView : UserControl
         {
             StatusText.Text = "状态：执行批量订单中...";
             var batch = new BatchOrderRequest { Orders = _batchOrders.ToArray() };
-            var results = await _api.PlaceBatchOrdersAsync(batch);
+            IReadOnlyList<OrderResponse> results = await _api.PlaceBatchOrdersAsync(batch);
             StatusText.Text = $"状态：批量下单完成（{results.Count}）";
             MessageBox.Show($"批量下单完成，返回 {results.Count} 条结果。", "批量下单", MessageBoxButton.OK, MessageBoxImage.Information);
         }

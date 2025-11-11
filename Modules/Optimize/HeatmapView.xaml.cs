@@ -1,4 +1,6 @@
 using System.Windows.Controls;
+using ScottPlot;
+using ScottPlot.Plottables;
 
 namespace 币安量化机器人.Modules.Optimize
 {
@@ -20,9 +22,9 @@ namespace 币安量化机器人.Modules.Optimize
                     }
                 }
 
-                var plt = Plot.Plot;                 // v5：从 WpfPlot 取 Plot
+                Plot plt = Plot.Plot;                 // v5：从 WpfPlot 取 Plot
                 plt.Clear();
-                var hm = plt.Add.Heatmap(z);         // v5：Plot.Add.Heatmap
+                Heatmap hm = plt.Add.Heatmap(z);         // v5：Plot.Add.Heatmap
                 hm.Colormap = new ScottPlot.Colormaps.Turbo();
                 plt.Add.ColorBar(hm);
                 plt.Title("热力图（演示）");
@@ -35,9 +37,9 @@ namespace 币安量化机器人.Modules.Optimize
         // 真正使用时：调用它来显示你的矩阵
         public void Show(double[,] z, string xLabel, string yLabel, string title)
         {
-            var plt = Plot.Plot;
+            Plot plt = Plot.Plot;
             plt.Clear();
-            var hm = plt.Add.Heatmap(z);
+            Heatmap hm = plt.Add.Heatmap(z);
             hm.Colormap = new ScottPlot.Colormaps.Turbo();
             plt.Add.ColorBar(hm);
             plt.Title(title);

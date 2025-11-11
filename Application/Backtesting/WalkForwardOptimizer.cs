@@ -29,29 +29,29 @@ public class WalkForwardOptimizer
         IReadOnlyDictionary<string, IReadOnlyList<double>> parameterSpace,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var trainingStart = start;
+        DateTime trainingStart = start;
         while (trainingStart < end)
         {
-            var trainingEnd = trainingStart + trainingWindow;
-            var testingEnd = trainingEnd + testingWindow;
+            DateTime trainingEnd = trainingStart + trainingWindow;
+            DateTime testingEnd = trainingEnd + testingWindow;
             if (trainingEnd >= end)
             {
                 yield break;
             }
 
             var optimizationRequest = new OptimizationRequest(symbol, trainingStart, trainingEnd, parameterSpace, _backtestEngine);
-            var optimizationTask = _optimizer.OptimizeAsync(strategy, optimizationRequest, cancellationToken);
+            ValueTask<OptimizationResult> optimizationTask = _optimizer.OptimizeAsync(strategy, optimizationRequest, cancellationToken);
 
-            await foreach (var progress in _optimizer.StreamProgressAsync(cancellationToken))
+            await foreach (OptimizationProgress progress in _optimizer.StreamProgressAsync(cancellationToken))
             {
                 yield return new WalkForwardResult(trainingStart, trainingEnd, null, progress, null);
             }
 
-            var optimizationResult = await optimizationTask;
+            OptimizationResult optimizationResult = await optimizationTask;
 
-            var walkForwardStrategy = CloneStrategy(strategy, optimizationResult.Parameters);
+            ITradingStrategy walkForwardStrategy = CloneStrategy(strategy, optimizationResult.Parameters);
             var testRequest = new BacktestRequest(symbol, trainingEnd, testingEnd, walkForwardStrategy);
-            var testResult = await _backtestEngine.RunAsync(testRequest, cancellationToken);
+            BacktestResult testResult = await _backtestEngine.RunAsync(testRequest, cancellationToken);
 
             yield return new WalkForwardResult(trainingStart, trainingEnd, optimizationResult, null, testResult);
 

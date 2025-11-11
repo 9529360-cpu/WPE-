@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using 币安量化机器人.Models.Configuration;
 using 币安量化机器人.Services;
 
 namespace 币安量化机器人.Modules.Settings;
@@ -60,8 +61,8 @@ public partial class ApiManagerView : UserControl
             }
 
             // 从配置服务加载
-            var apiConfig = ConfigurationService.GetApiConfig();
-            var aiConfig = ConfigurationService.GetAIConfig();
+            ApiConfig apiConfig = ConfigurationService.GetApiConfig();
+            AIConfig aiConfig = ConfigurationService.GetAIConfig();
 
             // 从环境变量或配置加载 Binance API
             string binanceKey = Environment.GetEnvironmentVariable("BINANCE_API_KEY")
@@ -169,7 +170,7 @@ public partial class ApiManagerView : UserControl
     /// </summary>
     private void ClearBinanceApiKey_Click(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show(
+        MessageBoxResult result = MessageBox.Show(
             "确定要清除 Binance API Key 吗？\n\n这将从配置文件中删除 API Key。",
             "确认清除",
             MessageBoxButton.YesNo,
@@ -201,7 +202,7 @@ public partial class ApiManagerView : UserControl
     /// </summary>
     private void ClearBinanceSecretKey_Click(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show(
+        MessageBoxResult result = MessageBox.Show(
             "确定要清除 Binance Secret Key 吗？\n\n这将从配置文件中删除 Secret Key。",
             "确认清除",
             MessageBoxButton.YesNo,
@@ -336,7 +337,7 @@ public partial class ApiManagerView : UserControl
             }
 
             // 3️⃣ 立即设置到全局 BinanceApiClient
-            var binanceClient = ServiceLocator.Api;
+            BinanceApiClient binanceClient = ServiceLocator.Api;
             binanceClient.SetApiCredentials(apiKey, secretKey);
 
             // 4️⃣ 更新状态
@@ -392,7 +393,7 @@ public partial class ApiManagerView : UserControl
     /// </summary>
     private void ClearDeepSeekApiKey_Click(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show(
+        MessageBoxResult result = MessageBox.Show(
             "确定要清除 DeepSeek API Key 吗？\n\n这将从配置文件中删除 API Key。",
             "确认清除",
             MessageBoxButton.YesNo,
@@ -507,7 +508,7 @@ public partial class ApiManagerView : UserControl
             }
 
             // 3️⃣ 验证配置是否生效
-            var aiConfig = ConfigurationService.GetAIConfig();
+            AIConfig aiConfig = ConfigurationService.GetAIConfig();
             bool isSuccess = aiConfig.DeepSeekApiKey == apiKey;
 
             // 4️⃣ 更新状态
@@ -581,7 +582,7 @@ public partial class ApiManagerView : UserControl
             string[] keys = path.Split(':');
 
             // 使用字典递归修改
-            var rootDict = JsonElementToDictionary(doc.RootElement);
+            Dictionary<string, object> rootDict = JsonElementToDictionary(doc.RootElement);
             SetNestedValue(rootDict, keys, value);
 
             // 序列化回 JSON
@@ -611,7 +612,7 @@ public partial class ApiManagerView : UserControl
     {
         var dict = new Dictionary<string, object>();
 
-        foreach (var property in element.EnumerateObject())
+        foreach (JsonProperty property in element.EnumerateObject())
         {
             dict[property.Name] = ConvertJsonElement(property.Value);
         }
@@ -642,7 +643,7 @@ public partial class ApiManagerView : UserControl
     /// </summary>
     private void SetNestedValue(Dictionary<string, object> dict, string[] keys, string value)
     {
-        var current = dict;
+        Dictionary<string, object> current = dict;
 
         for (int i = 0; i < keys.Length - 1; i++)
         {
@@ -681,7 +682,7 @@ public partial class ApiManagerView : UserControl
         {
             writer.WriteStartObject();
 
-            foreach (var property in element.EnumerateObject())
+            foreach (JsonProperty property in element.EnumerateObject())
             {
                 writer.WritePropertyName(property.Name);
 

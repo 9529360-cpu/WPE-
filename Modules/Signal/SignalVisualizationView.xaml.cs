@@ -103,9 +103,9 @@ public partial class SignalVisualizationView : UserControl
     {
         try
         {
-            var historicalSignals = _broadcaster.GetRecentSignals(100);
+            IReadOnlyList<TradingSignalEvent> historicalSignals = _broadcaster.GetRecentSignals(100);
 
-            foreach (var signal in historicalSignals)
+            foreach (TradingSignalEvent signal in historicalSignals)
             {
                 var signalRow = new SignalRow
                 {
@@ -141,7 +141,7 @@ public partial class SignalVisualizationView : UserControl
     /// </summary>
     private void UpdateStatistics()
     {
-        var today = DateTime.Today;
+        DateTime today = DateTime.Today;
         var todaySignals = _signals.Where(s => s.Timestamp.Date == today).ToList();
 
         _todaySignalsCount = todaySignals.Count;
@@ -209,7 +209,7 @@ public partial class SignalVisualizationView : UserControl
     /// </summary>
     private void Clear_Click(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show(
+        MessageBoxResult result = MessageBox.Show(
             "确定要清空所有信号记录吗?",
             "确认",
             MessageBoxButton.YesNo,

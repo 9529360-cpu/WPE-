@@ -23,7 +23,7 @@ public sealed class RiskHeatmapGenerator
         // 为每个交易对生成风险评分
         foreach (string symbol in symbols)
         {
-            var risk = positionRisks.ContainsKey(symbol)
+            PositionRisk risk = positionRisks.ContainsKey(symbol)
                 ? positionRisks[symbol]
                 : new PositionRisk { Symbol = symbol };
 

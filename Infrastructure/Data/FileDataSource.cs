@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using 币安量化机器人.Core.Data;
@@ -20,7 +21,7 @@ public class FileDataSource : IDataSource
 
     public string Name => "File";
 
-    public async IAsyncEnumerable<RawDataFrame> ReadAsync(DataQuery query, CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<RawDataFrame> ReadAsync(DataQuery query, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         string path = Path.Combine(_directory, $"{query.Symbol}.csv");
         if (!File.Exists(path))
@@ -39,7 +40,7 @@ public class FileDataSource : IDataSource
                 continue;
             }
 
-            if (!DateTime.TryParse(parts[0], CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var timestamp))
+            if (!DateTime.TryParse(parts[0], CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out DateTime timestamp))
             {
                 continue;
             }

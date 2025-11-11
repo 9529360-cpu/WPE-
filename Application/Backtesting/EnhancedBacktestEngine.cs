@@ -88,12 +88,12 @@ public class EnhancedBacktestEngine : IBacktestEngine
         var allSignals = new List<TradeSignal>();
 
         // 生成市场数据
-        var marketData = await GenerateMarketDataAsync(request.Symbol, request.Start, request.End, cancellationToken);
+        List<MarketObservation> marketData = await GenerateMarketDataAsync(request.Symbol, request.Start, request.End, cancellationToken);
 
         // 运行策略
-        await foreach (var observation in AsAsyncEnumerable(marketData).WithCancellation(cancellationToken))
+        await foreach (MarketObservation? observation in AsAsyncEnumerable(marketData).WithCancellation(cancellationToken))
         {
-            var decision = await request.Strategy.EvaluateAsync(observation, cancellationToken);
+            StrategyDecision decision = await request.Strategy.EvaluateAsync(observation, cancellationToken);
             allSignals.Add(new TradeSignal(request.Symbol, decision.Action, decision.Confidence, decision.MlSignal));
 
             // 处理信号
@@ -108,7 +108,7 @@ public class EnhancedBacktestEngine : IBacktestEngine
                     break;
 
                 case TradeActionType.Exit when position.IsOpen:
-                    var trade = ClosePosition(position, observation, decision.Action.Reason);
+                    BacktestTrade trade = ClosePosition(position, observation, decision.Action.Reason);
                     completedTrades.Add(trade);
                     currentEquity += trade.NetPnL;
                     position = new BacktestPosition();
@@ -119,14 +119,14 @@ public class EnhancedBacktestEngine : IBacktestEngine
         // 强制平仓未平仓的持仓
         if (position.IsOpen && marketData.Count > 0)
         {
-            var lastObservation = marketData[^1];
-            var forcedTrade = ClosePosition(position, lastObservation, "Forced close at end");
+            MarketObservation lastObservation = marketData[^1];
+            BacktestTrade forcedTrade = ClosePosition(position, lastObservation, "Forced close at end");
             completedTrades.Add(forcedTrade);
             currentEquity += forcedTrade.NetPnL;
         }
 
         // 计算绩效
-        var metrics = _perfCalculator.Calculate(completedTrades, initialCapital);
+        PerformanceMetrics metrics = _perfCalculator.Calculate(completedTrades, initialCapital);
 
         var result = new BacktestResult(
             Strategy: request.Strategy.Name,
@@ -179,7 +179,7 @@ public class EnhancedBacktestEngine : IBacktestEngine
             PlacedAt = market.Timestamp
         };
 
-        var fillResult = _orderMatcher.MatchOrder(order, market);
+        OrderFillResult fillResult = _orderMatcher.MatchOrder(order, market);
 
         return new BacktestPosition
         {
@@ -208,7 +208,7 @@ public class EnhancedBacktestEngine : IBacktestEngine
             PlacedAt = market.Timestamp
         };
 
-        var fillResult = _orderMatcher.MatchOrder(order, market);
+        OrderFillResult fillResult = _orderMatcher.MatchOrder(order, market);
 
         // 计算持仓时长
         double holdingHours = (fillResult.FillTime - position.EntryTime).TotalHours;
@@ -219,7 +219,7 @@ public class EnhancedBacktestEngine : IBacktestEngine
             : position.Quantity * (position.EntryPrice - fillResult.AvgFillPrice);
 
         // 计算成本
-        var cost = _costCalculator.CalculateTotalCost(
+        TradingCost cost = _costCalculator.CalculateTotalCost(
             entryQuantity: position.Quantity,
             entryPrice: position.EntryPrice,
             entryIsMaker: false, // 市价单都是taker
@@ -262,7 +262,7 @@ public class EnhancedBacktestEngine : IBacktestEngine
         // 这里暂时使用模拟数据
         var data = new List<MarketObservation>();
         var random = new Random(42);
-        var timestamp = start;
+        DateTime timestamp = start;
         double price = 50000.0; // BTC起始价格
 
         while (timestamp < end)
@@ -303,7 +303,7 @@ public class EnhancedBacktestEngine : IBacktestEngine
 
     private static async IAsyncEnumerable<MarketObservation> AsAsyncEnumerable(List<MarketObservation> data)
     {
-        foreach (var item in data)
+        foreach (MarketObservation item in data)
         {
             yield return item;
             await Task.Yield();

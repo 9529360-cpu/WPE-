@@ -257,7 +257,7 @@ public class ApiCircuitBreaker
                 return null;
             }
 
-            var remaining = _cooldown - (DateTime.UtcNow - _openedAt);
+            TimeSpan remaining = _cooldown - (DateTime.UtcNow - _openedAt);
             return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
         }
     }

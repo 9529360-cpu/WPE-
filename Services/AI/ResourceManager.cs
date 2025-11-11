@@ -48,7 +48,7 @@ public class ResourceManager
         try
         {
             // 1. 检查系统资源
-            var systemResources = GetSystemResources();
+            SystemResources systemResources = GetSystemResources();
 
             if (!systemResources.IsHealthy)
             {
@@ -170,13 +170,13 @@ public class ResourceManager
         {
             // 使用Process获取当前进程CPU使用率
             var process = Process.GetCurrentProcess();
-            var startTime = DateTime.UtcNow;
-            var startCpuUsage = process.TotalProcessorTime;
+            DateTime startTime = DateTime.UtcNow;
+            TimeSpan startCpuUsage = process.TotalProcessorTime;
 
             Thread.Sleep(100); // 采样100ms
 
-            var endTime = DateTime.UtcNow;
-            var endCpuUsage = process.TotalProcessorTime;
+            DateTime endTime = DateTime.UtcNow;
+            TimeSpan endCpuUsage = process.TotalProcessorTime;
 
             double cpuUsedMs = (endCpuUsage - startCpuUsage).TotalMilliseconds;
             double totalMsPassed = (endTime - startTime).TotalMilliseconds;
@@ -217,7 +217,7 @@ public class ResourceManager
     /// </summary>
     public ResourceStatistics GetStatistics()
     {
-        var resources = GetSystemResources();
+        SystemResources resources = GetSystemResources();
 
         return new ResourceStatistics
         {

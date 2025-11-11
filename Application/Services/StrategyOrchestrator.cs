@@ -33,9 +33,9 @@ public class StrategyOrchestrator
         var context = new StrategyContext(symbol, _marketDataService, _riskManager, _featureStore, PublishSignalAsync, RecordMetricsAsync);
         strategy.Initialize(context);
 
-        await foreach (var observation in _marketDataService.StreamAsync(symbol, timeframes, cancellationToken))
+        await foreach (MarketObservation observation in _marketDataService.StreamAsync(symbol, timeframes, cancellationToken))
         {
-            var decision = await strategy.EvaluateAsync(observation, cancellationToken);
+            StrategyDecision decision = await strategy.EvaluateAsync(observation, cancellationToken);
             await _monitoringHub.BroadcastSignalAsync(new TradeSignal(symbol, decision.Action, decision.Confidence, decision.MlSignal), cancellationToken);
         }
     }

@@ -26,9 +26,9 @@ public partial class PaperTradeView : UserControl
         InitializeComponent();
 
         // 初始化服务 (直接使用ServiceLocator)
-        var cacheService = ServiceLocator.Cache;
-        var apiClient = ServiceLocator.Api;
-        var streamClient = ServiceLocator.Stream;
+        DataCacheService cacheService = ServiceLocator.Cache;
+        BinanceApiClient apiClient = ServiceLocator.Api;
+        BinanceStreamClient streamClient = ServiceLocator.Stream;
 
         _accountManager = new TradingAccountManager(cacheService);
 
@@ -92,7 +92,7 @@ public partial class PaperTradeView : UserControl
     /// </summary>
     private void UpdateUI()
     {
-        var account = _accountManager.ActiveAccount;
+        TradingAccount? account = _accountManager.ActiveAccount;
         if (account == null)
         {
             return;
@@ -116,7 +116,7 @@ public partial class PaperTradeView : UserControl
 
         // 更新持仓列表
         _positions.Clear();
-        foreach (var pos in account.Positions.Where(p => p.Status == PositionStatus.Open))
+        foreach (Position? pos in account.Positions.Where(p => p.Status == PositionStatus.Open))
         {
             _positions.Add(pos);
         }
@@ -254,7 +254,7 @@ public partial class PaperTradeView : UserControl
         {
             try
             {
-                var result = MessageBox.Show(
+                MessageBoxResult result = MessageBox.Show(
                     $"确定要平仓 {position.Symbol} {position.Side} {position.Quantity:F4} 吗?",
                     "确认平仓",
                     MessageBoxButton.YesNo,

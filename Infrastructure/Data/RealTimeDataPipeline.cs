@@ -33,13 +33,13 @@ public class RealTimeDataPipeline
 
     public async Task StartAsync(DataQuery query, CancellationToken cancellationToken = default)
     {
-        foreach (var source in _sources)
+        foreach (IDataSource source in _sources)
         {
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    await foreach (var frame in source.ReadAsync(query, cancellationToken))
+                    await foreach (RawDataFrame frame in source.ReadAsync(query, cancellationToken))
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         await ProcessFrameAsync(frame, cancellationToken);
@@ -59,9 +59,9 @@ public class RealTimeDataPipeline
 
     private async Task ProcessFrameAsync(RawDataFrame frame, CancellationToken cancellationToken)
     {
-        foreach (var rule in _qualityRules)
+        foreach (IDataQualityRule rule in _qualityRules)
         {
-            var result = await rule.ValidateAsync(frame, cancellationToken);
+            DataQualityResult result = await rule.ValidateAsync(frame, cancellationToken);
             if (!result.Passed)
             {
                 await _channel.Writer.WriteAsync(new RawDataFrame("quality", frame.Symbol, frame.Timestamp, new Dictionary<string, object>
@@ -74,10 +74,10 @@ public class RealTimeDataPipeline
         }
 
         var features = new Dictionary<string, double>();
-        foreach (var engineer in _featureEngineers)
+        foreach (IFeatureEngineer engineer in _featureEngineers)
         {
-            var engineered = await engineer.TransformAsync(frame, cancellationToken);
-            foreach (var pair in engineered)
+            IReadOnlyDictionary<string, double> engineered = await engineer.TransformAsync(frame, cancellationToken);
+            foreach (KeyValuePair<string, double> pair in engineered)
             {
                 features[pair.Key] = pair.Value;
             }

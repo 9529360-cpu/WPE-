@@ -109,7 +109,7 @@ public static class ConfigurationService
 
         return new LoggingConfig
         {
-            MinimumLevel = Enum.TryParse<LogEventLevel>(minimumLevel, out var level)
+            MinimumLevel = Enum.TryParse<LogEventLevel>(minimumLevel, out LogEventLevel level)
                 ? level
                 : LogEventLevel.Information,
             FilePath = _configuration["Logging:FilePath"] ?? "Logs/app-.log",
@@ -126,7 +126,7 @@ public static class ConfigurationService
     {
         EnsureInitialized();
 
-        var section = _configuration!.GetSection("Trading");
+        IConfigurationSection section = _configuration!.GetSection("Trading");
 
         return new TradingConfig
         {
@@ -147,8 +147,8 @@ public static class ConfigurationService
     {
         EnsureInitialized();
 
-        var section = _configuration!.GetSection("Api:Binance");
-        var breakerSection = _configuration.GetSection("Api:CircuitBreaker");
+        IConfigurationSection section = _configuration!.GetSection("Api:Binance");
+        IConfigurationSection breakerSection = _configuration.GetSection("Api:CircuitBreaker");
 
         // 🔧 优先从环境变量读取 API Key 和 Secret Key
         string apiKey = Environment.GetEnvironmentVariable("BINANCE_API_KEY")
@@ -177,7 +177,7 @@ public static class ConfigurationService
     {
         EnsureInitialized();
 
-        var section = _configuration!.GetSection("Risk");
+        IConfigurationSection section = _configuration!.GetSection("Risk");
 
         return new RiskConfig
         {
@@ -204,7 +204,7 @@ public static class ConfigurationService
     {
         EnsureInitialized();
 
-        var section = _configuration!.GetSection("Backtest");
+        IConfigurationSection section = _configuration!.GetSection("Backtest");
 
         return new BacktestConfig
         {
@@ -229,7 +229,7 @@ public static class ConfigurationService
     {
         EnsureInitialized();
 
-        var section = _configuration!.GetSection("AI:DeepSeek");
+        IConfigurationSection section = _configuration!.GetSection("AI:DeepSeek");
 
         // 🔧 优先从环境变量读取 DeepSeek API Key
         string apiKey = Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY")
@@ -252,7 +252,7 @@ public static class ConfigurationService
     {
         EnsureInitialized();
 
-        var section = _configuration!.GetSection("Database");
+        IConfigurationSection section = _configuration!.GetSection("Database");
 
         return new DatabaseConfig
         {

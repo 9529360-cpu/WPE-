@@ -109,7 +109,7 @@ public class TradingAccountManager : INotifyPropertyChanged
         // 检查模拟账户是否达标
         if (SimulatedAccount != null)
         {
-            var upgradeResult = _upgradeRules.CanUpgrade(SimulatedAccount);
+            AccountUpgradeResult upgradeResult = _upgradeRules.CanUpgrade(SimulatedAccount);
             if (!upgradeResult.CanUpgrade)
             {
                 string message = $"模拟账户未达标,无法创建真实账户:\n{upgradeResult.GetReport()}";
@@ -137,7 +137,7 @@ public class TradingAccountManager : INotifyPropertyChanged
     /// <exception cref="InvalidOperationException">账户不存在时抛出异常</exception>
     public void SwitchAccount(AccountType type)
     {
-        var account = type == AccountType.Simulated ? SimulatedAccount : LiveAccount;
+        TradingAccount? account = type == AccountType.Simulated ? SimulatedAccount : LiveAccount;
 
         if (account == null)
         {
@@ -149,7 +149,7 @@ public class TradingAccountManager : INotifyPropertyChanged
         // 如果切换到真实账户,再次检查升级条件
         if (type == AccountType.Live && SimulatedAccount != null)
         {
-            var upgradeResult = _upgradeRules.CanUpgrade(SimulatedAccount);
+            AccountUpgradeResult upgradeResult = _upgradeRules.CanUpgrade(SimulatedAccount);
             if (!upgradeResult.CanUpgrade)
             {
                 string message = $"模拟账户未达标,无法切换到真实账户:\n{upgradeResult.GetReport()}";
@@ -209,7 +209,7 @@ public class TradingAccountManager : INotifyPropertyChanged
     /// <returns>升级结果</returns>
     public (bool Success, string Message, TradingAccount? Account) UpgradeToLive(decimal initialBalance = 5000m)
     {
-        var upgradeResult = CanUpgradeToLive();
+        AccountUpgradeResult upgradeResult = CanUpgradeToLive();
 
         if (!upgradeResult.CanUpgrade)
         {
@@ -218,7 +218,7 @@ public class TradingAccountManager : INotifyPropertyChanged
 
         try
         {
-            var liveAccount = CreateLiveAccount("真实账户", initialBalance);
+            TradingAccount liveAccount = CreateLiveAccount("真实账户", initialBalance);
             SwitchToLive();
 
             string message = $"🎉 恭喜!已成功升级到真实账户!\n账户名: {liveAccount.Name}\n初始资金: {initialBalance} USDT";
@@ -292,7 +292,7 @@ public class TradingAccountManager : INotifyPropertyChanged
     {
         try
         {
-            foreach (var account in Accounts)
+            foreach (TradingAccount account in Accounts)
             {
                 // TODO: 保存到数据库
                 // await _cacheService.SaveAccountAsync(account);

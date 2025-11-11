@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
@@ -19,21 +20,21 @@ public class DatabaseDataSource : IDataSource
 
     public string Name => "Database";
 
-    public async IAsyncEnumerable<RawDataFrame> ReadAsync(DataQuery query, CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<RawDataFrame> ReadAsync(DataQuery query, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await using var connection = new SqliteConnection(_connectionString);
+        await using SqliteConnection connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
 
-        var command = connection.CreateCommand();
+        SqliteCommand command = connection.CreateCommand();
         command.CommandText = "SELECT Timestamp, Open, High, Low, Close, Volume FROM MarketData WHERE Symbol = $symbol AND Timestamp BETWEEN $start AND $end ORDER BY Timestamp";
         command.Parameters.AddWithValue("$symbol", query.Symbol);
         command.Parameters.AddWithValue("$start", query.Start);
         command.Parameters.AddWithValue("$end", query.End);
 
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
-            var payload = new Dictionary<string, object>
+            Dictionary<string, object> payload = new Dictionary<string, object>
             {
                 ["open"] = reader.GetDouble(1),
                 ["high"] = reader.GetDouble(2),

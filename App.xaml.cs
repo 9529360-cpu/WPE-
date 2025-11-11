@@ -18,8 +18,8 @@ namespace 币安量化机器人
             try
             {
                 ConfigurationService.Initialize();
-                var appInfo = ConfigurationService.GetAppInfo();
-                var loggingConfig = ConfigurationService.GetLoggingConfig();
+                AppInfo appInfo = ConfigurationService.GetAppInfo();
+                LoggingConfig loggingConfig = ConfigurationService.GetLoggingConfig();
 
                 // 🆕 2. 使用配置初始化Serilog日志系统
                 LogService.Initialize(

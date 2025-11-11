@@ -41,16 +41,16 @@ public class MeanReversionStrategy : ITradingStrategy
             throw new InvalidOperationException("Strategy not initialized");
         }
 
-        var features = await _featureStore.GetLatestAsync(observation.Symbol, cancellationToken);
+        IReadOnlyDictionary<string, double> features = await _featureStore.GetLatestAsync(observation.Symbol, cancellationToken);
         var featureVector = new List<double>(observation.Indicators.Values);
         foreach (double value in features.Values)
         {
             featureVector.Add(value);
         }
 
-        var mlSignal = await _mlSignalGenerator.PredictAsync(new ModelFeatureVector(observation.Symbol, observation.Timestamp, featureVector, 0), cancellationToken);
+        MachineLearningSignal mlSignal = await _mlSignalGenerator.PredictAsync(new ModelFeatureVector(observation.Symbol, observation.Timestamp, featureVector, 0), cancellationToken);
 
-        var signal = await _analyzer.AnalyzeAsync(observation.Symbol, new Dictionary<TimeSpan, TimeframeSeries>
+        CompositeSignal signal = await _analyzer.AnalyzeAsync(observation.Symbol, new Dictionary<TimeSpan, TimeframeSeries>
         {
             [observation.Timeframe] = new TimeframeSeries(observation.Timeframe, new List<MarketObservation> { observation })
         }, cancellationToken);
@@ -60,7 +60,7 @@ public class MeanReversionStrategy : ITradingStrategy
         double quantity = _parameters.Get("base_quantity", 1);
         double stopMultiplier = _parameters.Get("stop_multiplier", 2);
 
-        var action = TradeActionType.Hold;
+        TradeActionType action = TradeActionType.Hold;
         string reason = "Hold";
 
         if (Math.Abs(zScore) > threshold)
@@ -88,7 +88,7 @@ public class MeanReversionStrategy : ITradingStrategy
 
     public async IAsyncEnumerable<StrategyDecision> RunAsync(IAsyncEnumerable<MarketObservation> observations, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await foreach (var observation in observations.WithCancellation(cancellationToken))
+        await foreach (MarketObservation? observation in observations.WithCancellation(cancellationToken))
         {
             yield return await EvaluateAsync(observation, cancellationToken);
         }

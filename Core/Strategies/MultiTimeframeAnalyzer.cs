@@ -16,7 +16,7 @@ public class MultiTimeframeAnalyzer : IMultiTimeframeAnalyzer
         var momentumScores = new Dictionary<TimeSpan, double>();
         var meanReversionScores = new Dictionary<TimeSpan, double>();
 
-        foreach (var (timeframe, timeframeSeries) in series)
+        foreach ((TimeSpan timeframe, TimeframeSeries? timeframeSeries) in series)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (timeframeSeries.Observations.Count < 2)
@@ -24,8 +24,8 @@ public class MultiTimeframeAnalyzer : IMultiTimeframeAnalyzer
                 continue;
             }
 
-            var recent = timeframeSeries.Observations[^1];
-            var previous = timeframeSeries.Observations[^2];
+            MarketObservation recent = timeframeSeries.Observations[^1];
+            MarketObservation previous = timeframeSeries.Observations[^2];
 
             double trend = CalculateTrend(timeframeSeries.Observations);
             double momentum = recent.Close - previous.Close;

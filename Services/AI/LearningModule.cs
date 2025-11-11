@@ -41,7 +41,7 @@ public class LearningModule
         try
         {
             // 1. 查找相似历史场景
-            var similarScenarios = FindSimilarScenarios(state);
+            List<DecisionRecord> similarScenarios = FindSimilarScenarios(state);
 
             if (similarScenarios.Count == 0)
             {
@@ -49,10 +49,10 @@ public class LearningModule
             }
 
             // 2. 分析历史决策效果
-            var historicalPerformance = AnalyzeHistoricalPerformance(similarScenarios);
+            HistoricalPerformance historicalPerformance = AnalyzeHistoricalPerformance(similarScenarios);
 
             // 3. 基于历史学习调整决策
-            var optimizedDecision = AdjustDecisionBasedOnHistory(
+            (DecisionAction Action, double Confidence, string Reason) optimizedDecision = AdjustDecisionBasedOnHistory(
                 initialDecision,
                 historicalPerformance,
                 state);
@@ -123,7 +123,7 @@ public class LearningModule
         {
             lock (_lock)
             {
-                var record = _decisionHistory
+                DecisionRecord? record = _decisionHistory
                     .FirstOrDefault(r => r.Timestamp == decisionTimestamp);
 
                 if (record != null)
@@ -240,7 +240,7 @@ public class LearningModule
         SystemState state)
     {
         // 1. 如果该动作历史表现不佳，降低信心度
-        if (history.ActionPerformance.TryGetValue(initial.Action, out var actionPerf))
+        if (history.ActionPerformance.TryGetValue(initial.Action, out ActionPerformance? actionPerf))
         {
             if (actionPerf.SuccessRate < 0.5)
             {

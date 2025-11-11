@@ -41,12 +41,12 @@ public class MomentumStrategy : ITradingStrategy
         var momentumSeries = observation.Indicators.Where(kv => kv.Key.StartsWith("momentum")).Select(kv => kv.Value).TakeLast((int)momentumWindow).ToList();
         double momentumScore = momentumSeries.Count == 0 ? 0 : momentumSeries.Average();
 
-        var composite = await _analyzer.AnalyzeAsync(observation.Symbol, new Dictionary<TimeSpan, TimeframeSeries>
+        CompositeSignal composite = await _analyzer.AnalyzeAsync(observation.Symbol, new Dictionary<TimeSpan, TimeframeSeries>
         {
             [observation.Timeframe] = new TimeframeSeries(observation.Timeframe, new List<MarketObservation> { observation })
         }, cancellationToken);
 
-        var action = TradeActionType.Hold;
+        TradeActionType action = TradeActionType.Hold;
         string reason = "Momentum insufficient";
         double qty = _parameters.Get("base_quantity", 1d);
 
@@ -74,7 +74,7 @@ public class MomentumStrategy : ITradingStrategy
 
     public async IAsyncEnumerable<StrategyDecision> RunAsync(IAsyncEnumerable<MarketObservation> observations, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await foreach (var observation in observations.WithCancellation(cancellationToken))
+        await foreach (MarketObservation? observation in observations.WithCancellation(cancellationToken))
         {
             yield return await EvaluateAsync(observation, cancellationToken);
         }

@@ -47,11 +47,11 @@ public sealed class RiskEngine
                 };
             }
 
-            var returns = await _cacheService.LoadReturnsAsync(benchmarkSymbol, 500).ConfigureAwait(false);
-            var riskMetrics = positionList.Select(p => CalculateMetrics(p, returns, accountEquity)).ToArray();
+            IReadOnlyList<double> returns = await _cacheService.LoadReturnsAsync(benchmarkSymbol, 500).ConfigureAwait(false);
+            RiskMetrics[] riskMetrics = positionList.Select(p => CalculateMetrics(p, returns, accountEquity)).ToArray();
 
-            var breached = rules.Where(r => r.IsActive && riskMetrics.Any(m => EvaluateRule(m, r))).ToArray();
-            var stress = BuildStressTests(positionList, returns).ToArray();
+            RiskRule[] breached = rules.Where(r => r.IsActive && riskMetrics.Any(m => EvaluateRule(m, r))).ToArray();
+            StressTestResult[] stress = BuildStressTests(positionList, returns).ToArray();
 
             return new RiskReport
             {
@@ -117,7 +117,7 @@ public sealed class RiskEngine
             ["Mean Reversion +5%"] = 0.05
         };
 
-        foreach (var scenario in scenarios)
+        foreach (KeyValuePair<string, double> scenario in scenarios)
         {
             double pnl = positions.Sum(p => (double)p.PositionAmt * (double)p.MarkPrice * scenario.Value);
             double margin = positions.Sum(p => (double)p.MaintenanceMargin);

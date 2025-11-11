@@ -26,7 +26,7 @@ public sealed class TimeBasedExitRule : IRiskRule
             return new RiskRuleResult(true);
         }
 
-        var holdingDuration = DateTime.UtcNow - snapshot.OpenTime;
+        TimeSpan holdingDuration = DateTime.UtcNow - snapshot.OpenTime;
         if (holdingDuration > _maxHoldingTime)
         {
             return new RiskRuleResult(

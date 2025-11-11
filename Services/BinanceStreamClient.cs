@@ -108,7 +108,7 @@ public sealed class BinanceStreamClient : IAsyncDisposable
                 await StopSocketAsync().ConfigureAwait(false);
 
                 attempt++;
-                var delay = RetrySchedule[Math.Min(attempt - 1, RetrySchedule.Length - 1)];
+                TimeSpan delay = RetrySchedule[Math.Min(attempt - 1, RetrySchedule.Length - 1)];
                 ConnectionStatusChanged?.Invoke($"{delay.TotalSeconds:F0}s 后尝试重连...");
                 try
                 {
@@ -160,7 +160,7 @@ public sealed class BinanceStreamClient : IAsyncDisposable
         try
         {
             using var doc = JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("data", out var data))
+            if (!doc.RootElement.TryGetProperty("data", out JsonElement data))
             {
                 return;
             }

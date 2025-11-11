@@ -21,7 +21,7 @@ public partial class RiskCenterView : UserControl
         InitializeComponent();
 
         // 初始化服务
-        var cacheService = ServiceLocator.Cache;
+        DataCacheService cacheService = ServiceLocator.Cache;
         _accountManager = new TradingAccountManager(cacheService);
 
         // 如果没有账户,创建默认账户
@@ -114,7 +114,7 @@ public partial class RiskCenterView : UserControl
     /// </summary>
     private void LoadData()
     {
-        var account = _accountManager.ActiveAccount;
+        TradingAccount? account = _accountManager.ActiveAccount;
         if (account == null)
         {
             return;
@@ -246,7 +246,7 @@ public partial class RiskCenterView : UserControl
             _ => _allRiskLogs
         };
 
-        foreach (var log in filtered.OrderByDescending(l => l.Timestamp))
+        foreach (RiskLogItem? log in filtered.OrderByDescending(l => l.Timestamp))
         {
             _filteredRiskLogs.Add(log);
         }

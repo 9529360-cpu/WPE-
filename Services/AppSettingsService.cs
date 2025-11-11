@@ -28,7 +28,7 @@ public static class AppSettingsService
             if (File.Exists(SettingsPath))
             {
                 string json = File.ReadAllText(SettingsPath);
-                var settings = JsonSerializer.Deserialize<AppSettings>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                AppSettings? settings = JsonSerializer.Deserialize<AppSettings>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (settings is not null)
                 {
                     Current = settings;

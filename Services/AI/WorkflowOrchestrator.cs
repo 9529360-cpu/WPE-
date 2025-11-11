@@ -138,7 +138,7 @@ public class WorkflowOrchestrator
     /// </summary>
     public async Task TransitionToStageAsync(WorkflowStage targetStage, CancellationToken ct = default)
     {
-        var currentStage = _stateManager.CurrentStage;
+        WorkflowStage currentStage = _stateManager.CurrentStage;
 
         if (currentStage == targetStage)
         {

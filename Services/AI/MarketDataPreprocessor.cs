@@ -28,19 +28,19 @@ public class MarketDataPreprocessor
     public async Task<MarketDataSnapshot> CollectMarketDataAsync(string symbol, CancellationToken ct = default)
     {
         // 1. 获取实时价格数据
-        var tickers = await _apiClient.GetMiniTickersAsync(new[] { symbol }, ct);
-        var ticker = tickers.FirstOrDefault() ?? throw new InvalidOperationException($"未找到 {symbol} 的行情数据");
+        IReadOnlyList<TickerQuote> tickers = await _apiClient.GetMiniTickersAsync(new[] { symbol }, ct);
+        TickerQuote ticker = tickers.FirstOrDefault() ?? throw new InvalidOperationException($"未找到 {symbol} 的行情数据");
 
         // 2. 获取K线数据用于计算技术指标
-        var closes = await _apiClient.GetKlineClosesAsync(symbol, "1h", limit: 100, ct);
+        IReadOnlyList<decimal> closes = await _apiClient.GetKlineClosesAsync(symbol, "1h", limit: 100, ct);
         double[] prices = closes.Select(c => (double)c).ToArray();
 
         // 3. 获取资金费率
-        var fundingRates = await _apiClient.GetFundingRatesAsync(symbol, limit: 1, ct);
-        var funding = fundingRates.FirstOrDefault();
+        IReadOnlyList<FundingRateSnapshot> fundingRates = await _apiClient.GetFundingRatesAsync(symbol, limit: 1, ct);
+        FundingRateSnapshot? funding = fundingRates.FirstOrDefault();
 
         // 4. 计算技术指标
-        var indicators = CalculateTechnicalIndicators(prices);
+        TechnicalIndicators indicators = CalculateTechnicalIndicators(prices);
 
         return new MarketDataSnapshot
         {

@@ -46,14 +46,14 @@ public class AIOrderExecutionEngine
         try
         {
             // 1. 获取当前账户
-            var account = _accountManager.ActiveAccount;
+            TradingAccount? account = _accountManager.ActiveAccount;
             if (account == null)
             {
                 return OrderExecutionResult.Failed("没有激活的账户");
             }
 
             // 2. AI信号转订单请求
-            var orderRequest = ConvertSignalToOrder(signal, account);
+            OrderRequest orderRequest = ConvertSignalToOrder(signal, account);
 
             // 3. 风控检查
             if (!_riskManager.ApproveSignal(signal))

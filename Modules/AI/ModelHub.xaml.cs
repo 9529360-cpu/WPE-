@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 using 币安量化机器人.Services.AI;
 
@@ -27,7 +28,7 @@ namespace 币安量化机器人.Modules.AI
         {
             InitializeComponent();
 
-            foreach (var artifact in _aiService.Models)
+            foreach (ModelArtifact artifact in _aiService.Models)
             {
                 _all.Add(new ModelRow
                 {
@@ -146,7 +147,7 @@ namespace 币安量化机器人.Modules.AI
                 _analyzeCts = new CancellationTokenSource();
                 _aiBot = ServiceLocator.GetAITradingBot(apiKey);
 
-                var signal = await _aiBot.AnalyzeOnceAsync(symbol, _analyzeCts.Token);
+                AITradingSignal signal = await _aiBot.AnalyzeOnceAsync(symbol, _analyzeCts.Token);
 
                 // 显示结果
                 _aiSignals.Insert(0, new AISignalRow
@@ -277,7 +278,7 @@ namespace 币安量化机器人.Modules.AI
                 return;
             }
 
-            var tracker = _aiBot.PerformanceTracker;
+            AIPerformanceTracker tracker = _aiBot.PerformanceTracker;
             MessageBox.Show(
                 $"AI绩效统计:\n\n" +
                 $"总信号数: {tracker.TotalSignals}\n" +

@@ -42,7 +42,7 @@ public partial class StrategyPortfolioView : UserControl
         try
         {
             // 添加示例策略
-            var strategies = new[]
+            StrategyInstance[] strategies = new[]
             {
                 new StrategyInstance
                 {
@@ -102,7 +102,7 @@ public partial class StrategyPortfolioView : UserControl
                 }
             };
 
-            foreach (var strategy in strategies)
+            foreach (StrategyInstance? strategy in strategies)
             {
                 _portfolioManager.AddStrategy(strategy);
             }
@@ -124,9 +124,9 @@ public partial class StrategyPortfolioView : UserControl
         {
             // 更新策略列表
             _strategies.Clear();
-            var allStrategies = _portfolioManager.GetAllStrategies();
+            IReadOnlyList<StrategyInstance> allStrategies = _portfolioManager.GetAllStrategies();
 
-            foreach (var strategy in allStrategies)
+            foreach (StrategyInstance strategy in allStrategies)
             {
                 _strategies.Add(new StrategyRow
                 {
@@ -145,7 +145,7 @@ public partial class StrategyPortfolioView : UserControl
             }
 
             // 更新组合统计
-            var stats = _portfolioManager.GetPortfolioStats();
+            PortfolioStats stats = _portfolioManager.GetPortfolioStats();
 
             PortfolioReturnText.Text = $"{stats.TotalReturn:P2}";
             PortfolioReturnText.Foreground = stats.TotalReturn >= 0
@@ -193,7 +193,7 @@ public partial class StrategyPortfolioView : UserControl
     /// </summary>
     private void Balance_Click(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show(
+        MessageBoxResult result = MessageBox.Show(
             "确定要自动平衡所有策略的权重吗？\n\n每个策略将获得相等的资金分配。",
             "确认",
             MessageBoxButton.YesNo,
@@ -228,7 +228,7 @@ public partial class StrategyPortfolioView : UserControl
                 await _portfolioManager.StartStrategyAsync(strategyId);
                 UpdateUI();
 
-                var strategy = _strategies.FirstOrDefault(s => s.Id == strategyId);
+                StrategyRow? strategy = _strategies.FirstOrDefault(s => s.Id == strategyId);
                 MessageBox.Show($"策略 '{strategy?.Name}' 已启动！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -250,7 +250,7 @@ public partial class StrategyPortfolioView : UserControl
                 _portfolioManager.StopStrategy(strategyId);
                 UpdateUI();
 
-                var strategy = _strategies.FirstOrDefault(s => s.Id == strategyId);
+                StrategyRow? strategy = _strategies.FirstOrDefault(s => s.Id == strategyId);
                 MessageBox.Show($"策略 '{strategy?.Name}' 已停止！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -276,13 +276,13 @@ public partial class StrategyPortfolioView : UserControl
     {
         if (sender is Button btn && btn.Tag is string strategyId)
         {
-            var strategy = _strategies.FirstOrDefault(s => s.Id == strategyId);
+            StrategyRow? strategy = _strategies.FirstOrDefault(s => s.Id == strategyId);
             if (strategy == null)
             {
                 return;
             }
 
-            var result = MessageBox.Show(
+            MessageBoxResult result = MessageBox.Show(
                 $"确定要删除策略 '{strategy.Name}' 吗？",
                 "确认删除",
                 MessageBoxButton.YesNo,

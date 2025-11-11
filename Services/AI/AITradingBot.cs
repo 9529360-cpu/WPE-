@@ -85,10 +85,10 @@ public class AITradingBot
     public async Task<AITradingSignal> AnalyzeOnceAsync(string symbol, CancellationToken ct = default)
     {
         // 1. 收集市场数据
-        var marketData = await _dataProcessor.CollectMarketDataAsync(symbol, ct);
+        MarketDataSnapshot marketData = await _dataProcessor.CollectMarketDataAsync(symbol, ct);
 
         // 2. AI分析
-        var signal = await _aiAgent.AnalyzeMarketSituationAsync(marketData, ct);
+        AITradingSignal signal = await _aiAgent.AnalyzeMarketSituationAsync(marketData, ct);
 
         StartupDiagnostics.Log($"AITradingBot: {symbol} 分析完成 - {signal.Action} (信心度: {signal.Confidence:P0})");
 
@@ -107,16 +107,16 @@ public class AITradingBot
             try
             {
                 // 1. 收集数据
-                var marketData = await _dataProcessor.CollectMarketDataAsync(symbol, ct);
+                MarketDataSnapshot marketData = await _dataProcessor.CollectMarketDataAsync(symbol, ct);
 
                 // 2. AI分析
-                var signal = await _aiAgent.AnalyzeMarketSituationAsync(marketData, ct);
+                AITradingSignal signal = await _aiAgent.AnalyzeMarketSituationAsync(marketData, ct);
 
                 // 3. 风控检查
                 if (_riskManager.ApproveSignal(signal))
                 {
                     // 4. 执行交易
-                    var result = await ExecuteTradeAsync(signal, ct);
+                    TradeExecutionResult result = await ExecuteTradeAsync(signal, ct);
 
                     // 5. 记录绩效
                     _performanceTracker.RecordSignal(signal, result);

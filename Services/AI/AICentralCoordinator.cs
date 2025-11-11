@@ -165,11 +165,11 @@ public class AICentralCoordinator : IDisposable
             while (!ct.IsCancellationRequested)
             {
                 // 1. 收集全系统状态
-                var systemState = await CollectSystemStateAsync(ct);
+                SystemState systemState = await CollectSystemStateAsync(ct);
                 _stateManager.UpdateState(systemState);
 
                 // 2. AI决策分析
-                var decisions = await _decisionEngine.AnalyzeAsync(systemState, ct);
+                AIDecision decisions = await _decisionEngine.AnalyzeAsync(systemState, ct);
 
                 LogService.Debug("[AICentralCoordinator] AI决策: {Decision}", decisions.PrimaryAction);
 
@@ -180,7 +180,7 @@ public class AICentralCoordinator : IDisposable
                 await _learningModule.UpdateKnowledgeAsync(systemState, decisions, ct);
 
                 // 5. 等待下一个周期（根据当前阶段调整）
-                var interval = GetControlLoopInterval();
+                TimeSpan interval = GetControlLoopInterval();
                 await Task.Delay(interval, ct);
             }
         }
@@ -222,19 +222,19 @@ public class AICentralCoordinator : IDisposable
         try
         {
             // 收集市场状态
-            var marketCondition = await CollectMarketConditionAsync(ct);
+            MarketCondition marketCondition = await CollectMarketConditionAsync(ct);
 
             // 收集账户状态
-            var accountStatus = CollectAccountStatus();
+            AccountStatus accountStatus = CollectAccountStatus();
 
             // 收集策略状态
-            var strategyStatus = await CollectStrategyStatusAsync(ct);
+            StrategyStatus strategyStatus = await CollectStrategyStatusAsync(ct);
 
             // 收集风险指标
-            var riskMetrics = await CollectRiskMetricsAsync(ct);
+            RiskMetrics riskMetrics = await CollectRiskMetricsAsync(ct);
 
             // 收集系统资源
-            var systemResources = CollectSystemResources();
+            SystemResources systemResources = CollectSystemResources();
 
             return new SystemState
             {
@@ -263,7 +263,7 @@ public class AICentralCoordinator : IDisposable
         // 简化实现：基于BTC价格波动
         try
         {
-            var klines = await _apiClient.GetKlineClosesAsync("BTCUSDT", "1h", 24, ct);
+            IReadOnlyList<decimal> klines = await _apiClient.GetKlineClosesAsync("BTCUSDT", "1h", 24, ct);
             double[] prices = klines.Select(k => (double)k).ToArray();
 
             double volatility = CalculateVolatility(prices);
@@ -295,7 +295,7 @@ public class AICentralCoordinator : IDisposable
     /// </summary>
     private AccountStatus CollectAccountStatus()
     {
-        var account = _accountManager.ActiveAccount;
+        TradingAccount? account = _accountManager.ActiveAccount;
 
         if (account == null)
         {
@@ -352,7 +352,7 @@ public class AICentralCoordinator : IDisposable
     {
         await Task.CompletedTask;
 
-        var account = _accountManager.ActiveAccount;
+        TradingAccount? account = _accountManager.ActiveAccount;
         if (account == null)
         {
             return new RiskMetrics
@@ -470,7 +470,7 @@ public class AICentralCoordinator : IDisposable
             evt.StrategyName, evt.TotalReturn, evt.SharpeRatio);
 
         // AI评估回测结果
-        var evaluation = _decisionEngine.EvaluateBacktestResult(evt);
+        BacktestEvaluation evaluation = _decisionEngine.EvaluateBacktestResult(evt);
 
         if (evaluation.ShouldProceedToSimulation)
         {
@@ -490,7 +490,7 @@ public class AICentralCoordinator : IDisposable
     private async Task OnSimulationUpdate(SimulationUpdateEvent evt)
     {
         // AI监控模拟交易表现
-        var evaluation = _decisionEngine.EvaluateSimulationPerformance(evt);
+        SimulationEvaluation evaluation = _decisionEngine.EvaluateSimulationPerformance(evt);
 
         if (evaluation.ShouldProceedToLive)
         {
@@ -510,7 +510,7 @@ public class AICentralCoordinator : IDisposable
     private async Task OnLiveTrade(LiveTradeEvent evt)
     {
         // AI实时监控实盘交易
-        var evaluation = _decisionEngine.EvaluateLivePerformance(evt);
+        LiveEvaluation evaluation = _decisionEngine.EvaluateLivePerformance(evt);
 
         if (evaluation.ShouldAdjustStrategy)
         {
@@ -605,7 +605,7 @@ public class AICentralCoordinator : IDisposable
             {
                 // TODO: 从配置中获取交易对列表
                 string[] symbols = new[] { "BTCUSDT" };
-                var accountType = _accountManager.ActiveAccount?.Type ?? AccountType.Simulated;
+                AccountType accountType = _accountManager.ActiveAccount?.Type ?? AccountType.Simulated;
                 await _tradingAutomation.StartAsync(symbols, accountType);
             }
 
@@ -676,7 +676,7 @@ public class AICentralCoordinator : IDisposable
             await _positionManager.CloseAllPositionsAsync("账户重置");
 
             // 重置账户（如果是模拟账户）
-            var account = _accountManager.ActiveAccount;
+            TradingAccount? account = _accountManager.ActiveAccount;
             if (account != null && account.Type == AccountType.Simulated)
             {
                 // 创建新的模拟账户

@@ -154,7 +154,7 @@ public class ApiHealthMonitor
     /// </remarks>
     public ApiHealthReport GetHealthReport(TimeSpan? window = null)
     {
-        var cutoff = window.HasValue ? DateTime.UtcNow - window.Value : DateTime.MinValue;
+        DateTime cutoff = window.HasValue ? DateTime.UtcNow - window.Value : DateTime.MinValue;
         var recentMetrics = _metrics.Where(m => m.Timestamp >= cutoff).ToList();
 
         if (recentMetrics.Count == 0)
@@ -180,7 +180,7 @@ public class ApiHealthMonitor
         var p95Latency = TimeSpan.FromMilliseconds(durations[(int)(durations.Length * HealthMonitorConstants.P95_PERCENTILE)]);
         var p99Latency = TimeSpan.FromMilliseconds(durations[(int)(durations.Length * HealthMonitorConstants.P99_PERCENTILE)]);
 
-        var errors = recentMetrics
+        ErrorSummary[] errors = recentMetrics
             .Where(m => !m.Success && m.ErrorMessage != null)
             .GroupBy(m => m.ErrorMessage)
             .Select(g => new ErrorSummary
@@ -216,7 +216,7 @@ public class ApiHealthMonitor
     /// <returns>端点统计列表,按调用次数降序排列</returns>
     public IReadOnlyList<EndpointStats> GetEndpointStats(TimeSpan? window = null)
     {
-        var cutoff = window.HasValue ? DateTime.UtcNow - window.Value : DateTime.MinValue;
+        DateTime cutoff = window.HasValue ? DateTime.UtcNow - window.Value : DateTime.MinValue;
         var recentMetrics = _metrics.Where(m => m.Timestamp >= cutoff).ToList();
 
         return recentMetrics

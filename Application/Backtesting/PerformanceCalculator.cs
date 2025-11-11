@@ -80,7 +80,7 @@ public class PerformanceCalculator
         var equity = new List<double> { initialCapital };
         double currentEquity = initialCapital;
 
-        foreach (var trade in trades)
+        foreach (BacktestTrade trade in trades)
         {
             currentEquity += trade.NetPnL;
             equity.Add(currentEquity);
@@ -267,7 +267,7 @@ public class PerformanceCalculator
     {
         int maxWins = 0, currentWins = 0;
 
-        foreach (var trade in trades)
+        foreach (BacktestTrade trade in trades)
         {
             if (trade.NetPnL > 0)
             {
@@ -290,7 +290,7 @@ public class PerformanceCalculator
     {
         int maxLosses = 0, currentLosses = 0;
 
-        foreach (var trade in trades)
+        foreach (BacktestTrade trade in trades)
         {
             if (trade.NetPnL <= 0)
             {

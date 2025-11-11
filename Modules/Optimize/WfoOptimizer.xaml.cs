@@ -44,7 +44,7 @@ public partial class WfoOptimizer : UserControl
         // 更新最佳参数显示
         if (_results.Count > 0)
         {
-            var best = _results[0];
+            OptimizationResult best = _results[0];
             BestFastMaText.Text = best.FastMa.ToString();
             BestSlowMaText.Text = best.SlowMa.ToString();
             BestSharpeText.Text = best.SharpeRatio.ToString("F2");

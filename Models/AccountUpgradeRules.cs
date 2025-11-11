@@ -295,7 +295,7 @@ public class AccountUpgradeResult
             详细检查:
             """;
 
-        foreach (var item in CheckItems)
+        foreach (UpgradeCheckItem item in CheckItems)
         {
             report += $"\n{item.Name}: {item.Value}\n  {item.Message}\n";
         }

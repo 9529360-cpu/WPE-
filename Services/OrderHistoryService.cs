@@ -50,13 +50,13 @@ public class OrderHistoryService
     public async Task UpdateOrderStatusAsync(string orderId, string status, double filledQty, double? avgPrice, DateTime updateTime)
     {
         // 先查询现有订单
-        var existing = await _cache.LoadOrdersAsync(limit: 1); // 简化版,实际需按orderId查询
+        IReadOnlyList<OrderHistoryRecord> existing = await _cache.LoadOrdersAsync(limit: 1); // 简化版,实际需按orderId查询
         if (existing.Count == 0)
         {
             return;
         }
 
-        var order = existing[0];
+        OrderHistoryRecord order = existing[0];
         var updated = new OrderHistoryRecord
         {
             OrderId = orderId,
@@ -92,7 +92,7 @@ public class OrderHistoryService
     /// </summary>
     public async Task<StrategyStats> GetStrategyStatsAsync(string strategyName, string? symbol = null)
     {
-        var orders = await _cache.LoadOrdersAsync(symbol, 1000);
+        IReadOnlyList<OrderHistoryRecord> orders = await _cache.LoadOrdersAsync(symbol, 1000);
         var strategyOrders = orders.Where(o => o.StrategyName == strategyName && o.Status == "FILLED").ToList();
 
         int totalTrades = strategyOrders.Count;

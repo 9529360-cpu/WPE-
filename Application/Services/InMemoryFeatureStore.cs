@@ -12,7 +12,7 @@ public class InMemoryFeatureStore : IFeatureStore
 
     public ValueTask<IReadOnlyDictionary<string, double>> GetLatestAsync(string symbol, CancellationToken cancellationToken = default)
     {
-        if (_features.TryGetValue(symbol, out var features))
+        if (_features.TryGetValue(symbol, out IReadOnlyDictionary<string, double>? features))
         {
             return ValueTask.FromResult(features);
         }

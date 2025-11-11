@@ -53,7 +53,7 @@ public sealed class StrategyPortfolioManager
     {
         lock (_lock)
         {
-            if (_strategies.Remove(strategyId, out var strategy))
+            if (_strategies.Remove(strategyId, out StrategyInstance? strategy))
             {
                 if (strategy.IsRunning)
                 {
@@ -71,7 +71,7 @@ public sealed class StrategyPortfolioManager
     {
         lock (_lock)
         {
-            if (!_strategies.TryGetValue(strategyId, out var strategy))
+            if (!_strategies.TryGetValue(strategyId, out StrategyInstance? strategy))
             {
                 throw new InvalidOperationException($"策略 {strategyId} 不存在");
             }
@@ -96,7 +96,7 @@ public sealed class StrategyPortfolioManager
     {
         lock (_lock)
         {
-            if (!_strategies.TryGetValue(strategyId, out var strategy))
+            if (!_strategies.TryGetValue(strategyId, out StrategyInstance? strategy))
             {
                 return;
             }
@@ -114,7 +114,7 @@ public sealed class StrategyPortfolioManager
     {
         lock (_lock)
         {
-            if (!_strategies.TryGetValue(strategyId, out var strategy))
+            if (!_strategies.TryGetValue(strategyId, out StrategyInstance? strategy))
             {
                 throw new InvalidOperationException($"策略 {strategyId} 不存在");
             }
@@ -257,7 +257,7 @@ public sealed class StrategyPortfolioManager
             }
 
             double equalWeight = 1.0 / count;
-            foreach (var strategy in _strategies.Values)
+            foreach (StrategyInstance strategy in _strategies.Values)
             {
                 strategy.Weight = equalWeight;
             }

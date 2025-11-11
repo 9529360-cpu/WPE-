@@ -22,8 +22,8 @@ public sealed class DailyLossLimitRule : IRiskRule
 
     public RiskRuleResult Evaluate(in PositionSnapshot snapshot)
     {
-        var today = DateTime.UtcNow.Date;
-        var tracker = _trackers.GetOrAdd(today.ToString("yyyy-MM-dd"), _ => new DailyPnlTracker(today));
+        DateTime today = DateTime.UtcNow.Date;
+        DailyPnlTracker tracker = _trackers.GetOrAdd(today.ToString("yyyy-MM-dd"), _ => new DailyPnlTracker(today));
 
         // 检查是否需要重置(新的一天)
         if (tracker.Date != today)
@@ -60,7 +60,7 @@ public sealed class DailyLossLimitRule : IRiskRule
     public double GetTodayPnl()
     {
         string today = DateTime.UtcNow.Date.ToString("yyyy-MM-dd");
-        return _trackers.TryGetValue(today, out var tracker) ? tracker.TotalPnl : 0;
+        return _trackers.TryGetValue(today, out DailyPnlTracker? tracker) ? tracker.TotalPnl : 0;
     }
 }
 

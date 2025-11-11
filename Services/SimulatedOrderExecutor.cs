@@ -138,8 +138,8 @@ public class SimulatedOrderExecutor
     {
         try
         {
-            var tickers = await _apiClient.GetMiniTickersAsync(new[] { symbol }, ct);
-            var ticker = tickers.FirstOrDefault();
+            IReadOnlyList<TickerQuote> tickers = await _apiClient.GetMiniTickersAsync(new[] { symbol }, ct);
+            TickerQuote? ticker = tickers.FirstOrDefault();
             return ticker?.LastPrice ?? 0;
         }
         catch

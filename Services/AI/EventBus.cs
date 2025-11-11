@@ -33,7 +33,7 @@ public class EventBus : IDisposable
     /// </summary>
     public void Subscribe<T>(Func<T, Task> handler) where T : class
     {
-        var eventType = typeof(T);
+        Type eventType = typeof(T);
 
         _subscribers.AddOrUpdate(
             eventType,
@@ -52,18 +52,18 @@ public class EventBus : IDisposable
     /// </summary>
     public async Task PublishAsync<T>(T eventData) where T : class
     {
-        var eventType = typeof(T);
+        Type eventType = typeof(T);
 
         // 记录事件
         RecordEvent(eventType, eventData);
 
         // 通知订阅者
-        if (_subscribers.TryGetValue(eventType, out var handlers))
+        if (_subscribers.TryGetValue(eventType, out List<Func<object, Task>>? handlers))
         {
             LogService.Debug("[EventBus] 发布事件: {EventType}, 订阅者数={Count}",
                 eventType.Name, handlers.Count);
 
-            var tasks = handlers.Select(handler =>
+            IEnumerable<Task> tasks = handlers.Select(handler =>
             {
                 try
                 {

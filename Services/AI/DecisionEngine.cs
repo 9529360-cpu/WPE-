@@ -38,13 +38,13 @@ public class DecisionEngine
         try
         {
             // 1. 基于规则的初步决策
-            var ruleBasedDecision = ApplyRules(state);
+            (DecisionAction Action, double Confidence, string Reason) ruleBasedDecision = ApplyRules(state);
 
             // 2. 基于历史学习的优化
-            var optimizedDecision = await _learningModule.OptimizeDecisionAsync(ruleBasedDecision, state, ct);
+            (DecisionAction Action, double Confidence, string Reason) optimizedDecision = await _learningModule.OptimizeDecisionAsync(ruleBasedDecision, state, ct);
 
             // 3. 风险评估
-            var riskAssessment = AssessRisk(state);
+            (RiskLevel Level, string Reason) riskAssessment = AssessRisk(state);
 
             // 4. 生成最终决策
             var decision = new AIDecision
@@ -283,7 +283,7 @@ public class DecisionEngine
         // 按优先级排序
         var sortedRules = _rules.OrderBy(r => r.Priority).ToList();
 
-        foreach (var rule in sortedRules)
+        foreach (DecisionRule? rule in sortedRules)
         {
             if (rule.Condition(state))
             {
@@ -339,7 +339,7 @@ public class DecisionEngine
             reasons.Add("系统资源紧张");
         }
 
-        var level = riskScore switch
+        RiskLevel level = riskScore switch
         {
             < 0.3 => RiskLevel.Low,
             < 0.6 => RiskLevel.Medium,

@@ -123,8 +123,8 @@ public partial class UnifiedDashboardView : UserControl
     {
         try
         {
-            var simAccount = _accountManager.SimulatedAccount;
-            var liveAccount = _accountManager.LiveAccount;
+            TradingAccount? simAccount = _accountManager.SimulatedAccount;
+            TradingAccount? liveAccount = _accountManager.LiveAccount;
 
             if (simAccount != null)
             {
@@ -205,7 +205,7 @@ public partial class UnifiedDashboardView : UserControl
             return;
         }
 
-        var result = MessageBox.Show(
+        MessageBoxResult result = MessageBox.Show(
             "确定要启动AI自动交易吗？\n\n" +
             "✅ 当前账户: 模拟账户\n" +
             $"💰 可用资金: {_accountManager.SimulatedAccount?.AvailableBalance:F2} USDT\n\n" +
@@ -276,7 +276,7 @@ public partial class UnifiedDashboardView : UserControl
             return;
         }
 
-        var result = MessageBox.Show(
+        MessageBoxResult result = MessageBox.Show(
             "确定要停止AI交易吗？\n\n当前持仓将保留。",
             "确认停止",
             MessageBoxButton.YesNo,

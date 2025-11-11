@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -73,8 +74,8 @@ public class BinanceApiClient : IDisposable
             query["symbol"] = symbol.ToUpperInvariant();
         }
 
-        var fundingRates = await SendPublicAsync<List<FundingRateDto>>(HttpMethod.Get, "/fapi/v1/fundingRate", query, cancellationToken).ConfigureAwait(false);
-        var markPrices = await SendPublicAsync<List<MarkPriceDto>>(HttpMethod.Get, "/fapi/v1/premiumIndex", symbol is null ? null : new Dictionary<string, string?> { ["symbol"] = symbol.ToUpperInvariant() }, cancellationToken).ConfigureAwait(false);
+        List<FundingRateDto> fundingRates = await SendPublicAsync<List<FundingRateDto>>(HttpMethod.Get, "/fapi/v1/fundingRate", query, cancellationToken).ConfigureAwait(false);
+        List<MarkPriceDto> markPrices = await SendPublicAsync<List<MarkPriceDto>>(HttpMethod.Get, "/fapi/v1/premiumIndex", symbol is null ? null : new Dictionary<string, string?> { ["symbol"] = symbol.ToUpperInvariant() }, cancellationToken).ConfigureAwait(false);
         var markMap = markPrices.ToDictionary(m => m.Symbol, m => m);
 
         return fundingRates
@@ -86,7 +87,7 @@ public class BinanceApiClient : IDisposable
 
     public async Task<IReadOnlyList<TickerQuote>> GetMiniTickersAsync(IEnumerable<string>? symbols = null, CancellationToken cancellationToken = default)
     {
-        var tickers = await SendPublicAsync<List<TickerDto>>(HttpMethod.Get, "/fapi/v1/ticker/24hr", null, cancellationToken).ConfigureAwait(false);
+        List<TickerDto> tickers = await SendPublicAsync<List<TickerDto>>(HttpMethod.Get, "/fapi/v1/ticker/24hr", null, cancellationToken).ConfigureAwait(false);
         HashSet<string>? filter = null;
         if (symbols is not null)
         {
@@ -102,14 +103,14 @@ public class BinanceApiClient : IDisposable
     public async Task<IReadOnlyList<AccountBalance>> GetAccountBalancesAsync(CancellationToken cancellationToken = default)
     {
         EnsureSigned();
-        var account = await SendSignedAsync<AccountDto>(HttpMethod.Get, "/fapi/v2/account", null, cancellationToken).ConfigureAwait(false);
+        AccountDto account = await SendSignedAsync<AccountDto>(HttpMethod.Get, "/fapi/v2/account", null, cancellationToken).ConfigureAwait(false);
         return account.Assets.Select(MapBalance).Where(b => b.WalletBalance != 0 || b.AvailableBalance != 0).ToArray();
     }
 
     public async Task<IReadOnlyList<PositionSnapshot>> GetPositionsAsync(CancellationToken cancellationToken = default)
     {
         EnsureSigned();
-        var account = await SendSignedAsync<AccountDto>(HttpMethod.Get, "/fapi/v2/account", null, cancellationToken).ConfigureAwait(false);
+        AccountDto account = await SendSignedAsync<AccountDto>(HttpMethod.Get, "/fapi/v2/account", null, cancellationToken).ConfigureAwait(false);
         return account.Positions
             .Where(p => decimal.TryParse(p.PositionAmt, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal qty) && qty != 0)
             .Select(MapPosition)
@@ -125,28 +126,28 @@ public class BinanceApiClient : IDisposable
             query["symbol"] = symbol.ToUpperInvariant();
         }
 
-        var orders = await SendSignedAsync<List<OrderDto>>(HttpMethod.Get, "/fapi/v1/openOrders", query, cancellationToken).ConfigureAwait(false);
+        List<OrderDto> orders = await SendSignedAsync<List<OrderDto>>(HttpMethod.Get, "/fapi/v1/openOrders", query, cancellationToken).ConfigureAwait(false);
         return orders.Select(MapOrderResponse).ToArray();
     }
 
     public async Task<OrderResponse> PlaceOrderAsync(OrderRequest request, CancellationToken cancellationToken = default)
     {
         EnsureSigned();
-        var query = BuildOrderPayload(request);
-        var order = await SendSignedAsync<OrderDto>(HttpMethod.Post, "/fapi/v1/order", query, cancellationToken).ConfigureAwait(false);
+        Dictionary<string, string?> query = BuildOrderPayload(request);
+        OrderDto order = await SendSignedAsync<OrderDto>(HttpMethod.Post, "/fapi/v1/order", query, cancellationToken).ConfigureAwait(false);
         return MapOrderResponse(order);
     }
 
     public async Task<IReadOnlyList<OrderResponse>> PlaceBatchOrdersAsync(BatchOrderRequest batch, CancellationToken cancellationToken = default)
     {
         EnsureSigned();
-        var payload = batch.Orders.Select(BuildOrderPayload).ToArray();
+        Dictionary<string, string?>[] payload = batch.Orders.Select(BuildOrderPayload).ToArray();
         var query = new Dictionary<string, string?>
         {
             ["batchOrders"] = JsonSerializer.Serialize(payload)
         };
 
-        var orders = await SendSignedAsync<List<OrderDto>>(HttpMethod.Post, "/fapi/v1/batchOrders", query, cancellationToken).ConfigureAwait(false);
+        List<OrderDto> orders = await SendSignedAsync<List<OrderDto>>(HttpMethod.Post, "/fapi/v1/batchOrders", query, cancellationToken).ConfigureAwait(false);
         return orders.Select(MapOrderResponse).ToArray();
     }
 
@@ -158,7 +159,7 @@ public class BinanceApiClient : IDisposable
             ["symbol"] = symbol.ToUpperInvariant(),
             ["orderId"] = orderId.ToString(CultureInfo.InvariantCulture)
         };
-        var order = await SendSignedAsync<OrderDto>(HttpMethod.Delete, "/fapi/v1/order", query, cancellationToken).ConfigureAwait(false);
+        OrderDto order = await SendSignedAsync<OrderDto>(HttpMethod.Delete, "/fapi/v1/order", query, cancellationToken).ConfigureAwait(false);
         return MapOrderResponse(order);
     }
 
@@ -171,7 +172,7 @@ public class BinanceApiClient : IDisposable
             ["limit"] = limit.ToString(CultureInfo.InvariantCulture)
         };
 
-        var trades = await SendSignedAsync<List<UserTradeDto>>(HttpMethod.Get, "/fapi/v1/userTrades", query, cancellationToken).ConfigureAwait(false);
+        List<UserTradeDto> trades = await SendSignedAsync<List<UserTradeDto>>(HttpMethod.Get, "/fapi/v1/userTrades", query, cancellationToken).ConfigureAwait(false);
         return trades.Select(MapTrade).ToArray();
     }
 
@@ -276,19 +277,19 @@ public class BinanceApiClient : IDisposable
         // 检查熔断器
         if (!_circuitBreaker.AllowRequest())
         {
-            var retry = _circuitBreaker.TimeUntilRetry();
+            TimeSpan? retry = _circuitBreaker.TimeUntilRetry();
             throw new InvalidOperationException($"API熔断中,{retry?.TotalSeconds:F0}秒后自动恢复");
         }
 
         Exception? lastException = null;
-        var startTime = DateTime.UtcNow;
+        DateTime startTime = DateTime.UtcNow;
 
         for (int attempt = 0; attempt <= RetryDelays.Length; attempt++)
         {
             try
             {
-                using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-                var duration = DateTime.UtcNow - startTime;
+                using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                TimeSpan duration = DateTime.UtcNow - startTime;
 
                 // 🆕 429 速率限制错误,需要重试
                 if (response.StatusCode == (HttpStatusCode)429)
@@ -297,7 +298,7 @@ public class BinanceApiClient : IDisposable
 
                     if (attempt < RetryDelays.Length)
                     {
-                        var delay = RetryDelays[attempt];
+                        TimeSpan delay = RetryDelays[attempt];
                         StartupDiagnostics.Log($"API RateLimit: {endpoint}, 等待 {delay.TotalSeconds}s 重试 (attempt {attempt + 1})");
                         await Task.Delay(delay, cancellationToken);
                         continue;
@@ -313,7 +314,7 @@ public class BinanceApiClient : IDisposable
 
                     if (attempt < RetryDelays.Length)
                     {
-                        var delay = RetryDelays[attempt];
+                        TimeSpan delay = RetryDelays[attempt];
                         StartupDiagnostics.Log($"API ServerError: {endpoint} {response.StatusCode}, 等待 {delay.TotalSeconds}s 重试");
                         await Task.Delay(delay, cancellationToken);
                         continue;
@@ -335,7 +336,7 @@ public class BinanceApiClient : IDisposable
                 }
                 else
                 {
-                    await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                    await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
                     data = await JsonSerializer.DeserializeAsync<T>(stream, _serializerOptions, cancellationToken).ConfigureAwait(false)
                         ?? throw new InvalidOperationException("Failed to deserialize Binance response");
                 }
@@ -352,16 +353,16 @@ public class BinanceApiClient : IDisposable
             catch (Exception ex) when (attempt < RetryDelays.Length)
             {
                 lastException = ex;
-                var duration = DateTime.UtcNow - startTime;
+                TimeSpan duration = DateTime.UtcNow - startTime;
                 _healthMonitor.RecordCall(endpoint, false, duration, ex.Message);
 
-                var delay = RetryDelays[attempt];
+                TimeSpan delay = RetryDelays[attempt];
                 StartupDiagnostics.Log($"API Exception: {endpoint} - {ex.Message}, 等待 {delay.TotalSeconds}s 重试");
                 await Task.Delay(delay, cancellationToken);
             }
             catch (Exception ex)
             {
-                var duration = DateTime.UtcNow - startTime;
+                TimeSpan duration = DateTime.UtcNow - startTime;
                 _healthMonitor.RecordCall(endpoint, false, duration, ex.Message);
                 _circuitBreaker.RecordFailure();
                 throw;
@@ -412,8 +413,8 @@ public class BinanceApiClient : IDisposable
 
     private static FundingRateSnapshot MapFunding(string symbol, FundingRateDto[] rates, IDictionary<string, MarkPriceDto> markMap)
     {
-        var latest = rates.First();
-        markMap.TryGetValue(symbol, out var mark);
+        FundingRateDto latest = rates.First();
+        markMap.TryGetValue(symbol, out MarkPriceDto? mark);
         var history = rates.OrderBy(r => r.FundingTime).Select(r => new FundingHistoryPoint
         {
             Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(r.FundingTime).UtcDateTime,

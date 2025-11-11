@@ -84,7 +84,7 @@ public class RateLimiter
     /// </remarks>
     public async Task WaitForRestApiAsync(int weight = 1, CancellationToken ct = default)
     {
-        var bucket = GetBucket(
+        TokenBucket bucket = GetBucket(
             RateLimitConstants.REST_API_CATEGORY,
             RateLimitConstants.REST_API_CAPACITY,
             RateLimitConstants.REST_API_REFILL_RATE
@@ -102,7 +102,7 @@ public class RateLimiter
     /// </remarks>
     public async Task WaitForOrderApiAsync(CancellationToken ct = default)
     {
-        var bucket = GetBucket(
+        TokenBucket bucket = GetBucket(
             RateLimitConstants.ORDER_API_CATEGORY,
             RateLimitConstants.ORDER_API_CAPACITY,
             RateLimitConstants.ORDER_API_REFILL_RATE
@@ -118,7 +118,7 @@ public class RateLimiter
     /// <returns>true表示成功获取并消费令牌,false表示令牌不足</returns>
     public bool TryConsume(string category, int tokens = 1)
     {
-        return _buckets.TryGetValue(category, out var bucket) && bucket.TryConsume(tokens);
+        return _buckets.TryGetValue(category, out TokenBucket? bucket) && bucket.TryConsume(tokens);
     }
 
     /// <summary>
@@ -128,7 +128,7 @@ public class RateLimiter
     /// <returns>可用令牌数,如果类别不存在返回0</returns>
     public int GetAvailableTokens(string category)
     {
-        return _buckets.TryGetValue(category, out var bucket) ? bucket.AvailableTokens : 0;
+        return _buckets.TryGetValue(category, out TokenBucket? bucket) ? bucket.AvailableTokens : 0;
     }
 
     /// <summary>
@@ -262,7 +262,7 @@ internal class TokenBucket
     /// </summary>
     private void Refill()
     {
-        var now = DateTime.UtcNow;
+        DateTime now = DateTime.UtcNow;
         double elapsed = (now - _lastRefill).TotalSeconds;
 
         if (elapsed >= 1.0 / _refillRate)

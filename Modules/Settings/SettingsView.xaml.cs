@@ -112,7 +112,7 @@ public partial class SettingsView : UserControl
     /// </summary>
     private void ResetConfig_Click(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show(
+        MessageBoxResult result = MessageBox.Show(
             "确定要重置所有配置到默认值吗?\n\n此操作不可撤销!",
             "确认重置",
             MessageBoxButton.YesNo,

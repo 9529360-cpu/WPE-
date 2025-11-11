@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using ScottPlot;
+using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 
 namespace 币安量化机器人.Modules.Research;
@@ -24,7 +25,7 @@ public partial class BacktestView : UserControl
     {
         try
         {
-            var tickers = await _api.GetMiniTickersAsync();
+            IReadOnlyList<TickerQuote> tickers = await _api.GetMiniTickersAsync();
             SymbolBox.ItemsSource = tickers.Select(t => t.Symbol).OrderBy(s => s).ToList();
             if (SymbolBox.Items.Count > 0)
             {
@@ -65,7 +66,7 @@ public partial class BacktestView : UserControl
             double[] slowSma = MovingAverage(closes, slow);
             double[] equity = Simulate(closes, fastSma, slowSma, initialCapital);
 
-            var plt = EquityPlot.Plot;
+            Plot plt = EquityPlot.Plot;
             plt.Clear();
             plt.Add.Signal(equity);
             plt.Title($"{symbol} {interval} 双均线策略");

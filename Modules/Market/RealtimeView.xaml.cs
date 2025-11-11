@@ -10,6 +10,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using ScottPlot;
+using ScottPlot.Plottables;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 
@@ -61,8 +62,8 @@ public partial class RealtimeView : UserControl
     private async Task LoadInitialAsync()
     {
         _quotes.Clear();
-        var tickers = await _api.GetMiniTickersAsync(cancellationToken: CancellationToken.None);
-        foreach (var quote in tickers.OrderByDescending(q => q.Volume).Take(120))
+        IReadOnlyList<TickerQuote> tickers = await _api.GetMiniTickersAsync(cancellationToken: CancellationToken.None);
+        foreach (TickerQuote? quote in tickers.OrderByDescending(q => q.Volume).Take(120))
         {
             quote.AddPricePoint(quote.LastPrice);
             _quotes.Add(quote);
@@ -110,7 +111,7 @@ public partial class RealtimeView : UserControl
     {
         Dispatcher.Invoke(() =>
         {
-            var quote = _quotes.FirstOrDefault(q => string.Equals(q.Symbol, update.Symbol, StringComparison.OrdinalIgnoreCase));
+            TickerQuote? quote = _quotes.FirstOrDefault(q => string.Equals(q.Symbol, update.Symbol, StringComparison.OrdinalIgnoreCase));
             if (quote is null)
             {
                 return;
@@ -171,7 +172,7 @@ public partial class RealtimeView : UserControl
     {
         if (SymbolSelector.SelectedValue is string symbol)
         {
-            var quote = _quotes.FirstOrDefault(q => q.Symbol == symbol);
+            TickerQuote? quote = _quotes.FirstOrDefault(q => q.Symbol == symbol);
             if (quote is not null)
             {
                 QuotesGrid.SelectedItem = quote;
@@ -206,7 +207,7 @@ public partial class RealtimeView : UserControl
                 HistoryPoints = 240
             };
 
-            var result = await _aiService.ForecastAsync(request).ConfigureAwait(true);
+            ForecastResult result = await _aiService.ForecastAsync(request).ConfigureAwait(true);
 
             if (result != null)
             {
@@ -259,7 +260,7 @@ public partial class RealtimeView : UserControl
     private void RenderHistory(TickerQuote quote)
     {
         double[] history = quote.PriceHistory.ToArray();
-        var plt = PricePlot.Plot;
+        Plot plt = PricePlot.Plot;
         plt.Clear();
 
         if (history.Length == 0)
@@ -272,7 +273,7 @@ public partial class RealtimeView : UserControl
         double[] xs = Enumerable.Range(0, history.Length).Select(i => (double)i).ToArray();
         double[] ys = history;
 
-        var scatter = plt.Add.Scatter(xs, ys);
+        Scatter scatter = plt.Add.Scatter(xs, ys);
         scatter.LineWidth = 2;
 
         plt.Title($"{quote.Symbol} 最新 {history.Length} 笔 Tick");

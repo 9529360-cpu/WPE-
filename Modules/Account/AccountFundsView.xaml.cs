@@ -19,7 +19,7 @@ public partial class AccountFundsView : UserControl
         InitializeComponent();
 
         // 初始化服务
-        var cacheService = ServiceLocator.Cache;
+        DataCacheService cacheService = ServiceLocator.Cache;
         _accountManager = new TradingAccountManager(cacheService);
 
         // 如果没有账户,创建默认账户 (初始资金100 USDT)
@@ -43,7 +43,7 @@ public partial class AccountFundsView : UserControl
         try
         {
             // 更新模拟账户
-            var simAccount = _accountManager.SimulatedAccount;
+            TradingAccount? simAccount = _accountManager.SimulatedAccount;
             if (simAccount != null)
             {
                 if (SimNetValueText != null)
@@ -158,11 +158,11 @@ public partial class AccountFundsView : UserControl
             // 调用 Binance API 获取账户余额
             LogService.Info("[AccountFundsView] 正在从 Binance API 加载真实账户数据...");
 
-            var binanceClient = ServiceLocator.Api;
-            var balances = await binanceClient.GetAccountBalancesAsync();
+            BinanceApiClient binanceClient = ServiceLocator.Api;
+            IReadOnlyList<AccountBalance> balances = await binanceClient.GetAccountBalancesAsync();
 
             // 计算总资金
-            var usdtBalance = balances.FirstOrDefault(b => b.Asset == "USDT");
+            AccountBalance? usdtBalance = balances.FirstOrDefault(b => b.Asset == "USDT");
             if (usdtBalance != null)
             {
                 decimal netValue = usdtBalance.WalletBalance;
@@ -265,9 +265,9 @@ public partial class AccountFundsView : UserControl
     {
         _upgradeRules.Clear();
 
-        var upgradeResult = _accountManager.CanUpgradeToLive();
+        AccountUpgradeResult upgradeResult = _accountManager.CanUpgradeToLive();
 
-        foreach (var check in upgradeResult.CheckItems)
+        foreach (UpgradeCheckItem check in upgradeResult.CheckItems)
         {
             _upgradeRules.Add(new UpgradeRuleItem
             {
@@ -301,7 +301,7 @@ public partial class AccountFundsView : UserControl
     {
         UpdateUpgradeRules();
 
-        var upgradeResult = _accountManager.CanUpgradeToLive();
+        AccountUpgradeResult upgradeResult = _accountManager.CanUpgradeToLive();
 
         string message = upgradeResult.CanUpgrade
             ? "🎉 恭喜!您已满足所有升级条件,可以升级到真实账户!"
@@ -316,7 +316,7 @@ public partial class AccountFundsView : UserControl
     /// </summary>
     private void Upgrade_Click(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show(
+        MessageBoxResult result = MessageBox.Show(
             "确定要升级到真实账户吗?\n\n升级后将可以使用真实资金进行交易。",
             "确认升级",
             MessageBoxButton.YesNo,
@@ -331,7 +331,7 @@ public partial class AccountFundsView : UserControl
             {
                 if (decimal.TryParse(dialog.InputValue, out decimal initialBalance))
                 {
-                    var (success, message, _) = _accountManager.UpgradeToLive(initialBalance);
+                    (bool success, string? message, TradingAccount _) = _accountManager.UpgradeToLive(initialBalance);
 
                     if (success)
                     {

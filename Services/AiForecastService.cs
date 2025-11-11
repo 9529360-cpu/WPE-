@@ -26,8 +26,8 @@ public class AiForecastService
             throw new FileNotFoundException("未找到 LSTM 模型权重文件", modelPath);
         }
 
-        using var stream = File.OpenRead(modelPath);
-        var definition = JsonSerializer.Deserialize<LstmModelDefinition>(stream, new JsonSerializerOptions
+        using FileStream stream = File.OpenRead(modelPath);
+        LstmModelDefinition? definition = JsonSerializer.Deserialize<LstmModelDefinition>(stream, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         });
@@ -50,7 +50,7 @@ public class AiForecastService
 
     public async Task<ForecastResult> ForecastAsync(ForecastRequest request, CancellationToken cancellationToken = default)
     {
-        var closes = await _apiClient.GetKlineClosesAsync(request.Symbol, request.Interval, request.HistoryPoints, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<decimal> closes = await _apiClient.GetKlineClosesAsync(request.Symbol, request.Interval, request.HistoryPoints, cancellationToken).ConfigureAwait(false);
         await _cacheService.SavePricesAsync(request.Symbol, closes);
 
         double[] history = closes.Select(c => (double)c).ToArray();
@@ -61,7 +61,7 @@ public class AiForecastService
 
         double last = history[^1];
         double[] normalized = history.Select(v => (v - last) / last).ToArray();
-        var forecastNormalized = _model.Forecast(normalized, request.Horizon);
+        IReadOnlyList<double> forecastNormalized = _model.Forecast(normalized, request.Horizon);
         double[] predicted = forecastNormalized.Select(delta => last * (1 + delta)).ToArray();
 
         double[] returns = history.Zip(history.Skip(1), (prev, next) => Math.Log(next / prev)).ToArray();
@@ -69,7 +69,7 @@ public class AiForecastService
         double expectedVolatility = returns.Length == 0 ? 0 : Math.Sqrt(returns.Select(r => Math.Pow(r - expectedReturn, 2)).Average());
         double predictedRisk = forecastNormalized.Select(Math.Abs).DefaultIfEmpty().Average();
 
-        var confInterval = ComputeConfidenceIntervals(predicted, expectedVolatility);
+        (IReadOnlyList<double> Upper, IReadOnlyList<double> Lower) confInterval = ComputeConfidenceIntervals(predicted, expectedVolatility);
 
         return new ForecastResult
         {
@@ -114,7 +114,7 @@ public class LstmModelDefinition
             throw new InvalidOperationException("模型未包含任何 LSTM 层");
         }
 
-        var states = Layers.Select(l => new LstmState(l.HiddenSize)).ToArray();
+        LstmState[] states = Layers.Select(l => new LstmState(l.HiddenSize)).ToArray();
         double[] current = new double[] { inputs[0] };
         for (int i = 0; i < inputs.Count; i++)
         {

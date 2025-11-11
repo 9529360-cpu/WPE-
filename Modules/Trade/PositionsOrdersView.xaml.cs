@@ -23,7 +23,7 @@ public partial class PositionsOrdersView : UserControl
         InitializeComponent();
 
         // 初始化服务
-        var cacheService = ServiceLocator.Cache;
+        DataCacheService cacheService = ServiceLocator.Cache;
 
         _accountManager = new TradingAccountManager(cacheService);
 
@@ -46,7 +46,7 @@ public partial class PositionsOrdersView : UserControl
     /// </summary>
     private void LoadData()
     {
-        var account = _accountManager.ActiveAccount;
+        TradingAccount? account = _accountManager.ActiveAccount;
         if (account == null)
         {
             return;
@@ -54,7 +54,7 @@ public partial class PositionsOrdersView : UserControl
 
         // 加载持仓
         _positions.Clear();
-        foreach (var pos in account.Positions.Where(p => p.Status == PositionStatus.Open))
+        foreach (Position? pos in account.Positions.Where(p => p.Status == PositionStatus.Open))
         {
             _positions.Add(pos);
         }
@@ -62,7 +62,7 @@ public partial class PositionsOrdersView : UserControl
         // 加载订单
         _allOrders.Clear();
         _filteredOrders.Clear();
-        foreach (var order in account.OrderHistory)
+        foreach (Order order in account.OrderHistory)
         {
             _allOrders.Add(order);
             _filteredOrders.Add(order);
@@ -77,7 +77,7 @@ public partial class PositionsOrdersView : UserControl
     /// </summary>
     private void UpdateStatistics()
     {
-        var account = _accountManager.ActiveAccount;
+        TradingAccount? account = _accountManager.ActiveAccount;
         if (account == null)
         {
             return;
@@ -157,7 +157,7 @@ public partial class PositionsOrdersView : UserControl
                 _ => _allOrders
             };
 
-            foreach (var order in filtered)
+            foreach (Order order in filtered)
             {
                 _filteredOrders.Add(order);
             }
@@ -171,7 +171,7 @@ public partial class PositionsOrdersView : UserControl
     {
         if (sender is Button button && button.DataContext is Position position)
         {
-            var result = MessageBox.Show(
+            MessageBoxResult result = MessageBox.Show(
                 $"确定要平仓 {position.Symbol} {position.Side} {position.Quantity:F4} 吗?\n当前盈亏: {position.UnrealizedPnL:F2} USDT",
                 "确认平仓",
                 MessageBoxButton.YesNo,

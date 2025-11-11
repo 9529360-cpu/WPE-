@@ -44,7 +44,7 @@ public sealed class GeneticAlgorithmOptimizer
             populationSize, generations, mutationRate);
 
         // 1. 初始化种群
-        var population = InitializePopulation(parameterSpace, populationSize);
+        List<Individual> population = InitializePopulation(parameterSpace, populationSize);
         var bestIndividual = new Individual();
         double bestFitness = double.MinValue;
         var history = new List<GenerationStats>();
@@ -104,9 +104,9 @@ public sealed class GeneticAlgorithmOptimizer
             // 繁殖新个体
             while (newPopulation.Count < populationSize)
             {
-                var parent1 = SelectParent(population);
-                var parent2 = SelectParent(population);
-                var child = Crossover(parent1, parent2, parameterSpace);
+                Individual parent1 = SelectParent(population);
+                Individual parent2 = SelectParent(population);
+                Individual child = Crossover(parent1, parent2, parameterSpace);
                 Mutate(child, parameterSpace, mutationRate);
                 newPopulation.Add(child);
             }
@@ -138,7 +138,7 @@ public sealed class GeneticAlgorithmOptimizer
         {
             var genes = new Dictionary<string, double>();
 
-            foreach (var (name, range) in parameterSpace)
+            foreach ((string? name, ParameterRange? range) in parameterSpace)
             {
                 genes[name] = GenerateRandomValue(range);
             }
@@ -156,7 +156,7 @@ public sealed class GeneticAlgorithmOptimizer
         List<Individual> population,
         Func<Dictionary<string, double>, Task<double>> fitnessFunction)
     {
-        var tasks = population.Select(async individual =>
+        IEnumerable<Task> tasks = population.Select(async individual =>
         {
             if (individual.Fitness == 0) // 未评估过
             {
@@ -214,7 +214,7 @@ public sealed class GeneticAlgorithmOptimizer
         Dictionary<string, ParameterRange> parameterSpace,
         double mutationRate)
     {
-        foreach (var (name, range) in parameterSpace)
+        foreach ((string? name, ParameterRange? range) in parameterSpace)
         {
             if (_random.NextDouble() < mutationRate)
             {

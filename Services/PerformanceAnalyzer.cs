@@ -33,7 +33,7 @@ public sealed class PerformanceAnalyzer
     /// </summary>
     public async Task<PerformanceReport> GenerateReportAsync(AccountType accountType = AccountType.Simulated)
     {
-        var account = accountType == AccountType.Simulated
+        TradingAccount? account = accountType == AccountType.Simulated
             ? _accountManager.SimulatedAccount
             : _accountManager.LiveAccount;
 
@@ -72,7 +72,7 @@ public sealed class PerformanceAnalyzer
         double expectancy = CalculateExpectancy(winRate, avgWin, avgLoss);
 
         // 5. 净值曲线
-        var equityCurve = await GenerateEquityCurveAsync(account);
+        List<EquityPoint> equityCurve = await GenerateEquityCurveAsync(account);
 
         return new PerformanceReport
         {
@@ -120,7 +120,7 @@ public sealed class PerformanceAnalyzer
     /// </summary>
     private async Task<double> CalculateDailyReturnAsync(TradingAccount account)
     {
-        var today = DateTime.Today;
+        DateTime today = DateTime.Today;
         decimal yesterdayNetValue = await GetNetValueAtDateAsync(account, today.AddDays(-1));
 
         if (yesterdayNetValue == 0)
@@ -136,7 +136,7 @@ public sealed class PerformanceAnalyzer
     /// </summary>
     private async Task<double> CalculateWeeklyReturnAsync(TradingAccount account)
     {
-        var lastWeek = DateTime.Today.AddDays(-7);
+        DateTime lastWeek = DateTime.Today.AddDays(-7);
         decimal lastWeekNetValue = await GetNetValueAtDateAsync(account, lastWeek);
 
         if (lastWeekNetValue == 0)
@@ -152,7 +152,7 @@ public sealed class PerformanceAnalyzer
     /// </summary>
     private async Task<double> CalculateMonthlyReturnAsync(TradingAccount account)
     {
-        var lastMonth = DateTime.Today.AddDays(-30);
+        DateTime lastMonth = DateTime.Today.AddDays(-30);
         decimal lastMonthNetValue = await GetNetValueAtDateAsync(account, lastMonth);
 
         if (lastMonthNetValue == 0)
@@ -183,7 +183,7 @@ public sealed class PerformanceAnalyzer
     /// </summary>
     private async Task<double> CalculateSharpeRatioAsync(TradingAccount account)
     {
-        var returns = await GetDailyReturnsAsync(account);
+        List<double> returns = await GetDailyReturnsAsync(account);
         if (returns.Count < 2)
         {
             return 0;
@@ -206,7 +206,7 @@ public sealed class PerformanceAnalyzer
     /// </summary>
     private async Task<double> CalculateSortinoRatioAsync(TradingAccount account)
     {
-        var returns = await GetDailyReturnsAsync(account);
+        List<double> returns = await GetDailyReturnsAsync(account);
         if (returns.Count < 2)
         {
             return 0;
@@ -249,8 +249,8 @@ public sealed class PerformanceAnalyzer
 
         // 暂时返回模拟数据
         var curve = new List<EquityPoint>();
-        var startDate = account.CreatedAt;
-        var currentDate = DateTime.UtcNow;
+        DateTime startDate = account.CreatedAt;
+        DateTime currentDate = DateTime.UtcNow;
         int days = (currentDate - startDate).Days;
 
         if (days < 1)
@@ -264,7 +264,7 @@ public sealed class PerformanceAnalyzer
 
         for (int i = 0; i <= days; i++)
         {
-            var date = startDate.AddDays(i);
+            DateTime date = startDate.AddDays(i);
             double netValue = initialBalance + dailyChange * i;
 
             curve.Add(new EquityPoint

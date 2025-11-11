@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using ScottPlot;
+using ScottPlot.Plottables;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 
@@ -43,11 +44,11 @@ public partial class FundingView : UserControl
         try
         {
             StatusText.Text = "状态：正在同步 Binance 资金费率...";
-            var data = await _api.GetFundingRatesAsync(limit: 96, cancellationToken: CancellationToken.None);
+            IReadOnlyList<FundingRateSnapshot> data = await _api.GetFundingRatesAsync(limit: 96, cancellationToken: CancellationToken.None);
             await _cache.SaveFundingRatesAsync(data);
 
             _items.Clear();
-            foreach (var item in data)
+            foreach (FundingRateSnapshot item in data)
             {
                 _items.Add(item);
             }
@@ -111,7 +112,7 @@ public partial class FundingView : UserControl
     {
         DetailTitle.Text = $"{snapshot.Pair} · 最新资金率 {snapshot.LastFundingRate:P4}";
 
-        var remaining = snapshot.TimeUntilNextFunding;
+        TimeSpan remaining = snapshot.TimeUntilNextFunding;
         string remainingText = remaining.TotalSeconds <= 0
             ? "已过最近结算窗口"
             : remaining.TotalHours > 24
@@ -135,11 +136,11 @@ public partial class FundingView : UserControl
 
     private void RenderHistory(FundingRateSnapshot snapshot)
     {
-        var history = snapshot.History
+        FundingHistoryPoint[] history = snapshot.History
             .OrderBy(h => h.Timestamp)
             .ToArray();
 
-        var plt = FundingPlot.Plot;
+        Plot plt = FundingPlot.Plot;
         plt.Clear();
 
         if (history.Length == 0)
@@ -152,7 +153,7 @@ public partial class FundingView : UserControl
         double[] xs = Enumerable.Range(0, history.Length).Select(i => (double)i).ToArray();
         double[] ys = history.Select(h => h.FundingRate).ToArray();
 
-        var scatter = plt.Add.Scatter(xs, ys);
+        Scatter scatter = plt.Add.Scatter(xs, ys);
         scatter.LineWidth = 2;
         scatter.MarkerSize = 4;
         scatter.MarkerShape = MarkerShape.FilledCircle;

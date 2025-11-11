@@ -1,6 +1,5 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -16,54 +15,39 @@ namespace 币安量化机器人.Modules.AI
     /// </summary>
     public partial class AICentralCoordinatorView : UserControl
     {
-        private AICentralCoordinator _coordinator;
+        private readonly AICentralCoordinator _coordinator;
+        private readonly ObservableCollection<string> _logMessages = new();
         private readonly DispatcherTimer _refreshTimer;
-        private readonly ObservableCollection<string> _logMessages;
 
         public AICentralCoordinatorView()
         {
             InitializeComponent();
 
-            _logMessages = new ObservableCollection<string>();
+            // 从 ServiceLocator 获取协调器
+            _coordinator = ServiceLocator.GetAICentralCoordinator();
+
             LogListBox.ItemsSource = _logMessages;
 
-            // 初始化定时器
+            // 设置定时器（每2秒刷新一次）
             _refreshTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromSeconds(2)
             };
             _refreshTimer.Tick += RefreshTimer_Tick;
+            _refreshTimer.Start();
 
-            Loaded += AICentralCoordinatorView_Loaded;
-        }
+            // 订阅事件
+            SubscribeToEvents();
 
-        private void AICentralCoordinatorView_Loaded(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                // 获取中央协调器实例
-                _coordinator = ServiceLocator.GetAICentralCoordinator();
+            // 初始化UI
+            RefreshUI();
 
-                // 订阅事件
-                SubscribeToEvents();
-
-                // 启动定时刷新
-                _refreshTimer.Start();
-
-                // 初始刷新
-                RefreshUI();
-
-                AddLog("✅ 中央AI协调器视图已加载");
-            }
-            catch (Exception ex)
-            {
-                AddLog($"❌ 加载失败: {ex.Message}");
-            }
+            AddLog("✅ [AICentralCoordinatorView] UI初始化完成");
         }
 
         private void SubscribeToEvents()
         {
-            var eventBus = _coordinator.EventBus;
+            EventBus eventBus = _coordinator.EventBus;
 
             // 阶段切换事件
             eventBus.Subscribe<StageTransitionEvent>(async evt =>
@@ -134,8 +118,8 @@ namespace 币安量化机器人.Modules.AI
 
             try
             {
-                var state = _coordinator.CurrentState;
-                var stage = _coordinator.CurrentStage;
+                SystemState state = _coordinator.CurrentState;
+                WorkflowStage stage = _coordinator.CurrentStage;
 
                 // 工作流阶段
                 StageIcon.Text = stage.GetIcon();

@@ -195,7 +195,7 @@ public class CostCalculator
             : quantity * (entryPrice - exitPrice);
 
         // 总成本
-        var cost = CalculateTotalCost(
+        TradingCost cost = CalculateTotalCost(
             quantity, entryPrice, entryIsMaker,
             quantity, exitPrice, exitIsMaker,
             holdingHours

@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using ScottPlot;
+using ScottPlot.Plottables;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 using WpfColor = System.Windows.Media.Color; // 🔧 添加别名避免冲突
@@ -66,7 +67,7 @@ public partial class PerformanceDashboardView : UserControl
             }
 
             // 生成绩效报告
-            var report = await _performanceAnalyzer.GenerateReportAsync(_currentAccountType);
+            PerformanceReport report = await _performanceAnalyzer.GenerateReportAsync(_currentAccountType);
 
             // 更新UI (添加空检查)
             if (report != null)
@@ -195,7 +196,7 @@ public partial class PerformanceDashboardView : UserControl
     {
         try
         {
-            var plt = EquityPlot.Plot;
+            Plot plt = EquityPlot.Plot;
             plt.Clear();
 
             if (!report.EquityCurve.Any())
@@ -212,14 +213,14 @@ public partial class PerformanceDashboardView : UserControl
             double[] positions = report.EquityCurve.Select(p => p.PositionValue).ToArray();
 
             // 绘制净值曲线 (主线)
-            var netValueLine = plt.Add.Scatter(dates, netValues);
+            Scatter netValueLine = plt.Add.Scatter(dates, netValues);
             netValueLine.LineWidth = 3;
             netValueLine.Color = ScottPlot.Color.FromHex("#3B82F6");
             netValueLine.LegendText = "净值";
             netValueLine.MarkerSize = 0;
 
             // 绘制余额曲线
-            var balanceLine = plt.Add.Scatter(dates, balances);
+            Scatter balanceLine = plt.Add.Scatter(dates, balances);
             balanceLine.LineWidth = 2;
             balanceLine.Color = ScottPlot.Color.FromHex("#10B981");
             balanceLine.LegendText = "可用余额";
@@ -227,7 +228,7 @@ public partial class PerformanceDashboardView : UserControl
             balanceLine.LinePattern = LinePattern.Dotted;
 
             // 绘制持仓价值
-            var positionLine = plt.Add.Scatter(dates, positions);
+            Scatter positionLine = plt.Add.Scatter(dates, positions);
             positionLine.LineWidth = 2;
             positionLine.Color = ScottPlot.Color.FromHex("#F59E0B");
             positionLine.LegendText = "持仓价值";

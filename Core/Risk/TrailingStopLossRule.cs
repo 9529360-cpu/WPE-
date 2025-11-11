@@ -24,7 +24,7 @@ public sealed class TrailingStopLossRule : IRiskRule
     public RiskRuleResult Evaluate(in PositionSnapshot snapshot)
     {
         string key = snapshot.Symbol;
-        var state = _states.GetOrAdd(key, _ => new TrailingStopState());
+        TrailingStopState state = _states.GetOrAdd(key, _ => new TrailingStopState());
 
         double currentPrice = snapshot.CurrentPrice;
         double entryPrice = snapshot.EntryPrice;
@@ -93,7 +93,7 @@ public sealed class TrailingStopLossRule : IRiskRule
     /// </summary>
     public TrailingStopState? GetState(string symbol)
     {
-        return _states.TryGetValue(symbol, out var state) ? state : null;
+        return _states.TryGetValue(symbol, out TrailingStopState? state) ? state : null;
     }
 }
 

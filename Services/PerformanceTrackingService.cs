@@ -50,14 +50,14 @@ public class PerformanceTrackingService
     /// </summary>
     public async Task<StrategyPerformanceReport?> GetPerformanceReportAsync(string strategyName, string symbol)
     {
-        var perf = await _cache.LoadStrategyPerformanceAsync(strategyName, symbol);
+        StrategyPerformanceRecord? perf = await _cache.LoadStrategyPerformanceAsync(strategyName, symbol);
         if (perf == null)
         {
             return null;
         }
 
         // 加载最近100笔订单计算详细指标
-        var orders = await _cache.LoadOrdersAsync(symbol, 100);
+        IReadOnlyList<OrderHistoryRecord> orders = await _cache.LoadOrdersAsync(symbol, 100);
         var strategyOrders = orders
             .Where(o => o.StrategyName == strategyName && o.Status == "FILLED")
             .OrderBy(o => o.CreatedAt)
@@ -106,7 +106,7 @@ public class PerformanceTrackingService
             : 0;
 
         // 计算连续胜/负次数
-        var (maxConsecutiveWins, maxConsecutiveLosses) = CalculateStreaks(strategyOrders);
+        (int maxConsecutiveWins, int maxConsecutiveLosses) = CalculateStreaks(strategyOrders);
 
         // 计算平均持仓时间
         double avgHoldingTime = strategyOrders
@@ -136,7 +136,7 @@ public class PerformanceTrackingService
         int currentWins = 0, currentLosses = 0;
         int maxWins = 0, maxLosses = 0;
 
-        foreach (var order in orders)
+        foreach (OrderHistoryRecord order in orders)
         {
             if (!order.AvgFillPrice.HasValue || !order.Price.HasValue)
             {

@@ -104,7 +104,7 @@ public class PositionManager
         {
             try
             {
-                var account = _accountManager.ActiveAccount;
+                TradingAccount? account = _accountManager.ActiveAccount;
                 if (account == null)
                 {
                     await Task.Delay(MonitorIntervalMs, ct);
@@ -123,7 +123,7 @@ public class PositionManager
                 }
 
                 // 逐个检查持仓
-                foreach (var position in openPositions)
+                foreach (Position? position in openPositions)
                 {
                     // 1. 更新当前价格
                     await UpdatePositionPriceAsync(position, ct);
@@ -156,8 +156,8 @@ public class PositionManager
     {
         try
         {
-            var tickers = await _apiClient.GetMiniTickersAsync(new[] { position.Symbol }, ct);
-            var ticker = tickers.FirstOrDefault();
+            IReadOnlyList<TickerQuote> tickers = await _apiClient.GetMiniTickersAsync(new[] { position.Symbol }, ct);
+            TickerQuote? ticker = tickers.FirstOrDefault();
 
             if (ticker != null)
             {
@@ -271,7 +271,7 @@ public class PositionManager
             };
 
             // 执行平仓
-            var result = await _executionEngine.ExecuteSignalAsync(closeSignal, ct);
+            OrderExecutionResult result = await _executionEngine.ExecuteSignalAsync(closeSignal, ct);
 
             if (result.IsSuccess)
             {
@@ -282,7 +282,7 @@ public class PositionManager
                 position.RealizedPnL = position.UnrealizedPnL;
 
                 // 更新账户统计
-                var account = _accountManager.ActiveAccount;
+                TradingAccount? account = _accountManager.ActiveAccount;
                 if (account != null)
                 {
                     account.TotalPnL += (decimal)position.RealizedPnL;
@@ -348,7 +348,7 @@ public class PositionManager
     /// </summary>
     public async Task CloseAllPositionsAsync(string reason = "批量平仓")
     {
-        var account = _accountManager.ActiveAccount;
+        TradingAccount? account = _accountManager.ActiveAccount;
         if (account == null)
         {
             return;
@@ -360,7 +360,7 @@ public class PositionManager
 
         LogService.Info("开始平仓所有持仓: 共{Count}个", openPositions.Count);
 
-        foreach (var position in openPositions)
+        foreach (Position? position in openPositions)
         {
             await ClosePositionAsync(position, reason, CancellationToken.None);
         }

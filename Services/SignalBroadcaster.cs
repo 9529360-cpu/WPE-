@@ -99,9 +99,9 @@ public sealed class SignalBroadcaster
 
         // 广播到所有订阅者
         int subscriberCount = 0;
-        foreach (var (subscriberId, callbacks) in _subscribers)
+        foreach ((string? subscriberId, List<Action<TradingSignalEvent>>? callbacks) in _subscribers)
         {
-            foreach (var callback in callbacks)
+            foreach (Action<TradingSignalEvent> callback in callbacks)
             {
                 try
                 {

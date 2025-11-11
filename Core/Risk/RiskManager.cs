@@ -48,7 +48,7 @@ public class RiskManager : IRiskManager
     public void Configure(RiskConfiguration configuration)
     {
         _configuration = configuration;
-        foreach (var rule in _rules)
+        foreach (IRiskRule rule in _rules)
         {
             rule.Configure(configuration);
         }
@@ -56,10 +56,10 @@ public class RiskManager : IRiskManager
 
     public ValueTask UpdateAsync(PositionSnapshot position, CancellationToken cancellationToken = default)
     {
-        foreach (var rule in _rules)
+        foreach (IRiskRule rule in _rules)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var result = rule.Evaluate(position);
+            RiskRuleResult result = rule.Evaluate(position);
             if (!result.Passed)
             {
                 RiskTriggered?.Invoke(this, new RiskEvent(position.Symbol, rule.Name, result.Message ?? "", DateTime.UtcNow));

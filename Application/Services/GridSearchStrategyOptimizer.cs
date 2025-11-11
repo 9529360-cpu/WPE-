@@ -25,8 +25,8 @@ public class GridSearchStrategyOptimizer : IStrategyOptimizer
         await Parallel.ForEachAsync(parameterCombinations, cancellationToken, async (parameters, token) =>
         {
             var strategyParameters = new StrategyParameters(parameters);
-            var clone = CloneStrategy(strategy, strategyParameters);
-            var backtestResult = await request.BacktestEngine.RunAsync(new BacktestRequest(request.Symbol, request.TrainingStart, request.TrainingEnd, clone), token);
+            ITradingStrategy clone = CloneStrategy(strategy, strategyParameters);
+            BacktestResult backtestResult = await request.BacktestEngine.RunAsync(new BacktestRequest(request.Symbol, request.TrainingStart, request.TrainingEnd, clone), token);
             var candidate = new OptimizationCandidate(strategyParameters, backtestResult);
             candidates.Add(candidate);
             double score = backtestResult.Sharpe;
@@ -35,7 +35,7 @@ public class GridSearchStrategyOptimizer : IStrategyOptimizer
         });
 
         _progressChannel.Writer.Complete();
-        var best = candidates.OrderByDescending(c => c.Result.Sharpe).First();
+        OptimizationCandidate best = candidates.OrderByDescending(c => c.Result.Sharpe).First();
         return new OptimizationResult(best.Parameters, best.Result, candidates.OrderByDescending(c => c.Result.Sharpe).ToList());
     }
 
@@ -43,7 +43,7 @@ public class GridSearchStrategyOptimizer : IStrategyOptimizer
     {
         while (await _progressChannel.Reader.WaitToReadAsync(cancellationToken))
         {
-            while (_progressChannel.Reader.TryRead(out var progress))
+            while (_progressChannel.Reader.TryRead(out OptimizationProgress? progress))
             {
                 yield return progress;
             }

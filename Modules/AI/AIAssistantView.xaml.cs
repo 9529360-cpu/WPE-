@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 using 币安量化机器人.Services.AI;
 
@@ -46,7 +47,7 @@ public partial class AIAssistantView : UserControl
     {
         try
         {
-            var aiConfig = ConfigurationService.GetAIConfig();
+            AIConfig aiConfig = ConfigurationService.GetAIConfig();
 
             if (!string.IsNullOrEmpty(aiConfig.DeepSeekApiKey))
             {
@@ -202,7 +203,7 @@ public partial class AIAssistantView : UserControl
 
             if (_aiAgent == null)
             {
-                var aiConfig = ConfigurationService.GetAIConfig();
+                AIConfig aiConfig = ConfigurationService.GetAIConfig();
 
                 string errorMessage = string.IsNullOrEmpty(aiConfig.DeepSeekApiKey)
                     ? "AI引擎未就绪 - DeepSeek API Key 未配置\n\n" +
@@ -354,7 +355,7 @@ public partial class AIAssistantView : UserControl
     /// </summary>
     private string BuildContext()
     {
-        var account = _accountManager.SimulatedAccount ?? _accountManager.LiveAccount;
+        TradingAccount? account = _accountManager.SimulatedAccount ?? _accountManager.LiveAccount;
 
         if (account == null)
         {
@@ -402,27 +403,6 @@ public partial class AIAssistantView : UserControl
             Content = content,
             Time = DateTime.Now.ToString("HH:mm:ss")
         });
-    }
-
-    /// <summary>
-    /// 获取风险等级
-    /// </summary>
-    private string GetRiskLevel(Models.TradingAccount account)
-    {
-        double availableRatio = (double)(account.AvailableBalance / account.NetValue);
-        double absDrawdown = Math.Abs(account.MaxDrawdown);
-
-        if (availableRatio >= 0.7 && absDrawdown <= 0.1)
-        {
-            return "低风险 ✅";
-        }
-
-        if (availableRatio >= 0.5 && absDrawdown <= 0.2)
-        {
-            return "中等风险 ⚠️";
-        }
-
-        return "高风险 ❌";
     }
 }
 

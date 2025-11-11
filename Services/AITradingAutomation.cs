@@ -140,10 +140,10 @@ public class AITradingAutomation
             LogService.Debug("📊 价格更新: {Symbol} {LastPrice}", ticker.Symbol, ticker.LastPrice);
 
             // 1. 收集市场数据
-            var marketData = await _dataProcessor.CollectMarketDataAsync(ticker.Symbol);
+            MarketDataSnapshot marketData = await _dataProcessor.CollectMarketDataAsync(ticker.Symbol);
 
             // 2. AI分析生成信号
-            var signal = await _aiAgent.AnalyzeMarketSituationAsync(marketData);
+            AITradingSignal signal = await _aiAgent.AnalyzeMarketSituationAsync(marketData);
 
             LogService.Info("🧠 AI信号: {Symbol} {Action} 信心度={Confidence:P0} 理由={Reason}",
                 signal.Symbol, signal.Action, signal.Confidence, signal.Reason);
@@ -154,7 +154,7 @@ public class AITradingAutomation
             // 4. 执行交易 (如果不是Hold)
             if (signal.Action != SignalAction.Hold)
             {
-                var result = await _executionEngine.ExecuteSignalAsync(signal);
+                OrderExecutionResult result = await _executionEngine.ExecuteSignalAsync(signal);
 
                 if (result.IsSuccess)
                 {
@@ -187,7 +187,7 @@ public class AITradingAutomation
             return "已停止";
         }
 
-        var account = _accountManager.ActiveAccount;
+        TradingAccount? account = _accountManager.ActiveAccount;
         if (account == null)
         {
             return "无激活账户";
