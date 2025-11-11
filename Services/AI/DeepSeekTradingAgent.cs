@@ -9,12 +9,10 @@ using System.Threading.Tasks;
 
 namespace 币安量化机器人.Services.AI;
 
-/// <summary>
-/// DeepSeek AI 交易代理 - 基于大语言模型的智能交易决策
-/// </summary>
 public class DeepSeekTradingAgent
 {
     private const string BaseUrl = "https://api.deepseek.com/v1/chat/completions";
+    private const string ModelsUrl = "https://api.deepseek.com/v1/models"; // 🆕 for validation
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
     private readonly double _temperature;
@@ -314,6 +312,35 @@ public class DeepSeekTradingAgent
         // 移除百分号和其他符号
         text = text.Replace("%", "").Replace(",", "").Trim();
         return double.TryParse(text, out double result) ? result : 0;
+    }
+
+    /// <summary>
+    /// 🆕 预检访问权限与额度：尝试访问 /v1/models，捕获 401/402 等错误
+    /// </summary>
+    public async Task ValidateAccessAsync(CancellationToken ct = default)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, ModelsUrl);
+        string cleanApiKey = ValidateAndCleanApiKey(_apiKey);
+        req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {cleanApiKey}");
+        req.Headers.TryAddWithoutValidation("Accept", "application/json");
+
+        HttpResponseMessage resp;
+        try
+        {
+            resp = await _httpClient.SendAsync(req, ct);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[DeepSeekTradingAgent] ValidateAccessAsync 请求失败");
+            throw;
+        }
+
+        if (!resp.IsSuccessStatusCode)
+        {
+            string body = await resp.Content.ReadAsStringAsync(ct);
+            string message = $"DeepSeek 访问失败: {(int)resp.StatusCode} {resp.StatusCode} - {body}";
+            throw new HttpRequestException(message);
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 <Window x:Class="币安量化机器人.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="AI 量化交易机器人 · 毛坯框架"
+        Title="Alpha Arena · 量化交易终端"
         MinWidth="1200" MinHeight="800"
         FontFamily="Microsoft YaHei"
         WindowStartupLocation="CenterScreen"
@@ -21,7 +21,7 @@
         <!-- 顶部栏：Padding 放 Border 上 -->
         <Border Grid.Row="0" Grid.ColumnSpan="2" Background="#243B4A" CornerRadius="8" Padding="12">
             <DockPanel LastChildFill="True">
-                <TextBlock Text="AI 智能量化交易终端（毛坯）"
+                <TextBlock Text="Alpha Arena 智能量化终端"
                            Foreground="White" FontSize="18" FontWeight="Bold"
                            VerticalAlignment="Center" DockPanel.Dock="Left"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -38,8 +38,8 @@
                     <TextBlock Text="功能菜单" FontWeight="Bold" FontSize="16" Margin="0,0,0,8"/>
                     <Separator/>
 
-                    <!-- 🚀 统一仪表盘 (推荐) -->
-                    <Button Content="🚀 统一AI仪表盘"       Tag="统一仪表盘"  Margin="0,8,0,0" Height="52" 
+                    <!-- 🚀 仪表盘 (推荐) -->
+                    <Button Content="🚀 统一AI仪表盘"       Tag="仪表盘"  Margin="0,8,0,0" Height="52" 
                             Click="NavButton_Click" 
                             Foreground="White"
                             FontWeight="Bold"

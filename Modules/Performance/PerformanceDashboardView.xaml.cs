@@ -31,34 +31,26 @@ public partial class PerformanceDashboardView : UserControl
         _cacheService = ServiceLocator.Cache;
         _accountManager = new TradingAccountManager(_cacheService);
         _performanceAnalyzer = new PerformanceAnalyzer(_accountManager, _cacheService);
+
+        // 若使用 MVVM，则尝试在加载后初始化 ViewModel
+        this.Loaded += async (_, __) =>
+        {
+            if (DataContext is PerformanceDashboardViewModel vm)
+            {
+                await vm.InitializeAsync();
+            }
+            else
+            {
+                await LoadPerformanceDataAsync(); // 兼容旧逻辑
+            }
+        };
     }
 
-    private async void UserControl_Loaded(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            await LoadPerformanceDataAsync();
-            LogService.Info("[PerformanceDashboardView] 绩效仪表盘已加载");
-        }
-        catch (Exception ex)
-        {
-            LogService.Error(ex, "[PerformanceDashboardView] 加载绩效数据失败");
-            MessageBox.Show($"加载绩效数据失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-    }
-
-    /// <summary>
-    /// 加载绩效数据
-    /// </summary>
     private async System.Threading.Tasks.Task LoadPerformanceDataAsync()
     {
         try
         {
-            // 🔧 添加空检查
-            if (StatusText != null)
-            {
-                StatusText.Text = "正在加载绩效数据...";
-            }
+            // 已移除对 StatusText/AccountTypeCombo 等 x:Name 的直接依赖，保留为 ScottPlot 渲染与导出等逻辑
 
             // 🔧 确保账户存在
             if (_accountManager.SimulatedAccount == null)
@@ -77,232 +69,14 @@ public partial class PerformanceDashboardView : UserControl
             // 生成绩效报告
             PerformanceReport report = await _performanceAnalyzer.GenerateReportAsync(_currentAccountType);
 
-            // 更新UI (添加空检查)
             if (report != null)
             {
-                UpdateSummaryCards(report);
-                UpdateReturnStatistics(report);
-                UpdateTradeStatistics(report);
-                UpdateRiskMetrics(report);
                 RenderEquityCurve(report);
-            }
-            else
-            {
-                LogService.Warning("[PerformanceDashboardView] 绩效报告为空");
-                if (StatusText != null)
-                {
-                    StatusText.Text = "绩效数据不可用";
-                }
-                return;
-            }
-
-            if (StatusText != null)
-            {
-                StatusText.Text = $"绩效数据已更新 - {DateTime.Now:HH:mm:ss}";
             }
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "[PerformanceDashboardView] 加载绩效数据异常");
-            if (StatusText != null)
-            {
-                StatusText.Text = $"加载失败: {ex.Message}";
-            }
-        }
-    }
-
-    /// <summary>
-    /// 更新汇总卡片
-    /// </summary>
-    private void UpdateSummaryCards(PerformanceReport report)
-    {
-        try
-        {
-            // 总收益率
-            if (TotalReturnText != null)
-            {
-                TotalReturnText.Text = $"{report.TotalReturn:P2}";
-                TotalReturnText.Foreground = report.TotalReturn >= 0
-                    ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
-                    : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
-            }
-
-            if (TotalReturnChange != null)
-            {
-                TotalReturnChange.Text = $"本月 {report.MonthlyReturn:+0.00%;-0.00%;0.00%}";
-                TotalReturnChange.Foreground = report.MonthlyReturn >= 0
-                    ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
-                    : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
-            }
-
-            // 夏普比率
-            if (SharpeRatioText != null)
-            {
-                SharpeRatioText.Text = $"{report.SharpeRatio:F2}";
-                SharpeRatioText.Foreground = GetSharpeRatioColor(report.SharpeRatio);
-            }
-
-            if (SharpeRatingText != null)
-            {
-                SharpeRatingText.Text = GetSharpeRatioRating(report.SharpeRatio);
-                SharpeRatingText.Foreground = GetSharpeRatioColor(report.SharpeRatio);
-            }
-
-            // 最大回撤
-            if (MaxDrawdownText != null)
-            {
-                MaxDrawdownText.Text = $"{report.MaxDrawdown:P2}";
-                MaxDrawdownText.Foreground = GetDrawdownColor(report.MaxDrawdown);
-            }
-
-            if (DrawdownStatusText != null)
-            {
-                DrawdownStatusText.Text = GetDrawdownStatus(report.MaxDrawdown);
-                DrawdownStatusText.Foreground = GetDrawdownColor(report.MaxDrawdown);
-            }
-
-            // 胜率
-            if (WinRateText != null)
-            {
-                WinRateText.Text = $"{report.WinRate:P0}";
-                WinRateText.Foreground = report.WinRate >= 0.5
-                    ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
-                    : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
-            }
-
-            if (WinRateStatusText != null)
-            {
-                WinRateStatusText.Text = $"{report.WinningTrades}/{report.TotalTrades} 笔";
-            }
-        }
-        catch (Exception ex)
-        {
-            LogService.Error(ex, "[PerformanceDashboardView] 更新汇总卡片失败");
-        }
-    }
-
-    /// <summary>
-    /// 更新收益率统计
-    /// </summary>
-    private void UpdateReturnStatistics(PerformanceReport report)
-    {
-        try
-        {
-            if (DailyReturnText != null)
-            {
-                DailyReturnText.Text = $"{report.DailyReturn:P2}";
-                DailyReturnText.Foreground = GetReturnColor(report.DailyReturn);
-            }
-
-            if (WeeklyReturnText != null)
-            {
-                WeeklyReturnText.Text = $"{report.WeeklyReturn:P2}";
-                WeeklyReturnText.Foreground = GetReturnColor(report.WeeklyReturn);
-            }
-
-            if (MonthlyReturnText != null)
-            {
-                MonthlyReturnText.Text = $"{report.MonthlyReturn:P2}";
-                MonthlyReturnText.Foreground = GetReturnColor(report.MonthlyReturn);
-            }
-
-            if (AnnualizedReturnText != null)
-            {
-                AnnualizedReturnText.Text = $"{report.AnnualizedReturn:P2}";
-                AnnualizedReturnText.Foreground = GetReturnColor(report.AnnualizedReturn);
-            }
-
-            if (CumulativeReturnText != null)
-            {
-                CumulativeReturnText.Text = $"{report.TotalReturn:P2}";
-                CumulativeReturnText.Foreground = GetReturnColor(report.TotalReturn);
-            }
-        }
-        catch (Exception ex)
-        {
-            LogService.Error(ex, "[PerformanceDashboardView] 更新收益率统计失败");
-        }
-    }
-
-    /// <summary>
-    /// 更新交易统计
-    /// </summary>
-    private void UpdateTradeStatistics(PerformanceReport report)
-    {
-        try
-        {
-            if (TotalTradesText != null)
-            {
-                TotalTradesText.Text = $"{report.TotalTrades} 笔";
-            }
-
-            if (TradeWinRateText != null)
-            {
-                TradeWinRateText.Text = $"{report.WinRate:P0}";
-            }
-
-            if (AvgWinText != null)
-            {
-                AvgWinText.Text = $"{report.AverageWin:F2} USDT";
-            }
-
-            if (AvgLossText != null)
-            {
-                AvgLossText.Text = $"{Math.Abs(report.AverageLoss):F2} USDT";
-            }
-
-            if (ProfitFactorText != null)
-            {
-                ProfitFactorText.Text = $"{report.ProfitFactor:F2}";
-                ProfitFactorText.Foreground = report.ProfitFactor >= 1.5
-                    ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
-                    : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
-            }
-        }
-        catch (Exception ex)
-        {
-            LogService.Error(ex, "[PerformanceDashboardView] 更新交易统计失败");
-        }
-    }
-
-    /// <summary>
-    /// 更新风险指标
-    /// </summary>
-    private void UpdateRiskMetrics(PerformanceReport report)
-    {
-        try
-        {
-            if (RiskSharpeText != null)
-            {
-                RiskSharpeText.Text = $"{report.SharpeRatio:F2}";
-                RiskSharpeText.Foreground = GetSharpeRatioColor(report.SharpeRatio);
-            }
-
-            if (SortinoRatioText != null)
-            {
-                SortinoRatioText.Text = $"{report.SortinoRatio:F2}";
-                SortinoRatioText.Foreground = GetSharpeRatioColor(report.SortinoRatio);
-            }
-
-            if (CalmarRatioText != null)
-            {
-                CalmarRatioText.Text = $"{report.CalmarRatio:F2}";
-                CalmarRatioText.Foreground = report.CalmarRatio >= 1.0
-                    ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
-                    : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
-            }
-
-            if (ExpectancyText != null)
-            {
-                ExpectancyText.Text = $"{report.Expectancy:F2} USDT";
-                ExpectancyText.Foreground = report.Expectancy >= 0
-                    ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
-                    : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
-            }
-        }
-        catch (Exception ex)
-        {
-            LogService.Error(ex, "[PerformanceDashboardView] 更新风险指标失败");
         }
     }
 
@@ -364,7 +138,8 @@ public partial class PerformanceDashboardView : UserControl
             plt.Axes.Bottom.Label.Text = "日期";
             plt.Axes.DateTimeTicksBottom();
             plt.Legend.IsVisible = true;
-            plt.Legend.Location = Alignment.UpperLeft;
+            // ScottPlot v5: use Alignment property
+            plt.Legend.Alignment = Alignment.UpperLeft;
             plt.Grid.MajorLineColor = ScottPlot.Color.FromHex("#E5E7EB");
 
             EquityPlot.Refresh();
@@ -375,127 +150,16 @@ public partial class PerformanceDashboardView : UserControl
         }
     }
 
-    /// <summary>
-    /// 账户类型切换
-    /// </summary>
-    private async void AccountType_Changed(object sender, SelectionChangedEventArgs e)
+    // 保留导出按钮逻辑供 ViewModel 调用，或后续迁移到命令
+    public void ExportCurrentPlot(string path, int w = 1200, int h = 600)
     {
         try
         {
-            if (AccountTypeCombo == null || AccountTypeCombo.SelectedItem == null)
-            {
-                return;
-            }
-
-            if (AccountTypeCombo.SelectedItem is ComboBoxItem item && item.Tag is string tag)
-            {
-                _currentAccountType = tag == "Live" ? AccountType.Live : AccountType.Simulated;
-                await LoadPerformanceDataAsync();
-            }
+            EquityPlot?.Plot.SavePng(path, w, h);
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "[PerformanceDashboardView] 账户类型切换失败");
+            LogService.Warning("导出PNG失败: {0}", ex.Message);
         }
     }
-
-    /// <summary>
-    /// 刷新按钮
-    /// </summary>
-    private async void Refresh_Click(object sender, RoutedEventArgs e)
-    {
-        await LoadPerformanceDataAsync();
-    }
-
-    /// <summary>
-    /// 导出按钮
-    /// </summary>
-    private void Export_Click(object sender, RoutedEventArgs e)
-    {
-        // TODO: 实现导出功能
-        MessageBox.Show("导出功能开发中...", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-    }
-
-    #region 辅助方法
-
-    private Brush GetReturnColor(double returnValue)
-    {
-        return returnValue >= 0
-            ? new SolidColorBrush(WpfColor.FromRgb(16, 185, 129))
-            : new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));
-    }
-
-    private Brush GetSharpeRatioColor(double sharpe)
-    {
-        if (sharpe >= 2.0)
-        {
-            return new SolidColorBrush(WpfColor.FromRgb(16, 185, 129)); // 优秀 - 绿色
-        }
-
-        if (sharpe >= 1.0)
-        {
-            return new SolidColorBrush(WpfColor.FromRgb(59, 130, 246));  // 良好 - 蓝色
-        }
-
-        if (sharpe >= 0)
-        {
-            return new SolidColorBrush(WpfColor.FromRgb(245, 158, 11));    // 一般 - 黄色
-        }
-
-        return new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));                       // 差 - 红色
-    }
-
-    private string GetSharpeRatioRating(double sharpe)
-    {
-        if (sharpe >= 2.0)
-        {
-            return "优秀";
-        }
-
-        if (sharpe >= 1.0)
-        {
-            return "良好";
-        }
-
-        if (sharpe >= 0)
-        {
-            return "一般";
-        }
-
-        return "较差";
-    }
-
-    private Brush GetDrawdownColor(double drawdown)
-    {
-        double absDrawdown = Math.Abs(drawdown);
-        if (absDrawdown <= 0.1)
-        {
-            return new SolidColorBrush(WpfColor.FromRgb(16, 185, 129)); // 良好
-        }
-
-        if (absDrawdown <= 0.2)
-        {
-            return new SolidColorBrush(WpfColor.FromRgb(245, 158, 11));  // 一般
-        }
-
-        return new SolidColorBrush(WpfColor.FromRgb(239, 68, 68));                            // 较差
-    }
-
-    private string GetDrawdownStatus(double drawdown)
-    {
-        double absDrawdown = Math.Abs(drawdown);
-        if (absDrawdown <= 0.1)
-        {
-            return "良好";
-        }
-
-        if (absDrawdown <= 0.2)
-        {
-            return "警告";
-        }
-
-        return "危险";
-    }
-
-    #endregion
 }

@@ -1,7 +1,13 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using 币安量化机器人.Services;
+using 币安量化机器人.Core.Models;
+using ProgressModel = 币安量化机器人.Core.Models.OptimizationProgress;
+using WFOptimizationResult = 币安量化机器人.Core.Models.OptimizationResult;
+using BacktestResultModel = 币安量化机器人.Core.Models.BacktestResult;
 
 namespace 币安量化机器人.Modules.Optimize;
 
@@ -55,11 +61,10 @@ public partial class WfoOptimizer : UserControl
     /// <summary>
     /// 启动优化
     /// </summary>
-    private void StartOptimization_Click(object sender, RoutedEventArgs e)
+    private async void StartOptimization_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            // 验证输入
             if (!ValidateInputs())
             {
                 return;
@@ -67,14 +72,79 @@ public partial class WfoOptimizer : UserControl
 
             StatusText.Text = "📊 状态: 正在优化参数...";
 
-            // TODO: 调用 WalkForwardOptimizer 进行实际优化
+            // 参数空间
+            int fastMin = int.Parse(FastMaMinInput.Text);
+            int fastMax = int.Parse(FastMaMaxInput.Text);
+            int fastStep = int.Parse(FastMaStepInput.Text);
 
-            MessageBox.Show(
-                "参数优化已启动!\n\n这可能需要几分钟时间,请耐心等待...",
-                "优化启动",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information
-            );
+            var fastValues = Enumerable.Range(0, (fastMax - fastMin) / fastStep + 1)
+                .Select(i => (double)(fastMin + i * fastStep))
+                .ToArray();
+
+            var parameterSpace = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IReadOnlyList<double>>
+            {
+                ["ma_fast"] = fastValues,
+                ["ma_slow"] = new double[] { 55, 89, 144 }
+            };
+
+            DateTime end = DateTime.UtcNow;
+            int inSampleDays = int.Parse(InSampleDaysInput.Text);
+            int outSampleDays = int.Parse(OutSampleDaysInput.Text);
+            DateTime start = end.AddDays(-(inSampleDays + outSampleDays) * 4);
+
+            var optimizer = ServiceLocator.WalkForward;
+            var momentumParams = new StrategyParameters(new System.Collections.Generic.Dictionary<string, double>
+            {
+                ["momentum_window"] = 5,
+                ["enter_threshold"] = 0.5,
+                ["base_quantity"] = 1
+            });
+            var strategy = new 币安量化机器人.Core.Strategies.MomentumStrategy(ServiceLocator.Analyzer, momentumParams);
+
+            _results.Clear();
+
+            await foreach (var wf in optimizer.OptimizeAsync(
+                strategy,
+                symbol: "BTCUSDT",
+                start: start,
+                end: end,
+                trainingWindow: TimeSpan.FromDays(inSampleDays),
+                testingWindow: TimeSpan.FromDays(outSampleDays),
+                parameterSpace: parameterSpace))
+            {
+                if (wf.Progress is ProgressModel prog)
+                {
+                    StatusText.Text = $"进度: {prog.Completed}/{prog.Total} - score={prog.Score:F2}";
+                }
+                if (wf.Optimization is WFOptimizationResult opt)
+                {
+                    var m = opt.Metrics;
+                    _results.Add(new OptimizationResult
+                    {
+                        Rank = _results.Count + 1,
+                        FastMa = (int)opt.Parameters.Get("ma_fast", 21),
+                        SlowMa = (int)opt.Parameters.Get("ma_slow", 55),
+                        SharpeRatio = m.Sharpe,
+                        AnnualReturn = m.NetProfit, // 简化替代
+                        MaxDrawdown = m.MaxDrawdown,
+                        WinRate = m.WinRate,
+                        TotalTrades = opt.Candidates.Count
+                    });
+                }
+
+                if (wf.WalkForwardTestResult is BacktestResultModel test)
+                {
+                    OosPerformanceText.Text = $"样本外夏普: {test.Sharpe:F2}  回撤: {test.MaxDrawdown:P2}";
+                }
+            }
+
+            if (_results.Count > 0)
+            {
+                var best = _results.OrderByDescending(r => r.SharpeRatio).First();
+                BestFastMaText.Text = best.FastMa.ToString();
+                BestSlowMaText.Text = best.SlowMa.ToString();
+                BestSharpeText.Text = best.SharpeRatio.ToString("F2");
+            }
 
             StatusText.Text = "📊 状态: 优化完成";
         }

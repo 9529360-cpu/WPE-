@@ -132,7 +132,7 @@ public class PositionManager
                     UpdatePositionPnL(position);
 
                     // 3. 检查是否需要平仓
-                    if (ShouldClosePosition(position, out string? reason))
+                    if (ShouldClosePosition(position, out string? reason) && !string.IsNullOrEmpty(reason))
                     {
                         await ClosePositionAsync(position, reason, ct);
                     }
@@ -194,7 +194,7 @@ public class PositionManager
     /// <summary>
     /// 判断是否应该平仓
     /// </summary>
-    private bool ShouldClosePosition(Position position, out string reason)
+    private bool ShouldClosePosition(Position position, out string? reason)
     {
         // 1. 止损检查
         if (position.StopLoss > 0)
@@ -238,7 +238,7 @@ public class PositionManager
             return true;
         }
 
-        reason = string.Empty;
+        reason = null;
         return false;
     }
 
@@ -306,7 +306,7 @@ public class PositionManager
             else
             {
                 LogService.Error("❌ 平仓失败: {Symbol} {Error}",
-                    position.Symbol, result.Error);
+                    position.Symbol, result.Error ?? string.Empty);
             }
         }
         catch (Exception ex)

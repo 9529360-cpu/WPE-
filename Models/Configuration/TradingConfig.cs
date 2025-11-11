@@ -57,4 +57,26 @@ public class TradingConfig
     /// 最大可接受滑点 (默认0.5%)
     /// </summary>
     public double MaxAcceptableSlippage { get; init; } = 0.005;
+
+    /// <summary>
+    /// 自动驾驶配置
+    /// </summary>
+    public AutopilotConfig Autopilot { get; init; } = new();
+}
+
+public class AutopilotConfig
+{
+    public bool LiveEnabled { get; init; } = false;
+    public double WeightStopThreshold { get; init; } = 0.05;
+    public double DrawdownStopThreshold { get; init; } = 0.25;
+    public int ConsecutiveDrawdownLimit { get; init; } = 3;
+    public OptimizationConfig Optimization { get; init; } = new();
+}
+
+public class OptimizationConfig
+{
+    public int PeriodMinutes { get; init; } = 240;
+    public double MinPerfImprPct { get; init; } = 0.02;
+    public double MinSharpe { get; init; } = 1.2;
+    public double MinVolatilityDropPct { get; init; } = 0.05;
 }

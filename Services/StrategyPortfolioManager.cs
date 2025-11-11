@@ -1,31 +1,25 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using 币安量化机器人.Models;
 
 namespace 币安量化机器人.Services;
 
-/// <summary>
-/// 策略组合管理器
-/// </summary>
-/// <remarks>
-/// 核心功能:
-/// 1. 管理多个策略的并行运行
-/// 2. 资金分配和权重管理
-/// 3. 策略绩效对比分析
-/// 4. 策略启停控制
-/// 5. 组合收益统计
-/// </remarks>
 public sealed class StrategyPortfolioManager
 {
     private readonly TradingAccountManager _accountManager;
     private readonly Dictionary<string, StrategyInstance> _strategies = new();
     private readonly object _lock = new();
+    private readonly string _storagePath;
 
-    public StrategyPortfolioManager(TradingAccountManager accountManager)
+    public StrategyPortfolioManager(TradingAccountManager accountManager, string? storageDirectory = null)
     {
         _accountManager = accountManager;
+        _storagePath = Path.Combine(storageDirectory ?? AppContext.BaseDirectory, "Data", "strategies.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(_storagePath)!);
     }
 
     /// <summary>
@@ -41,9 +35,26 @@ public sealed class StrategyPortfolioManager
             }
 
             _strategies[strategy.Id] = strategy;
-            LogService.Info("[StrategyPortfolio] 策略已添加: {Name} (权重: {Weight:P0})",
-                strategy.Name, strategy.Weight);
+            SaveToDisk();
         }
+        LogService.Info("[StrategyPortfolio] 策略已添加: {Name} (权重: {Weight:P0})", strategy.Name, strategy.Weight);
+    }
+
+    /// <summary>
+    /// 快速创建策略
+    /// </summary>
+    public StrategyInstance CreateStrategy(string name, string type, IEnumerable<string> symbols, double weight)
+    {
+        var s = new StrategyInstance
+        {
+            Name = string.IsNullOrWhiteSpace(name) ? $"策略-{DateTime.Now:HHmmss}" : name,
+            Type = type,
+            Symbols = symbols?.Select(x => x.Trim().ToUpperInvariant()).Where(x => x.Length > 0).Distinct().ToList() ?? new List<string>(),
+            Weight = weight <= 0 || weight > 1 ? 0.25 : weight,
+            Stage = StrategyStage.Idle
+        };
+        AddStrategy(s);
+        return s;
     }
 
     /// <summary>
@@ -67,7 +78,7 @@ public sealed class StrategyPortfolioManager
     /// <summary>
     /// 启动策略
     /// </summary>
-    public async Task StartStrategyAsync(string strategyId)
+    public async Task StartStrategyAsync(string strategyId, StrategyStage stage = StrategyStage.LiveRunning)
     {
         lock (_lock)
         {
@@ -83,8 +94,9 @@ public sealed class StrategyPortfolioManager
 
             strategy.IsRunning = true;
             strategy.StartTime = DateTime.UtcNow;
+            strategy.Stage = stage;
         }
-
+        SaveToDisk();
         await Task.CompletedTask;
         LogService.Info("[StrategyPortfolio] 策略已启动: {Name}", _strategies[strategyId].Name);
     }
@@ -96,14 +108,14 @@ public sealed class StrategyPortfolioManager
     {
         lock (_lock)
         {
-            if (!_strategies.TryGetValue(strategyId, out StrategyInstance? strategy))
+            if (_strategies.TryGetValue(strategyId, out StrategyInstance? strategy))
             {
-                return;
+                strategy.IsRunning = false;
+                strategy.StopTime = DateTime.UtcNow;
+                strategy.Stage = StrategyStage.Idle;
+                SaveToDisk();
+                LogService.Info("[StrategyPortfolio] 策略已停止: {Name}", strategy.Name);
             }
-
-            strategy.IsRunning = false;
-            strategy.StopTime = DateTime.UtcNow;
-            LogService.Info("[StrategyPortfolio] 策略已停止: {Name}", strategy.Name);
         }
     }
 
@@ -125,8 +137,32 @@ public sealed class StrategyPortfolioManager
             }
 
             strategy.Weight = weight;
+            SaveToDisk();
             LogService.Info("[StrategyPortfolio] 策略权重已更新: {Name} -> {Weight:P0}",
                 strategy.Name, weight);
+        }
+    }
+
+    /// <summary>
+    /// 进度与阶段上报
+    /// </summary>
+    public void UpdateProgress(string strategyId, long processedBars, long? targetBars = null, StrategyStage? stage = null)
+    {
+        lock (_lock)
+        {
+            if (!_strategies.TryGetValue(strategyId, out StrategyInstance? s))
+            {
+                return;
+            }
+            s.ProcessedBars = processedBars;
+            if (targetBars.HasValue)
+            {
+                s.TargetBars = targetBars.Value;
+            }
+            if (stage.HasValue)
+            {
+                s.Stage = stage.Value;
+            }
         }
     }
 
@@ -149,6 +185,17 @@ public sealed class StrategyPortfolioManager
         lock (_lock)
         {
             return _strategies.Values.Where(s => s.IsRunning).ToList();
+        }
+    }
+
+    /// <summary>
+    /// 获取特定账户类型的策略
+    /// </summary>
+    public IReadOnlyList<StrategyInstance> GetStrategies(AccountType accountType)
+    {
+        lock (_lock)
+        {
+            return _strategies.Values.Where(s => s.AccountType == accountType).ToList();
         }
     }
 
@@ -181,37 +228,6 @@ public sealed class StrategyPortfolioManager
         }
     }
 
-    /// <summary>
-    /// 获取组合统计
-    /// </summary>
-    public PortfolioStats GetPortfolioStats()
-    {
-        lock (_lock)
-        {
-            decimal totalReturn = CalculatePortfolioReturn();
-            double sharpeRatio = CalculatePortfolioSharpe();
-            int totalTrades = _strategies.Values.Sum(s => s.TotalTrades);
-            double winRate = totalTrades > 0
-                ? _strategies.Values.Sum(s => s.WinningTrades) / (double)totalTrades
-                : 0;
-
-            return new PortfolioStats
-            {
-                TotalStrategies = _strategies.Count,
-                RunningStrategies = _strategies.Values.Count(s => s.IsRunning),
-                TotalReturn = totalReturn,
-                SharpeRatio = sharpeRatio,
-                TotalTrades = totalTrades,
-                WinRate = winRate,
-                BestPerformer = GetBestPerformer(),
-                WorstPerformer = GetWorstPerformer()
-            };
-        }
-    }
-
-    /// <summary>
-    /// 获取表现最好的策略
-    /// </summary>
     private StrategyInstance? GetBestPerformer()
     {
         return _strategies.Values
@@ -220,9 +236,6 @@ public sealed class StrategyPortfolioManager
             .FirstOrDefault();
     }
 
-    /// <summary>
-    /// 获取表现最差的策略
-    /// </summary>
     private StrategyInstance? GetWorstPerformer()
     {
         return _strategies.Values
@@ -231,21 +244,15 @@ public sealed class StrategyPortfolioManager
             .FirstOrDefault();
     }
 
-    /// <summary>
-    /// 验证权重总和
-    /// </summary>
     public bool ValidateWeights()
     {
         lock (_lock)
         {
             double totalWeight = _strategies.Values.Sum(s => s.Weight);
-            return Math.Abs(totalWeight - 1.0) < 0.01; // 允许 1% 误差
+            return Math.Abs(totalWeight - 1.0) < 0.01;
         }
     }
 
-    /// <summary>
-    /// 自动平衡权重
-    /// </summary>
     public void AutoBalanceWeights()
     {
         lock (_lock)
@@ -265,6 +272,174 @@ public sealed class StrategyPortfolioManager
             LogService.Info("[StrategyPortfolio] 权重已自动平衡: 每个策略 {Weight:P0}", equalWeight);
         }
     }
+
+    public void AdjustWeightsByRisk(double maxWeightReductionPerStep = 0.1)
+    {
+        lock (_lock)
+        {
+            if (_strategies.Count == 0)
+            {
+                return;
+            }
+            double total = 0;
+            foreach (var s in _strategies.Values)
+            {
+                double ddPenalty = Math.Clamp(s.MaxDrawdown, 0, 0.5);
+                double volPenalty = Math.Clamp(s.Volatility, 0, 1.0) * 0.5;
+                double sharpeBoost = Math.Max(0, s.SharpeRatio) / 4.0;
+                double target = s.Weight * (1 + sharpeBoost - ddPenalty - volPenalty);
+                double delta = Math.Clamp(target - s.Weight, -maxWeightReductionPerStep, maxWeightReductionPerStep);
+                s.Weight = Math.Clamp(s.Weight + delta, 0.01, 0.8);
+                total += s.Weight;
+            }
+            foreach (var s in _strategies.Values)
+            {
+                s.Weight /= total;
+            }
+            SaveToDisk();
+        }
+    }
+
+    /// <summary>
+    /// 保存策略组合到磁盘
+    /// </summary>
+    public void SaveToDisk()
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(_strategies.Values, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(_storagePath, json);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "保存策略到磁盘失败");
+        }
+    }
+
+    /// <summary>
+    /// 从磁盘加载策略组合
+    /// </summary>
+    public void LoadFromDisk()
+    {
+        try
+        {
+            if (!File.Exists(_storagePath))
+            {
+                return;
+            }
+
+            var json = File.ReadAllText(_storagePath);
+            var list = JsonSerializer.Deserialize<List<StrategyInstance>>(json) ?? new List<StrategyInstance>();
+            lock (_lock)
+            {
+                _strategies.Clear();
+                foreach (var s in list)
+                {
+                    _strategies[s.Id] = s;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "加载策略失败");
+        }
+    }
+
+    /// <summary>
+    /// 获取组合统计
+    /// </summary>
+    public PortfolioStats GetPortfolioStats()
+    {
+        lock (_lock)
+        {
+            decimal totalReturn = CalculatePortfolioReturn();
+            double sharpeRatio = CalculatePortfolioSharpe();
+            int totalTrades = _strategies.Values.Sum(s => s.TotalTrades);
+            double winRate = totalTrades > 0
+                ? _strategies.Values.Sum(s => s.WinningTrades) / (double)totalTrades
+                : 0;
+
+            // 新增聚合风险指标
+            double portVol = CalculatePortfolioVolatility();
+            double riskUtil = CalculateRiskUtilization();
+
+            return new PortfolioStats
+            {
+                TotalStrategies = _strategies.Count,
+                RunningStrategies = _strategies.Values.Count(s => s.IsRunning),
+                TotalReturn = totalReturn,
+                SharpeRatio = sharpeRatio,
+                TotalTrades = totalTrades,
+                WinRate = winRate,
+                BestPerformer = GetBestPerformer(),
+                WorstPerformer = GetWorstPerformer(),
+                Volatility = portVol,
+                RiskUtilization = riskUtil
+            };
+        }
+    }
+
+    /// <summary>
+    /// 组合年化波动率（加权）
+    /// </summary>
+    public double CalculatePortfolioVolatility()
+    {
+        lock (_lock)
+        {
+            if (_strategies.Count == 0)
+            {
+                return 0;
+            }
+            return _strategies.Values.Sum(s => s.Volatility * s.Weight);
+        }
+    }
+
+    /// <summary>
+    /// 风险利用率 (此处用组合夏普近似)
+    /// </summary>
+    public double CalculateRiskUtilization()
+    {
+        lock (_lock)
+        {
+            double portVol = CalculatePortfolioVolatility();
+            if (portVol <= 1e-9)
+            {
+                return 0;
+            }
+            return CalculatePortfolioSharpe();
+        }
+    }
+
+    // 更新策略绩效快照（供回测/实盘收集后写入）
+    public void UpdatePerformanceSnapshot(string strategyId, decimal totalReturn, double sharpe, double maxDrawdown, int totalTrades, int winningTrades, double? volatility = null)
+    {
+        lock (_lock)
+        {
+            if (!_strategies.TryGetValue(strategyId, out var s))
+            {
+                return;
+            }
+            s.TotalReturn = totalReturn;
+            s.SharpeRatio = sharpe;
+            s.MaxDrawdown = maxDrawdown;
+            s.TotalTrades = totalTrades;
+            s.WinningTrades = winningTrades;
+            if (volatility.HasValue)
+            {
+                s.Volatility = volatility.Value;
+            }
+        }
+        SaveToDisk();
+    }
+}
+
+public enum StrategyStage
+{
+    Idle,
+    Backtesting,
+    Optimizing,
+    PaperRunning,
+    LiveRunning
 }
 
 /// <summary>
@@ -280,6 +455,15 @@ public class StrategyInstance
     public bool IsRunning { get; set; }
     public DateTime? StartTime { get; set; }
     public DateTime? StopTime { get; set; }
+
+    // 账户分区
+    public AccountType AccountType { get; set; } = AccountType.Simulated;
+
+    // 进度与阶段
+    public StrategyStage Stage { get; set; } = StrategyStage.Idle;
+    public long ProcessedBars { get; set; }
+    public long TargetBars { get; set; }
+    public double Progress => TargetBars > 0 ? Math.Clamp(ProcessedBars / (double)TargetBars * 100.0, 0, 100) : (IsRunning ? Math.Clamp((DateTime.UtcNow - (StartTime ?? DateTime.UtcNow)).TotalMinutes % 100, 0, 100) : 0);
 
     // 绩效指标
     public decimal TotalReturn { get; set; }
@@ -297,11 +481,10 @@ public class StrategyInstance
 
     public TimeSpan RunningTime =>
         StartTime.HasValue ? (StopTime ?? DateTime.UtcNow) - StartTime.Value : TimeSpan.Zero;
+
+    public double Volatility { get; set; } // 年化波动率 (0-1)
 }
 
-/// <summary>
-/// 组合统计
-/// </summary>
 public class PortfolioStats
 {
     public int TotalStrategies { get; set; }
@@ -312,4 +495,6 @@ public class PortfolioStats
     public double WinRate { get; set; }
     public StrategyInstance? BestPerformer { get; set; }
     public StrategyInstance? WorstPerformer { get; set; }
+    public double Volatility { get; set; }
+    public double RiskUtilization { get; set; }
 }

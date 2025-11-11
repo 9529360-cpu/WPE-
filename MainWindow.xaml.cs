@@ -12,8 +12,8 @@ namespace 币安量化机器人
         // Tag -> 模块 UserControl 的"类型全名, 程序集名"
         private readonly Dictionary<string, string> _viewMap = new()
         {
-            // 🚀 统一AI仪表盘 (推荐)
-            ["统一仪表盘"] = "币安量化机器人.Modules.Dashboard.UnifiedDashboardView, 币安量化机器人",
+            // 🚀 仪表盘 (推荐)
+            ["仪表盘"] = "币安量化机器人.Modules.Dashboard.UnifiedDashboardView, 币安量化机器人",
 
             // 市场与行情
             ["行情"] = "币安量化机器人.Modules.Market.RealtimeView, 币安量化机器人",
@@ -53,8 +53,8 @@ namespace 币安量化机器人
             InitializeComponent();
             StartHeartbeat();
 
-            // 默认打开统一仪表盘
-            LoadViewByTag("统一仪表盘");
+            // 默认打开仪表盘
+            LoadViewByTag("仪表盘");
         }
 
         private void StartHeartbeat()
@@ -77,6 +77,11 @@ namespace 币安量化机器人
 
         private void LoadViewByTag(string tag)
         {
+            // 🆕 兼容旧标签：统一仪表盘 / 统一AI仪表盘
+            if (tag == "统一仪表盘" || tag == "统一AI仪表盘" || tag == "统一—AI仪表盘")
+            {
+                tag = "仪表盘";
+            }
             try
             {
                 SectionTitle.Text = $"当前模块：{tag}";

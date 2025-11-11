@@ -7,20 +7,6 @@ using 币安量化机器人.Services.AI;
 
 namespace 币安量化机器人.Services;
 
-/// <summary>
-/// AI交易自动化引擎 - WebSocket实时触发AI分析和交易
-/// </summary>
-/// <remarks>
-/// 核心职责:
-/// 1. 订阅WebSocket实时行情
-/// 2. K线收盘时自动触发AI分析
-/// 3. 执行AI生成的交易信号
-/// 4. 启动仓位监控
-/// 5. 记录完整交易日志
-/// 6. 广播信号到所有订阅者
-/// 
-/// 这是AI统管全局的核心引擎!
-/// </remarks>
 public class AITradingAutomation
 {
     private readonly BinanceStreamClient _streamClient;
@@ -29,7 +15,7 @@ public class AITradingAutomation
     private readonly AIOrderExecutionEngine _executionEngine;
     private readonly TradingAccountManager _accountManager;
     private readonly PositionManager _positionManager;
-    private readonly SignalBroadcaster _signalBroadcaster; // 🆕 信号广播器
+    private readonly SignalBroadcaster _signalBroadcaster;
 
     private bool _isRunning;
     private CancellationTokenSource? _cts;
@@ -48,7 +34,7 @@ public class AITradingAutomation
         _executionEngine = executionEngine;
         _accountManager = accountManager;
         _positionManager = positionManager;
-        _signalBroadcaster = SignalBroadcaster.Instance; // 🆕 获取广播器实例
+        _signalBroadcaster = SignalBroadcaster.Instance;
     }
 
     /// <summary>
@@ -75,7 +61,7 @@ public class AITradingAutomation
         _accountManager.SwitchAccount(accountType);
 
         LogService.Info("🤖 AI自动交易启动: 账户={Account}, 交易对={Symbols}",
-            accountType, string.Join(",", symbols));
+            accountType, string.Join(",", symbols ?? Array.Empty<string>()));
 
         try
         {
@@ -84,7 +70,7 @@ public class AITradingAutomation
 
             // 订阅WebSocket行情 (MiniTicker)
             _streamClient.MiniTickerReceived += OnMiniTickerReceived;
-            await _streamClient.ConnectMiniTickerAsync(symbols, _cts.Token);
+            await _streamClient.ConnectMiniTickerAsync(symbols ?? Array.Empty<string>(), _cts.Token);
 
             LogService.Info("✅ WebSocket订阅完成,等待行情数据...");
 
@@ -146,7 +132,7 @@ public class AITradingAutomation
             AITradingSignal signal = await _aiAgent.AnalyzeMarketSituationAsync(marketData);
 
             LogService.Info("🧠 AI信号: {Symbol} {Action} 信心度={Confidence:P0} 理由={Reason}",
-                signal.Symbol, signal.Action, signal.Confidence, signal.Reason);
+                signal.Symbol, signal.Action, signal.Confidence, signal.Reason ?? string.Empty);
 
             // 🆕 3. 广播信号到所有订阅者 (UI、日志、监控等)
             _signalBroadcaster.BroadcastSignal(signal, "AITradingAutomation");
@@ -159,11 +145,12 @@ public class AITradingAutomation
                 if (result.IsSuccess)
                 {
                     LogService.Info("✅ 订单执行成功: {OrderId} @ {Price}",
-                        result.OrderId, result.ExecutedPrice);
+                        result.OrderId ?? string.Empty, result.ExecutedPrice);
                 }
                 else
                 {
-                    LogService.Warning("❌ 订单执行失败: {Reason}", result.Error);
+                    // 保证 params 不为 null
+                    LogService.Warning("❌ 订单执行失败: {Reason}", result.Error ?? string.Empty);
                 }
             }
             else

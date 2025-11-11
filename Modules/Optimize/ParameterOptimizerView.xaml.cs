@@ -279,7 +279,8 @@ public partial class ParameterOptimizerView : UserControl
             plt.Axes.Left.Label.Text = "适应度 (夏普比率)";
             plt.Axes.Bottom.Label.Text = "代数";
             plt.Legend.IsVisible = true;
-            plt.Legend.Location = Alignment.UpperLeft;
+            // ScottPlot v5: use Alignment instead of deprecated Location
+            plt.Legend.Alignment = Alignment.UpperLeft;
             plt.Grid.MajorLineColor = ScottPlot.Color.FromHex("#E5E7EB");
 
             FitnessPlot.Refresh();

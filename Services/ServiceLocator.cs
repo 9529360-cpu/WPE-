@@ -9,12 +9,13 @@ using 币安量化机器人.Application.Backtesting;
 using 币安量化机器人.Application.Services;
 using 币安量化机器人.Core.Abstractions;
 using 币安量化机器人.Core.Models;
+using 币安量化机器人.Models;
+using 币安量化机器人.Services.AI;
+using 币安量化机器人.Models.Configuration;
 using 币安量化机器人.Core.Risk;
 using 币安量化机器人.Core.Strategies;
 using 币安量化机器人.Infrastructure.Data;
-using 币安量化机器人.Models.Configuration; // 🆕 配置类引用
 using 币安量化机器人.Monitoring;
-using 币安量化机器人.Services.AI;
 
 namespace 币安量化机器人.Services;
 
@@ -52,7 +53,12 @@ public static class ServiceLocator
             // 如果配置文件不存在,使用默认配置
             LogService.Error(ex, "配置文件加载失败,使用默认配置");
         }
+        // 初始化就绪服务
+        SystemReady.RefreshFromConfig();
     }
+
+    private static readonly Lazy<SystemReadyService> SystemReadyFactory = new(() => new SystemReadyService());
+    public static SystemReadyService SystemReady => SystemReadyFactory.Value;
 
     // 🆕 配置类工厂 - 从appsettings.json加载
     private static readonly Lazy<TradingConfig> TradingConfigFactory = new(() =>
@@ -179,11 +185,26 @@ public static class ServiceLocator
     private static readonly Lazy<WalkForwardOptimizer> WalkForwardFactory = new(() => new WalkForwardOptimizer(OptimizerFactory.Value, EnhancedBacktestFactory.Value));
     private static readonly Lazy<OrderHistoryService> OrderHistoryFactory = new(() => new OrderHistoryService(CacheFactory.Value));
     private static readonly Lazy<PerformanceTrackingService> PerformanceTrackingFactory = new(() => new PerformanceTrackingService(CacheFactory.Value));
+    private static readonly Lazy<StrategyPortfolioManager> StrategyPortfolioManagerFactory = new(() =>
+    {
+        var mgr = new StrategyPortfolioManager(new TradingAccountManager(CacheFactory.Value), AppContext.BaseDirectory);
+        mgr.LoadFromDisk();
+        return mgr;
+    });
 
     // 🆕 中央AI协调器工厂
     private static AICentralCoordinator? _aiCoordinator;
 
     private static AITradingBot? _aiTradingBot;
+
+    // 🆕 新增：一键自动交易控制器
+    private static readonly Lazy<AutoTradingController> AutoTradingControllerFactory = new(() => new AutoTradingController());
+
+    private static readonly Lazy<AI.AIStrategyGenerator> AIStrategyGeneratorFactory = new(() => new AI.AIStrategyGenerator());
+    public static AI.AIStrategyGenerator AIStrategyGenerator => AIStrategyGeneratorFactory.Value;
+
+    private static readonly Lazy<AutoPilotService> AutoPilotFactory = new(() => new AutoPilotService(SystemReady, AIStrategyGenerator, StrategyPortfolio, AutoTrader));
+    public static AutoPilotService AutoPilot => AutoPilotFactory.Value;
 
     // 🆕 配置类公开访问
     /// <summary>
@@ -224,6 +245,10 @@ public static class ServiceLocator
     public static OrderHistoryService OrderHistory => OrderHistoryFactory.Value;
     public static PerformanceTrackingService PerformanceTracking => PerformanceTrackingFactory.Value;
     public static EnhancedBacktestEngine EnhancedBacktest => EnhancedBacktestFactory.Value;
+    public static StrategyPortfolioManager StrategyPortfolio => StrategyPortfolioManagerFactory.Value;
+
+    // 公开自动交易控制器
+    public static AutoTradingController AutoTrader => AutoTradingControllerFactory.Value;
 
     /// <summary>
     /// 获取或创建AI交易机器人
@@ -232,7 +257,15 @@ public static class ServiceLocator
     /// <returns>AI交易机器人实例</returns>
     public static AITradingBot GetAITradingBot(string deepSeekApiKey)
     {
-        if (_aiTradingBot == null || string.IsNullOrEmpty(deepSeekApiKey))
+        // 如果尚未创建，则使用传入的key创建
+        if (_aiTradingBot == null)
+        {
+            _aiTradingBot = new AITradingBot(deepSeekApiKey, Api, Cache);
+            return _aiTradingBot;
+        }
+
+        // 如果传入了新的有效key，则重新创建实例以确保最新配置生效
+        if (!string.IsNullOrWhiteSpace(deepSeekApiKey))
         {
             _aiTradingBot = new AITradingBot(deepSeekApiKey, Api, Cache);
         }
@@ -261,9 +294,8 @@ public static class ServiceLocator
         {
             // 创建必要的依赖
             var accountManager = new TradingAccountManager(Cache);
-            string deepSeekApiKey = Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY")
-                                ?? ConfigurationService.GetValue("Api:DeepSeek:ApiKey")
-                                ?? "";
+            // 🔧 修复：统一从配置服务读取 DeepSeek API Key
+            string deepSeekApiKey = ConfigurationService.GetDeepSeekApiKey();
 
             var dataProcessor = new MarketDataPreprocessor(Api, Cache);
             var aiAgent = new DeepSeekTradingAgent(deepSeekApiKey);
@@ -369,4 +401,10 @@ public static class ServiceLocator
 
         return true;
     }
+
+    private static readonly Lazy<StrategyTemplateLibrary> StrategyTemplatesFactory = new(() => new StrategyTemplateLibrary(AppContext.BaseDirectory));
+    public static StrategyTemplateLibrary StrategyTemplates => StrategyTemplatesFactory.Value;
+
+    private static readonly Lazy<StrategyFactory> StrategyFactoryFactory = new(() => new StrategyFactory(AnalyzerFactory.Value, MlFactory.Value, FeatureStoreFactory.Value));
+    public static StrategyFactory StrategyFactory => StrategyFactoryFactory.Value;
 }

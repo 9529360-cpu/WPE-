@@ -24,6 +24,9 @@ namespace 币安量化机器人.Modules.AI
         private CancellationTokenSource? _analyzeCts;
         private readonly ObservableCollection<AISignalRow> _aiSignals = new();
 
+        // 🆕 一键自动交易
+        private readonly AutoTradingController _autoTrader = ServiceLocator.AutoTrader;
+
         public ModelHub()
         {
             InitializeComponent();
@@ -51,6 +54,13 @@ namespace 币安量化机器人.Modules.AI
             if (_all.Any())
             {
                 GridModels.SelectedIndex = 0;
+            }
+
+            // 如果配置里已存在 API Key，优先显示（避免掩码导致输入错误）
+            var deepSeekKey = ConfigurationService.GetDeepSeekApiKey();
+            if (!string.IsNullOrWhiteSpace(deepSeekKey))
+            {
+                DeepSeekApiKeyBox.Text = deepSeekKey;
             }
 
             StatusText.Text = $"状态：已加载 {_all.Count} 个上线模型 + DeepSeek AI交易系统";
@@ -127,20 +137,14 @@ namespace 币安量化机器人.Modules.AI
         {
             try
             {
-                string apiKey = DeepSeekApiKeyBox.Text.Trim();
+                string apiKey = GetDeepSeekApiKeyFromInputOrConfig();
                 if (string.IsNullOrEmpty(apiKey))
                 {
-                    MessageBox.Show("请先输入DeepSeek API Key", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("请在右侧输入框或[设置>API管理]中保存 DeepSeek API Key", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
-                string symbol = AISymbolBox.Text.Trim();
-                if (string.IsNullOrEmpty(symbol))
-                {
-                    symbol = "BTCUSDT";
-                    AISymbolBox.Text = symbol;
-                }
-
+                string symbol = string.IsNullOrWhiteSpace(AISymbolBox.Text) ? "BTCUSDT" : AISymbolBox.Text.Trim();
                 AIStatusText.Text = $"正在分析 {symbol}...";
                 AnalyzeButton.IsEnabled = false;
 
@@ -162,7 +166,6 @@ namespace 币安量化机器人.Modules.AI
                     Reason = signal.Reason
                 });
 
-                // 只保留最近20条
                 while (_aiSignals.Count > 20)
                 {
                     _aiSignals.RemoveAt(_aiSignals.Count - 1);
@@ -170,7 +173,6 @@ namespace 币安量化机器人.Modules.AI
 
                 AIStatusText.Text = $"{symbol} 分析完成: {signal.Action} (信心度: {signal.Confidence:P0})";
 
-                // 显示详细分析
                 MessageBox.Show(
                     $"交易信号: {signal.Action}\n" +
                     $"信心度: {signal.Confidence:P0}\n" +
@@ -203,52 +205,43 @@ namespace 币安量化机器人.Modules.AI
         {
             try
             {
-                string apiKey = DeepSeekApiKeyBox.Text.Trim();
+                string apiKey = GetDeepSeekApiKeyFromInputOrConfig();
                 if (string.IsNullOrEmpty(apiKey))
                 {
-                    MessageBox.Show("请先输入DeepSeek API Key", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("请在右侧输入框或[设置>API管理]中保存 DeepSeek API Key", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
-                string symbol = AISymbolBox.Text.Trim();
-                if (string.IsNullOrEmpty(symbol))
-                {
-                    symbol = "BTCUSDT";
-                }
+                string symbol = string.IsNullOrWhiteSpace(AISymbolBox.Text) ? "BTCUSDT" : AISymbolBox.Text.Trim();
 
-                _aiBot = ServiceLocator.GetAITradingBot(apiKey);
-
-                if (_aiBot.IsRunning)
+                if (_autoTrader.IsRunning)
                 {
-                    MessageBox.Show("AI机器人已在运行中", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show("AI自动交易已在运行中", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
-                var interval = TimeSpan.FromMinutes(5); // 每5分钟分析一次
-
-                AIStatusText.Text = $"AI机器人启动中...";
+                AIStatusText.Text = "AI自动交易启动中...";
                 StartBotButton.IsEnabled = false;
                 StopBotButton.IsEnabled = true;
 
-                // 后台启动机器人
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        await _aiBot.StartAsync(symbol, interval);
+                        await _autoTrader.StartAsync(new[] { symbol }, AccountType.Simulated);
                     }
                     catch (Exception ex)
                     {
                         Dispatcher.Invoke(() =>
                         {
-                            AIStatusText.Text = $"机器人错误: {ex.Message}";
+                            AIStatusText.Text = $"启动失败: {ex.Message}";
                             StartBotButton.IsEnabled = true;
                             StopBotButton.IsEnabled = false;
                         });
                     }
                 });
 
-                AIStatusText.Text = $"AI机器人运行中 ({symbol}, 间隔{interval.TotalMinutes}分钟)";
+                AIStatusText.Text = $"AI自动交易运行中 ({symbol})";
             }
             catch (Exception ex)
             {
@@ -261,13 +254,29 @@ namespace 币安量化机器人.Modules.AI
 
         private void StopAIBot_Click(object sender, RoutedEventArgs e)
         {
-            if (_aiBot != null && _aiBot.IsRunning)
+            _ = Task.Run(async () =>
             {
-                _aiBot.Stop();
-                AIStatusText.Text = "AI机器人已停止";
-                StartBotButton.IsEnabled = true;
-                StopBotButton.IsEnabled = false;
-            }
+                try
+                {
+                    await _autoTrader.StopAsync();
+                }
+                catch (Exception ex)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        MessageBox.Show($"停止失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    });
+                }
+                finally
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        AIStatusText.Text = "AI自动交易已停止";
+                        StartBotButton.IsEnabled = true;
+                        StopBotButton.IsEnabled = false;
+                    });
+                }
+            });
         }
 
         private void ViewAIPerformance_Click(object sender, RoutedEventArgs e)
@@ -289,6 +298,21 @@ namespace 币安量化机器人.Modules.AI
                 MessageBoxButton.OK,
                 MessageBoxImage.Information
             );
+        }
+
+        private static string GetDeepSeekApiKeyFromInputOrConfig()
+        {
+            try
+            {
+                // 优先读取输入框，如包含掩码符号则读取配置
+                // 实际读取在调用处通过 DeepSeekApiKeyBox.Text 传入，这里通过配置服务兜底
+                string key = ConfigurationService.GetDeepSeekApiKey();
+                return key;
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
     }
 

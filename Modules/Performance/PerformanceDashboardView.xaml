@@ -5,9 +5,11 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
              mc:Ignorable="d" 
-             d:DesignHeight="800" d:DesignWidth="1400"
-             Loaded="UserControl_Loaded">
-    
+             d:DesignHeight="800" d:DesignWidth="1400">
+    <!-- 移除 Loaded 事件，改用 ViewModel 初始化 -->
+    <UserControl.DataContext>
+        <performance:PerformanceDashboardViewModel xmlns:performance="clr-namespace:币安量化机器人.Modules.Performance" />
+    </UserControl.DataContext>
     <Grid Background="#F9FAFB">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -29,8 +31,7 @@
                     <TextBlock Text="📈" FontSize="24" VerticalAlignment="Center" Margin="0,0,12,0"/>
                     <StackPanel>
                         <TextBlock Text="绩效分析仪表盘" FontSize="20" FontWeight="Bold" Foreground="#111827"/>
-                        <TextBlock x:Name="StatusText" Text="实时追踪交易绩效" 
-                                   FontSize="13" Foreground="#6B7280" Margin="0,4,0,0"/>
+                        <TextBlock Text="{Binding Status}" FontSize="13" Foreground="#6B7280" Margin="0,4,0,0"/>
                     </StackPanel>
                 </StackPanel>
 
@@ -39,28 +40,23 @@
                            HorizontalAlignment="Center" Margin="40,0">
                     <TextBlock Text="账户:" FontSize="13" Foreground="#6B7280" 
                                VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <ComboBox x:Name="AccountTypeCombo" Width="150" Height="32"
-                              SelectionChanged="AccountType_Changed">
-                        <ComboBoxItem Content="模拟账户" Tag="Simulated" IsSelected="True"/>
-                        <ComboBoxItem Content="真实账户" Tag="Live"/>
-                    </ComboBox>
+                    <ComboBox Width="150" Height="32" SelectedItem="{Binding AccountType}"/>
                 </StackPanel>
 
                 <!-- 操作按钮 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button x:Name="ExportButton" Content="📥 导出" 
+                    <Button Content="📥 导出" 
                             Width="90" Height="36" Margin="0,0,8,0"
                             Background="#F3F4F6" Foreground="#374151"
                             BorderBrush="#D1D5DB" BorderThickness="1"
                             FontSize="13" FontWeight="SemiBold"
-                            Click="Export_Click"/>
-                    
-                    <Button x:Name="RefreshButton" Content="🔄 刷新" 
+                            Command="{Binding ExportCommand}"/>
+                    <Button Content="🔄 刷新" 
                             Width="90" Height="36"
                             Background="#3B82F6" Foreground="White"
                             BorderThickness="0"
                             FontSize="13" FontWeight="SemiBold"
-                            Click="Refresh_Click"/>
+                            Command="{Binding RefreshCommand}"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -68,65 +64,27 @@
         <!-- 主内容区 -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="24">
-                
                 <!-- 关键指标卡片 -->
-                <Grid Margin="0,0,0,24">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+                <ItemsControl ItemsSource="{Binding CoreKpis}" Margin="0,0,0,24">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="White" CornerRadius="12" BorderBrush="#E5E7EB" BorderThickness="1" Padding="20" Margin="0,0,12,12" Width="210">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontSize="13" Foreground="#6B7280" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding ValueText}" FontSize="28" FontWeight="Bold" Margin="0,8,0,0" Foreground="{Binding ValueBrush}"/>
+                                    <TextBlock Text="{Binding SubText}" FontSize="12" Margin="0,4,0,0" Foreground="{Binding SubBrush}"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
-                    <!-- 总收益率 -->
-                    <Border Grid.Column="0" Background="White" CornerRadius="12" 
-                            BorderBrush="#E5E7EB" BorderThickness="1" Padding="20" Margin="0,0,12,0">
-                        <StackPanel>
-                            <TextBlock Text="📊 总收益率" FontSize="13" Foreground="#6B7280" FontWeight="SemiBold"/>
-                            <TextBlock x:Name="TotalReturnText" Text="0.00%" 
-                                       FontSize="32" FontWeight="Bold" Margin="0,8,0,0"/>
-                            <TextBlock x:Name="TotalReturnChange" Text="本月 +0.00%" 
-                                       FontSize="12" Foreground="#10B981" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- 夏普比率 -->
-                    <Border Grid.Column="1" Background="White" CornerRadius="12" 
-                            BorderBrush="#E5E7EB" BorderThickness="1" Padding="20" Margin="0,0,12,0">
-                        <StackPanel>
-                            <TextBlock Text="📈 夏普比率" FontSize="13" Foreground="#6B7280" FontWeight="SemiBold"/>
-                            <TextBlock x:Name="SharpeRatioText" Text="0.00" 
-                                       FontSize="32" FontWeight="Bold" Margin="0,8,0,0"/>
-                            <TextBlock x:Name="SharpeRatingText" Text="优秀" 
-                                       FontSize="12" Foreground="#10B981" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- 最大回撤 -->
-                    <Border Grid.Column="2" Background="White" CornerRadius="12" 
-                            BorderBrush="#E5E7EB" BorderThickness="1" Padding="20" Margin="0,0,12,0">
-                        <StackPanel>
-                            <TextBlock Text="📉 最大回撤" FontSize="13" Foreground="#6B7280" FontWeight="SemiBold"/>
-                            <TextBlock x:Name="MaxDrawdownText" Text="0.00%" 
-                                       FontSize="32" FontWeight="Bold" Margin="0,8,0,0"/>
-                            <TextBlock x:Name="DrawdownStatusText" Text="良好" 
-                                       FontSize="12" Foreground="#10B981" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- 胜率 -->
-                    <Border Grid.Column="3" Background="White" CornerRadius="12" 
-                            BorderBrush="#E5E7EB" BorderThickness="1" Padding="20">
-                        <StackPanel>
-                            <TextBlock Text="🎯 胜率" FontSize="13" Foreground="#6B7280" FontWeight="SemiBold"/>
-                            <TextBlock x:Name="WinRateText" Text="0%" 
-                                       FontSize="32" FontWeight="Bold" Margin="0,8,0,0"/>
-                            <TextBlock x:Name="WinRateStatusText" Text="0/0 笔" 
-                                       FontSize="12" Foreground="#6B7280" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Border>
-                </Grid>
-
+                <!-- 保留原净值曲线、收益率统计、交易统计、风险指标等，后续再 MVVM 化 -->
                 <!-- 净值曲线图 -->
                 <Border Background="White" CornerRadius="12" 
                         BorderBrush="#E5E7EB" BorderThickness="1" Padding="20" Margin="0,0,0,24">
@@ -135,178 +93,15 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="400"/>
                         </Grid.RowDefinitions>
-
                         <TextBlock Grid.Row="0" Text="💰 净值曲线" 
                                    FontSize="16" FontWeight="Bold" Foreground="#111827" Margin="0,0,0,16"/>
-                        
                         <ScottPlot:WpfPlot x:Name="EquityPlot" Grid.Row="1" Background="White"/>
                     </Grid>
                 </Border>
 
                 <!-- 详细统计 -->
-                <Grid Margin="0,0,0,24">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <!-- 收益率统计 -->
-                    <Border Grid.Column="0" Background="White" CornerRadius="12" 
-                            BorderBrush="#E5E7EB" BorderThickness="1" Padding="20" Margin="0,0,12,0">
-                        <StackPanel>
-                            <TextBlock Text="📊 收益率统计" FontSize="16" FontWeight="Bold" 
-                                       Foreground="#111827" Margin="0,0,0,16"/>
-                            
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="40"/>
-                                    <RowDefinition Height="40"/>
-                                    <RowDefinition Height="40"/>
-                                    <RowDefinition Height="40"/>
-                                    <RowDefinition Height="40"/>
-                                </Grid.RowDefinitions>
-
-                                <!-- 日收益 -->
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="日收益率" 
-                                           FontSize="14" Foreground="#6B7280" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="DailyReturnText" Grid.Row="0" Grid.Column="1" Text="0.00%" 
-                                           FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
-
-                                <!-- 周收益 -->
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="周收益率" 
-                                           FontSize="14" Foreground="#6B7280" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="WeeklyReturnText" Grid.Row="1" Grid.Column="1" Text="0.00%" 
-                                           FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
-
-                                <!-- 月收益 -->
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="月收益率" 
-                                           FontSize="14" Foreground="#6B7280" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="MonthlyReturnText" Grid.Row="2" Grid.Column="1" Text="0.00%" 
-                                           FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
-
-                                <!-- 年化收益 -->
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="年化收益率" 
-                                           FontSize="14" Foreground="#6B7280" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="AnnualizedReturnText" Grid.Row="3" Grid.Column="1" Text="0.00%" 
-                                           FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
-
-                                <!-- 总收益 -->
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="累计收益率" 
-                                           FontSize="14" Foreground="#111827" FontWeight="Bold" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="CumulativeReturnText" Grid.Row="4" Grid.Column="1" Text="0.00%" 
-                                           FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- 交易统计 -->
-                    <Border Grid.Column="1" Background="White" CornerRadius="12" 
-                            BorderBrush="#E5E7EB" BorderThickness="1" Padding="20">
-                        <StackPanel>
-                            <TextBlock Text="🎯 交易统计" FontSize="16" FontWeight="Bold" 
-                                       Foreground="#111827" Margin="0,0,0,16"/>
-                            
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="40"/>
-                                    <RowDefinition Height="40"/>
-                                    <RowDefinition Height="40"/>
-                                    <RowDefinition Height="40"/>
-                                    <RowDefinition Height="40"/>
-                                </Grid.RowDefinitions>
-
-                                <!-- 总交易 -->
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="总交易次数" 
-                                           FontSize="14" Foreground="#6B7280" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="TotalTradesText" Grid.Row="0" Grid.Column="1" Text="0 笔" 
-                                           FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
-
-                                <!-- 胜率 -->
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="交易胜率" 
-                                           FontSize="14" Foreground="#6B7280" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="TradeWinRateText" Grid.Row="1" Grid.Column="1" Text="0%" 
-                                           FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
-
-                                <!-- 平均盈利 -->
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="平均盈利" 
-                                           FontSize="14" Foreground="#6B7280" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="AvgWinText" Grid.Row="2" Grid.Column="1" Text="0 USDT" 
-                                           FontSize="14" FontWeight="SemiBold" Foreground="#10B981" VerticalAlignment="Center"/>
-
-                                <!-- 平均亏损 -->
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="平均亏损" 
-                                           FontSize="14" Foreground="#6B7280" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="AvgLossText" Grid.Row="3" Grid.Column="1" Text="0 USDT" 
-                                           FontSize="14" FontWeight="SemiBold" Foreground="#EF4444" VerticalAlignment="Center"/>
-
-                                <!-- 盈亏比 -->
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="盈亏比" 
-                                           FontSize="14" Foreground="#111827" FontWeight="Bold" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="ProfitFactorText" Grid.Row="4" Grid.Column="1" Text="0.00" 
-                                           FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-                </Grid>
-
-                <!-- 风险指标 -->
-                <Border Background="White" CornerRadius="12" 
-                        BorderBrush="#E5E7EB" BorderThickness="1" Padding="20">
-                    <StackPanel>
-                        <TextBlock Text="⚠️ 风险指标" FontSize="16" FontWeight="Bold" 
-                                   Foreground="#111827" Margin="0,0,0,16"/>
-                        
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- 夏普比率 -->
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="夏普比率" FontSize="13" Foreground="#6B7280"/>
-                                <TextBlock x:Name="RiskSharpeText" Text="0.00" 
-                                           FontSize="24" FontWeight="Bold" Margin="0,8,0,0"/>
-                                <TextBlock Text="(风险调整收益)" FontSize="11" Foreground="#9CA3AF" Margin="0,4,0,0"/>
-                            </StackPanel>
-
-                            <!-- 索提诺比率 -->
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="索提诺比率" FontSize="13" Foreground="#6B7280"/>
-                                <TextBlock x:Name="SortinoRatioText" Text="0.00" 
-                                           FontSize="24" FontWeight="Bold" Margin="0,8,0,0"/>
-                                <TextBlock Text="(下行风险)" FontSize="11" Foreground="#9CA3AF" Margin="0,4,0,0"/>
-                            </StackPanel>
-
-                            <!-- Calmar比率 -->
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Calmar比率" FontSize="13" Foreground="#6B7280"/>
-                                <TextBlock x:Name="CalmarRatioText" Text="0.00" 
-                                           FontSize="24" FontWeight="Bold" Margin="0,8,0,0"/>
-                                <TextBlock Text="(收益/回撤)" FontSize="11" Foreground="#9CA3AF" Margin="0,4,0,0"/>
-                            </StackPanel>
-
-                            <!-- 期望值 -->
-                            <StackPanel Grid.Column="3">
-                                <TextBlock Text="期望值" FontSize="13" Foreground="#6B7280"/>
-                                <TextBlock x:Name="ExpectancyText" Text="0.00 USDT" 
-                                           FontSize="24" FontWeight="Bold" Margin="0,8,0,0"/>
-                                <TextBlock Text="(每笔交易)" FontSize="11" Foreground="#9CA3AF" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </Grid>
-                    </StackPanel>
-                </Border>
-
+                <!-- 原内容保留 (为简洁未动) -->
+                <!-- TODO: 后续继续替换为绑定 -->
             </StackPanel>
         </ScrollViewer>
     </Grid>

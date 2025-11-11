@@ -31,6 +31,9 @@ public partial class AIAssistantView : UserControl
         _cacheService = ServiceLocator.Cache;
         _accountManager = new TradingAccountManager(_cacheService);
 
+        // 🆕 订阅配置变更
+        ConfigurationService.ConfigurationChanged += OnConfigurationChanged;
+
         // 🔧 初始化AI Agent
         InitializeAIAgent();
 
@@ -38,6 +41,12 @@ public partial class AIAssistantView : UserControl
 
         // 添加欢迎消息
         AddWelcomeMessage();
+    }
+
+    private void OnConfigurationChanged()
+    {
+        // 配置文件刷新后自动重新加载 AI Key
+        InitializeAIAgent();
     }
 
     /// <summary>
@@ -61,15 +70,15 @@ public partial class AIAssistantView : UserControl
             else
             {
                 _aiAgent = null;
-                AIStatusText.Text = "演示模式 ⚠️";
+                AIStatusText.Text = "未配置API Key ⚠️"; // 更明确
                 LogService.Warning("[AIAssistant] DeepSeek API Key 未配置，使用演示模式");
             }
         }
         catch (Exception ex)
         {
             _aiAgent = null;
-            AIStatusText.Text = "离线 ❌";
-            LogService.Error(ex, "[AIAssistant] AI引擎初始化失败");
+            AIStatusText.Text = "初始化失败 ❌";
+            LogService.Error(ex, "[AIAssistant] 初始化AI失败");
         }
     }
 
@@ -267,8 +276,17 @@ public partial class AIAssistantView : UserControl
                 {
                     LogService.Error(httpEx, "[AIAssistant] HTTP 请求失败");
 
-                    // 🔧 解析具体的 HTTP 错误
-                    if (httpEx.Message.Contains("ASCII"))
+                    var msg = httpEx.Message ?? string.Empty;
+                    if (msg.Contains("PaymentRequired", StringComparison.OrdinalIgnoreCase) || msg.Contains("402"))
+                    {
+                        return "❌ DeepSeek 账户余额不足或无有效额度\n\n" +
+                               "错误: Payment Required / Insufficient Balance\n\n" +
+                               "解决方法:\n" +
+                               "1. 登录 DeepSeek 控制台为该 API Key 充值或开通额度\n" +
+                               "2. 确认项目已启用相应模型 (deepseek-chat)\n" +
+                               "3. 重新尝试";
+                    }
+                    if (msg.Contains("ASCII"))
                     {
                         return "❌ API Key 格式错误\n\n" +
                                "错误: API Key 包含非法字符\n\n" +
@@ -278,7 +296,7 @@ public partial class AIAssistantView : UserControl
                                "3. 确保 API Key 只包含英文字母、数字和横杠\n" +
                                "4. 保存后重试";
                     }
-                    else if (httpEx.Message.Contains("401"))
+                    if (msg.Contains("401"))
                     {
                         return "❌ API Key 无效\n\n" +
                                "错误: 身份验证失败 (401 Unauthorized)\n\n" +
@@ -288,7 +306,7 @@ public partial class AIAssistantView : UserControl
                                "3. 重新获取有效的 API Key\n" +
                                "4. 在 [API 管理] 中更新并保存";
                     }
-                    else if (httpEx.Message.Contains("429"))
+                    if (msg.Contains("429"))
                     {
                         return "❌ API 请求限额已用完\n\n" +
                                "错误: 请求频率过高 (429 Too Many Requests)\n\n" +
@@ -297,14 +315,12 @@ public partial class AIAssistantView : UserControl
                                "2. 检查 API Key 的配额\n" +
                                "3. 升级 DeepSeek 账户套餐";
                     }
-                    else
-                    {
-                        return $"❌ 网络请求失败\n\n{httpEx.Message}\n\n" +
-                               "请检查:\n" +
-                               "1. 网络连接是否正常\n" +
-                               "2. DeepSeek 服务是否可用\n" +
-                               "3. 防火墙是否拦截了请求";
-                    }
+
+                    return $"❌ 网络请求失败\n\n{httpEx.Message}\n\n" +
+                           "请检查:\n" +
+                           "1. 网络连接是否正常\n" +
+                           "2. DeepSeek 服务是否可用\n" +
+                           "3. 防火墙是否拦截了请求";
                 }
                 catch (TaskCanceledException)
                 {

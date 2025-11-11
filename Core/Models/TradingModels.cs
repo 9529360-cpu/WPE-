@@ -88,7 +88,8 @@ public record BacktestResult(
     double Calmar,
     double WinRate,
     double ProfitFactor,
-    IReadOnlyList<TradeSignal> Signals);
+    IReadOnlyList<TradeSignal> Signals,
+    double Volatility);
 
 public record RawDataFrame(
     string Source,

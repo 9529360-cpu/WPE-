@@ -1,57 +1,25 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using 币安量化机器人.Application.Backtesting;
+using 币安量化机器人.Core.Abstractions;
+using 币安量化机器人.Core.Models;
+using 币安量化机器人.Models;
+using 币安量化机器人.Services.AI;
 
 namespace 币安量化机器人.Application.Backtesting;
 
-/// <summary>
-/// 绩效计算器 - 计算详细的回测绩效指标
-/// </summary>
-/// <remarks>
-/// <para>计算的关键指标:</para>
-/// <list type="bullet">
-/// <item><b>收益指标</b>: 净利润、收益率、每笔期望收益</item>
-/// <item><b>风险指标</b>: 最大回撤、夏普比率、索提诺比率</item>
-/// <item><b>交易质量</b>: 胜率、盈亏比、平均盈/亏</item>
-/// <item><b>稳定性</b>: 连胜/连亏次数、恢复系数</item>
-/// </list>
-/// <para>关键比率说明:</para>
-/// <list type="bullet">
-/// <item><b>夏普比率</b>: 风险调整后收益,>2优秀,>1良好</item>
-/// <item><b>索提诺比率</b>: 下行风险调整后收益,更关注亏损</item>
-/// <item><b>卡尔马比率</b>: 年化收益/最大回撤,衡量回撤控制</item>
-/// <item><b>盈亏比</b>: 总盈利/总亏损,>2优秀,>1可接受</item>
-/// </list>
-/// </remarks>
 public class PerformanceCalculator
 {
-    /// <summary>
-    /// 绩效计算常量
-    /// </summary>
     private static class PerformanceConstants
     {
-        /// <summary>
-        /// 一年交易日数 (用于年化计算)
-        /// </summary>
         public const double ANNUAL_TRADING_DAYS = 252.0;
-
-        /// <summary>
-        /// 年化系数 (√252)
-        /// </summary>
         public static readonly double ANNUAL_FACTOR = Math.Sqrt(ANNUAL_TRADING_DAYS);
-
-        /// <summary>
-        /// 最小样本数 (少于此数计算不可靠)
-        /// </summary>
         public const int MIN_SAMPLE_SIZE = 2;
     }
 
-    /// <summary>
-    /// 计算完整绩效指标
-    /// </summary>
-    /// <param name="trades">交易记录列表</param>
-    /// <param name="initialCapital">初始资金</param>
-    /// <returns>详细绩效指标</returns>
     public PerformanceMetrics Calculate(IReadOnlyList<BacktestTrade> trades, double initialCapital)
     {
         if (trades.Count == 0)
@@ -73,7 +41,11 @@ public class PerformanceCalculator
                 MaxConsecutiveWins = 0,
                 MaxConsecutiveLosses = 0,
                 AvgTradeDuration = TimeSpan.Zero,
-                RecoveryFactor = 0
+                RecoveryFactor = 0,
+                ReturnPercent = 0,
+                MaxDrawdownPercent = 0,
+                ExpectancyPerTrade = 0,
+                Volatility = 0
             };
         }
 
@@ -91,6 +63,8 @@ public class PerformanceCalculator
 
         var wins = trades.Where(t => t.NetPnL > 0).ToList();
         var losses = trades.Where(t => t.NetPnL <= 0).ToList();
+
+        double volatility = CalculateVolatility(returns);
 
         return new PerformanceMetrics
         {
@@ -112,25 +86,11 @@ public class PerformanceCalculator
             MaxConsecutiveLosses = CalculateMaxConsecutiveLosses(trades),
             AvgTradeDuration = CalculateAvgTradeDuration(trades),
             RecoveryFactor = CalculateRecoveryFactor(netProfit, equity),
-            ExpectancyPerTrade = trades.Average(t => t.NetPnL)
+            ExpectancyPerTrade = trades.Average(t => t.NetPnL),
+            Volatility = volatility
         };
     }
 
-    /// <summary>
-    /// 计算夏普比率 - 风险调整后收益
-    /// </summary>
-    /// <param name="returns">收益率序列</param>
-    /// <returns>年化夏普比率</returns>
-    /// <remarks>
-    /// <para>公式: (平均收益率 / 收益率标准差) × √252</para>
-    /// <para>评价标准:</para>
-    /// <list type="bullet">
-    /// <item>&lt;1: 差</item>
-    /// <item>1-2: 良好</item>
-    /// <item>2-3: 优秀</item>
-    /// <item>>3: 卓越</item>
-    /// </list>
-    /// </remarks>
     private double CalculateSharpeRatio(double[] returns)
     {
         if (returns.Length < PerformanceConstants.MIN_SAMPLE_SIZE)
@@ -146,19 +106,9 @@ public class PerformanceCalculator
             return 0;
         }
 
-        // 年化夏普比率 (假设每日交易)
         return (avgReturn / stdReturn) * PerformanceConstants.ANNUAL_FACTOR;
     }
 
-    /// <summary>
-    /// 计算索提诺比率 - 下行风险调整后收益
-    /// </summary>
-    /// <param name="returns">收益率序列</param>
-    /// <returns>年化索提诺比率</returns>
-    /// <remarks>
-    /// <para>与夏普比率类似,但只考虑下行波动(亏损)</para>
-    /// <para>更适合评估策略的下行风险控制能力</para>
-    /// </remarks>
     private double CalculateSortinoRatio(double[] returns)
     {
         if (returns.Length < PerformanceConstants.MIN_SAMPLE_SIZE)
@@ -184,17 +134,6 @@ public class PerformanceCalculator
         return (avgReturn / downsideStd) * PerformanceConstants.ANNUAL_FACTOR;
     }
 
-    /// <summary>
-    /// 计算卡尔马比率 - 年化收益 / 最大回撤
-    /// </summary>
-    /// <param name="netProfit">净利润</param>
-    /// <param name="initialCapital">初始资金</param>
-    /// <param name="equity">权益曲线</param>
-    /// <returns>卡尔马比率</returns>
-    /// <remarks>
-    /// <para>衡量策略在控制回撤情况下的收益能力</para>
-    /// <para>>3为优秀, 1-3为良好, &lt;1需要改进</para>
-    /// </remarks>
     private double CalculateCalmarRatio(double netProfit, double initialCapital, List<double> equity)
     {
         double maxDD = CalculateMaxDrawdown(equity);
@@ -207,14 +146,6 @@ public class PerformanceCalculator
         return annualReturn / (maxDD / initialCapital);
     }
 
-    /// <summary>
-    /// 计算最大回撤 (绝对值)
-    /// </summary>
-    /// <param name="equity">权益曲线</param>
-    /// <returns>最大回撤金额</returns>
-    /// <remarks>
-    /// 从历史最高点到最低点的最大跌幅
-    /// </remarks>
     private double CalculateMaxDrawdown(List<double> equity)
     {
         double maxDD = 0;
@@ -237,16 +168,6 @@ public class PerformanceCalculator
         return maxDD;
     }
 
-    /// <summary>
-    /// 计算盈亏比 (Profit Factor)
-    /// </summary>
-    /// <param name="wins">盈利交易列表</param>
-    /// <param name="losses">亏损交易列表</param>
-    /// <returns>盈亏比</returns>
-    /// <remarks>
-    /// <para>公式: 总盈利 / 总亏损</para>
-    /// <para>>2优秀, >1可接受, &lt;1策略亏损</para>
-    /// </remarks>
     private double CalculateProfitFactor(List<BacktestTrade> wins, List<BacktestTrade> losses)
     {
         double totalWin = wins.Sum(t => t.NetPnL);
@@ -260,9 +181,6 @@ public class PerformanceCalculator
         return totalWin / totalLoss;
     }
 
-    /// <summary>
-    /// 计算最大连胜次数
-    /// </summary>
     private int CalculateMaxConsecutiveWins(IReadOnlyList<BacktestTrade> trades)
     {
         int maxWins = 0, currentWins = 0;
@@ -283,9 +201,6 @@ public class PerformanceCalculator
         return maxWins;
     }
 
-    /// <summary>
-    /// 计算最大连亏次数
-    /// </summary>
     private int CalculateMaxConsecutiveLosses(IReadOnlyList<BacktestTrade> trades)
     {
         int maxLosses = 0, currentLosses = 0;
@@ -306,9 +221,6 @@ public class PerformanceCalculator
         return maxLosses;
     }
 
-    /// <summary>
-    /// 计算平均持仓时间
-    /// </summary>
     private TimeSpan CalculateAvgTradeDuration(IReadOnlyList<BacktestTrade> trades)
     {
         if (trades.Count == 0)
@@ -320,15 +232,6 @@ public class PerformanceCalculator
         return TimeSpan.FromSeconds(avgSeconds);
     }
 
-    /// <summary>
-    /// 计算恢复系数 - 净利润 / 最大回撤
-    /// </summary>
-    /// <param name="netProfit">净利润</param>
-    /// <param name="equity">权益曲线</param>
-    /// <returns>恢复系数</returns>
-    /// <remarks>
-    /// 衡量策略从回撤中恢复的能力,越高越好
-    /// </remarks>
     private double CalculateRecoveryFactor(double netProfit, List<double> equity)
     {
         double maxDD = CalculateMaxDrawdown(equity);
@@ -338,6 +241,18 @@ public class PerformanceCalculator
         }
 
         return netProfit / maxDD;
+    }
+
+    private double CalculateVolatility(double[] returns)
+    {
+        if (returns.Length < 2)
+        {
+            return 0;
+        }
+
+        double avg = returns.Average();
+        double std = Math.Sqrt(returns.Sum(r => Math.Pow(r - avg, 2)) / returns.Length);
+        return std * Math.Sqrt(252.0);
     }
 }
 
@@ -506,4 +421,9 @@ public class PerformanceMetrics
     /// 每笔期望收益 (USDT)
     /// </summary>
     public double ExpectancyPerTrade { get; init; }
+
+    /// <summary>
+    /// 年化波动率
+    /// </summary>
+    public double Volatility { get; init; }
 }

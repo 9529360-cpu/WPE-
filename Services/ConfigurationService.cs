@@ -16,6 +16,11 @@ public static class ConfigurationService
     private static string? _configFilePath;
 
     /// <summary>
+    /// 配置文件更新事件
+    /// </summary>
+    public static event Action? ConfigurationChanged;
+
+    /// <summary>
     /// 初始化配置（支持环境变量）
     /// </summary>
     public static void Initialize(string? configFilePathOrBaseDir = null)
@@ -32,6 +37,8 @@ public static class ConfigurationService
                     LogService.Warning("[ConfigService] 配置文件不存在: {Path}", _configFilePath);
                     _configuration = new ConfigurationBuilder().Build();
                     LogService.Info("配置服务初始化成功 (使用空配置)");
+                    ConfigurationChanged?.Invoke();
+                    ServiceLocator.SystemReady.RefreshFromConfig();
                     return;
                 }
 
@@ -45,11 +52,17 @@ public static class ConfigurationService
                     .Build();
 
                 LogService.Info("配置服务初始化成功: {Path}", _configFilePath);
+
+                // 通知订阅者配置已更新
+                ConfigurationChanged?.Invoke();
+                ServiceLocator.SystemReady.RefreshFromConfig();
             }
             catch (Exception ex)
             {
                 LogService.Error(ex, "配置文件加载失败，使用空配置");
                 _configuration = new ConfigurationBuilder().Build();
+                ConfigurationChanged?.Invoke();
+                ServiceLocator.SystemReady.RefreshFromConfig();
             }
         }
     }
@@ -199,7 +212,21 @@ public static class ConfigurationService
             StopLossLimit = GetDouble(section, "DefaultStopLossPercent", 0.02),
             DefaultQuantity = GetDouble(section, "DefaultQuantity", 0.01),
             EnableSlippageProtection = GetBool(section, "EnableSlippageProtection", true),
-            MaxAcceptableSlippage = GetDouble(section, "MaxAcceptableSlippage", 0.005)
+            MaxAcceptableSlippage = GetDouble(section, "MaxAcceptableSlippage", 0.005),
+            Autopilot = new AutopilotConfig
+            {
+                LiveEnabled = GetBool(section.GetSection("Autopilot"), "LiveEnabled", false),
+                WeightStopThreshold = GetDouble(section.GetSection("Autopilot"), "WeightStopThreshold", 0.05),
+                DrawdownStopThreshold = GetDouble(section.GetSection("Autopilot"), "DrawdownStopThreshold", 0.25),
+                ConsecutiveDrawdownLimit = GetInt(section.GetSection("Autopilot"), "ConsecutiveDrawdownLimit", 3),
+                Optimization = new OptimizationConfig
+                {
+                    PeriodMinutes = GetInt(section.GetSection("Autopilot:Optimization"), "PeriodMinutes", 240),
+                    MinPerfImprPct = GetDouble(section.GetSection("Autopilot:Optimization"), "MinPerfImprPct", 0.02),
+                    MinSharpe = GetDouble(section.GetSection("Autopilot:Optimization"), "MinSharpe", 1.2),
+                    MinVolatilityDropPct = GetDouble(section.GetSection("Autopilot:Optimization"), "MinVolatilityDropPct", 0.05)
+                }
+            }
         };
     }
 

@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 using 币安量化机器人.Core.Abstractions;
 using 币安量化机器人.Core.Models;
 using 币安量化机器人.Models;
-using 币安量化机器人.Models.Configuration; // 🆕 配置类引用
-using 币安量化机器人.Services.AI; // 🆕 AI事件引用
+using 币安量化机器人.Services.AI;
+using 币安量化机器人.Models.Configuration;
 
 namespace 币安量化机器人.Application.Backtesting;
 
@@ -137,7 +137,8 @@ public class EnhancedBacktestEngine : IBacktestEngine
             Calmar: metrics.CalmarRatio,
             WinRate: metrics.WinRate,
             ProfitFactor: metrics.ProfitFactor,
-            Signals: allSignals
+            Signals: allSignals,
+            Volatility: metrics.Volatility
         );
 
         // 🆕 发布回测完成事件

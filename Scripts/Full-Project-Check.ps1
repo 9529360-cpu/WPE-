@@ -1,16 +1,16 @@
 # ============================================
-# 全项目系统性检查脚本
+# Full Project Health Check Script (ASCII only)
 # ============================================
-# 用途: 检查所有代码逻辑和UI完整性
-# 作者: AI Assistant
-# 日期: 2025-01-11
+# Purpose: Validate config, service/UI modules, and build status
+# Author: AI Assistant
+# Date: 2025-11-11
 # ============================================
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "  全项目系统性检查" -ForegroundColor Cyan
-Write-Host "================================================" -ForegroundColor Cyan
+Write-Host "==============================================" -ForegroundColor Cyan
+Write-Host "  Full Project Health Check" -ForegroundColor Cyan
+Write-Host "==============================================" -ForegroundColor Cyan
 Write-Host ""
 
 $RootPath = Split-Path -Parent $PSScriptRoot
@@ -18,53 +18,49 @@ $IssuesFound = @()
 $ChecksPassed = 0
 $ChecksFailed = 0
 
-# ============================================
-# 1. 检查配置文件完整性
-# ============================================
-Write-Host "━━━ 1. 检查配置文件 ━━━" -ForegroundColor Yellow
+# 1. Check appsettings.json
+Write-Host "--- 1. Config file ---" -ForegroundColor Yellow
 
 $AppsettingsPath = Join-Path $RootPath "appsettings.json"
 if (Test-Path $AppsettingsPath) {
-    Write-Host "✅ appsettings.json 存在" -ForegroundColor Green
+    Write-Host "OK appsettings.json exists" -ForegroundColor Green
     $ChecksPassed++
-    
+
     try {
-        $Config = Get-Content $AppsettingsPath -Raw | ConvertFrom-Json
-        
-        # 检查必要的配置节
+        $raw = Get-Content $AppsettingsPath -Raw -Encoding UTF8
+        # PowerShell 5 ConvertFrom-Json lacks -Depth; fallback to direct parse
+        $Config = $raw | ConvertFrom-Json
         $RequiredSections = @("App", "Logging", "Trading", "Api", "Risk", "Backtest", "AI", "Database")
         foreach ($Section in $RequiredSections) {
             if ($Config.PSObject.Properties.Name -contains $Section) {
-                Write-Host "  ✓ 配置节 '$Section' 存在" -ForegroundColor Gray
+                Write-Host "  + section '$Section' found" -ForegroundColor Gray
             }
             else {
-                $Issue = "⚠️  缺少配置节: $Section"
-                Write-Host $Issue -ForegroundColor Red
+                $Issue = "Missing config section: $Section"
+                Write-Host "  - $Issue" -ForegroundColor Red
                 $IssuesFound += $Issue
                 $ChecksFailed++
             }
         }
     }
     catch {
-        $Issue = "❌ appsettings.json 格式错误: $($_.Exception.Message)"
-        Write-Host $Issue -ForegroundColor Red
+        $Issue = "appsettings.json invalid json: $($_.Exception.Message)"
+        Write-Host "  - $Issue" -ForegroundColor Red
         $IssuesFound += $Issue
         $ChecksFailed++
     }
 }
 else {
-    $Issue = "❌ appsettings.json 不存在"
-    Write-Host $Issue -ForegroundColor Red
+    $Issue = "appsettings.json not found"
+    Write-Host "  - $Issue" -ForegroundColor Red
     $IssuesFound += $Issue
     $ChecksFailed++
 }
 
 Write-Host ""
 
-# ============================================
-# 2. 检查Services层完整性
-# ============================================
-Write-Host "━━━ 2. 检查Services层 ━━━" -ForegroundColor Yellow
+# 2. Check Services layer
+Write-Host "--- 2. Services layer ---" -ForegroundColor Yellow
 
 $ServicesPath = Join-Path $RootPath "Services"
 $RequiredServices = @(
@@ -82,12 +78,12 @@ $RequiredServices = @(
 foreach ($Service in $RequiredServices) {
     $ServicePath = Join-Path $ServicesPath $Service
     if (Test-Path $ServicePath) {
-        Write-Host "  ✓ $Service" -ForegroundColor Green
+        Write-Host "  + $Service" -ForegroundColor Green
         $ChecksPassed++
     }
     else {
-        $Issue = "  ❌ 缺少: $Service"
-        Write-Host $Issue -ForegroundColor Red
+        $Issue = "Missing service: $Service"
+        Write-Host "  - $Issue" -ForegroundColor Red
         $IssuesFound += $Issue
         $ChecksFailed++
     }
@@ -95,10 +91,8 @@ foreach ($Service in $RequiredServices) {
 
 Write-Host ""
 
-# ============================================
-# 3. 检查Modules层UI完整性
-# ============================================
-Write-Host "━━━ 3. 检查Modules层UI ━━━" -ForegroundColor Yellow
+# 3. Check Modules UI layer
+Write-Host "--- 3. Modules UI ---" -ForegroundColor Yellow
 
 $ModulesPath = Join-Path $RootPath "Modules"
 $RequiredModules = @(
@@ -112,17 +106,17 @@ $RequiredModules = @(
 
 foreach ($Module in $RequiredModules) {
     $ModulePath = Join-Path $ModulesPath $Module.Name
-    Write-Host "  检查模块: $($Module.Name)" -ForegroundColor Cyan
-    
+    Write-Host "  Checking module: $($Module.Name)" -ForegroundColor Cyan
+
     foreach ($File in $Module.Files) {
         $FilePath = Join-Path $ModulePath $File
         if (Test-Path $FilePath) {
-            Write-Host "    ✓ $File" -ForegroundColor Green
+            Write-Host "    + $File" -ForegroundColor Green
             $ChecksPassed++
         }
         else {
-            $Issue = "    ❌ 缺少: $($Module.Name)\$File"
-            Write-Host $Issue -ForegroundColor Red
+            $Issue = "Missing module file: $($Module.Name)\$File"
+            Write-Host "    - $Issue" -ForegroundColor Red
             $IssuesFound += $Issue
             $ChecksFailed++
         }
@@ -131,10 +125,8 @@ foreach ($Module in $RequiredModules) {
 
 Write-Host ""
 
-# ============================================
-# 4. 检查Models层完整性
-# ============================================
-Write-Host "━━━ 4. 检查Models层 ━━━" -ForegroundColor Yellow
+# 4. Check Models layer
+Write-Host "--- 4. Models layer ---" -ForegroundColor Yellow
 
 $ModelsPath = Join-Path $RootPath "Models"
 $RequiredModels = @(
@@ -151,12 +143,12 @@ $RequiredModels = @(
 foreach ($Model in $RequiredModels) {
     $ModelPath = Join-Path $ModelsPath $Model
     if (Test-Path $ModelPath) {
-        Write-Host "  ✓ $Model" -ForegroundColor Green
+        Write-Host "  + $Model" -ForegroundColor Green
         $ChecksPassed++
     }
     else {
-        $Issue = "  ❌ 缺少: $Model"
-        Write-Host $Issue -ForegroundColor Red
+        $Issue = "Missing model: $Model"
+        Write-Host "  - $Issue" -ForegroundColor Red
         $IssuesFound += $Issue
         $ChecksFailed++
     }
@@ -164,21 +156,19 @@ foreach ($Model in $RequiredModels) {
 
 Write-Host ""
 
-# ============================================
-# 5. 检查MainWindow和App.xaml
-# ============================================
-Write-Host "━━━ 5. 检查主窗口 ━━━" -ForegroundColor Yellow
+# 5. Check MainWindow and App.xaml
+Write-Host "--- 5. App entry ---" -ForegroundColor Yellow
 
 $MainFiles = @("MainWindow.xaml", "MainWindow.xaml.cs", "App.xaml", "App.xaml.cs")
 foreach ($File in $MainFiles) {
     $FilePath = Join-Path $RootPath $File
     if (Test-Path $FilePath) {
-        Write-Host "  ✓ $File" -ForegroundColor Green
+        Write-Host "  + $File" -ForegroundColor Green
         $ChecksPassed++
     }
     else {
-        $Issue = "  ❌ 缺少: $File"
-        Write-Host $Issue -ForegroundColor Red
+        $Issue = "Missing entry file: $File"
+        Write-Host "  - $Issue" -ForegroundColor Red
         $IssuesFound += $Issue
         $ChecksFailed++
     }
@@ -186,26 +176,24 @@ foreach ($File in $MainFiles) {
 
 Write-Host ""
 
-# ============================================
-# 6. 检查编译
-# ============================================
-Write-Host "━━━ 6. 编译检查 ━━━" -ForegroundColor Yellow
+# 6. Build
+Write-Host "--- 6. Build ---" -ForegroundColor Yellow
 
 $CsprojPath = Join-Path $RootPath "币安量化机器人.csproj"
 if (Test-Path $CsprojPath) {
-    Write-Host "  正在编译项目..." -ForegroundColor Cyan
-    
-    $BuildOutput = dotnet build $CsprojPath --verbosity quiet 2>&1
-    
+    Write-Host "  Building project..." -ForegroundColor Cyan
+
+    $BuildOutput = dotnet build $CsprojPath --verbosity minimal 2>&1
+
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "  ✅ 编译成功" -ForegroundColor Green
+        Write-Host "  OK build success" -ForegroundColor Green
         $ChecksPassed++
     }
     else {
-        $Issue = "  ❌ 编译失败"
-        Write-Host $Issue -ForegroundColor Red
-        Write-Host "  输出:" -ForegroundColor Gray
-        $BuildOutput | Select-Object -First 20 | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
+        $Issue = "Build failed"
+        Write-Host "  - $Issue" -ForegroundColor Red
+        Write-Host "  Output (first 60 lines):" -ForegroundColor Gray
+        $BuildOutput | Select-Object -First 60 | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
         $IssuesFound += $Issue
         $ChecksFailed++
     }
@@ -213,83 +201,54 @@ if (Test-Path $CsprojPath) {
 
 Write-Host ""
 
-# ============================================
-# 7. 生成报告
-# ============================================
-Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "  检查结果汇总" -ForegroundColor Cyan
-Write-Host "================================================" -ForegroundColor Cyan
+# 7. Summary and save report
+Write-Host "==============================================" -ForegroundColor Cyan
+Write-Host "  Summary" -ForegroundColor Cyan
+Write-Host "==============================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "✅ 通过检查: $ChecksPassed 项" -ForegroundColor Green
-Write-Host "❌ 失败检查: $ChecksFailed 项" -ForegroundColor Red
+Write-Host "Passed: $ChecksPassed" -ForegroundColor Green
+Write-Host "Failed: $ChecksFailed" -ForegroundColor Red
 Write-Host ""
 
 if ($IssuesFound.Count -gt 0) {
-    Write-Host "发现的问题:" -ForegroundColor Yellow
+    Write-Host "Issues:" -ForegroundColor Yellow
     foreach ($Issue in $IssuesFound) {
-        Write-Host "  • $Issue" -ForegroundColor Red
+        Write-Host "  - $Issue" -ForegroundColor Red
     }
 }
 else {
-    Write-Host "🎉 所有检查通过！" -ForegroundColor Green
+    Write-Host "All checks passed" -ForegroundColor Green
 }
 
 Write-Host ""
 
-# 保存报告
-$ReportPath = Join-Path $RootPath "Docs" "Project_Health_Check_Report.md"
+$DocsDir = Join-Path $RootPath "Docs"
+New-Item -Path $DocsDir -ItemType Directory -Force | Out-Null
+$ReportPath = Join-Path $DocsDir "Project_Health_Check_Report.md"
+
 $ReportContent = @"
-# 项目健康检查报告
+# Project Health Check Report
 
-生成时间: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 
-## 检查统计
+## Stats
 
-- ✅ 通过: $ChecksPassed 项
-- ❌ 失败: $ChecksFailed 项
+- Passed: $ChecksPassed
+- Failed: $ChecksFailed
 
-## 检查项目
-
-### 1. 配置文件
-- appsettings.json
-
-### 2. Services层
-- BinanceApiClient.cs
-- ConfigurationService.cs
-- TradingAccountManager.cs
-- 等...
-
-### 3. Modules层UI
-- Dashboard
-- AI
-- Settings
-- Trade
-- Market
-- Account
-
-### 4. Models层
-- TradingAccount
-- Configuration类
-- 等...
-
-### 5. 主窗口
-- MainWindow.xaml
-- App.xaml
-
-### 6. 编译状态
-$(if ($LASTEXITCODE -eq 0) { "✅ 编译成功" } else { "❌ 编译失败" })
+## Build
+$(if ($LASTEXITCODE -eq 0) { "Build: OK" } else { "Build: Failed" })
 
 "@
 
 if ($IssuesFound.Count -gt 0) {
-    $ReportContent += "`n## 发现的问题`n`n"
+    $ReportContent += "`n## Issues`n`n"
     foreach ($Issue in $IssuesFound) {
         $ReportContent += "- $Issue`n"
     }
 }
 
-New-Item -Path (Split-Path $ReportPath -Parent) -ItemType Directory -Force | Out-Null
 Set-Content -Path $ReportPath -Value $ReportContent -Encoding UTF8
 
-Write-Host "报告已保存: $ReportPath" -ForegroundColor Cyan
+Write-Host "Report saved: $ReportPath" -ForegroundColor Cyan
 Write-Host ""
