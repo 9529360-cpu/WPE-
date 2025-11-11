@@ -1,27 +1,231 @@
 <UserControl x:Class="币安量化机器人.Modules.Diagnostics.DiagnosticsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Background="White" Margin="4">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#F9FAFB">
+    
+    <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Border Grid.Row="0" Background="#0F172A" Padding="12" CornerRadius="6">
-            <TextBlock Text="诊断信息" FontSize="16" FontWeight="Bold" Foreground="White"/>
+
+        <!-- 标题栏 -->
+        <Border Grid.Row="0" Background="#1F2937" Padding="16" CornerRadius="8" Margin="0,0,0,12">
+            <DockPanel>
+                <TextBlock Text="🔍 系统诊断与日志" 
+                           FontSize="20" FontWeight="Bold" 
+                           Foreground="White" 
+                           VerticalAlignment="Center"
+                           DockPanel.Dock="Left"/>
+                
+                <Button Content="🔄 刷新"
+                        Height="36"
+                        Padding="16,0"
+                        Background="#10B981"
+                        Foreground="White"
+                        BorderThickness="0"
+                        HorizontalAlignment="Right"
+                        Click="Refresh_Click"
+                        Cursor="Hand">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" 
+                                                CornerRadius="6">
+                                            <ContentPresenter HorizontalAlignment="Center" 
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#059669"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </DockPanel>
         </Border>
 
-        <StackPanel Grid.Row="1" Margin="0,12,0,12" Spacing="12">
-            <TextBlock x:Name="EnvironmentText" FontSize="14" TextWrapping="Wrap"/>
-            <TextBlock Text="日志输出" FontWeight="Bold"/>
-            <TextBox x:Name="LogBox" Height="240" TextWrapping="Wrap" AcceptsReturn="True" IsReadOnly="True"/>
-            <Button Content="刷新" Width="120" Height="32" Click="Refresh_Click"/>
-        </StackPanel>
+        <!-- Tab切换 -->
+        <TabControl Grid.Row="1" 
+                    Background="White"
+                    BorderThickness="0">
+            
+            <!-- Tab 1: 系统信息 -->
+            <TabItem Header="💻 系统信息" FontSize="14" Padding="12,8">
+                <Border Background="White" Padding="16">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <!-- 应用信息 -->
+                            <Border Background="#F9FAFB" 
+                                    BorderBrush="#E5E7EB" 
+                                    BorderThickness="1" 
+                                    CornerRadius="8" 
+                                    Padding="16"
+                                    Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="应用信息" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
+                                    
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <TextBlock Grid.Row="0" Text="版本号:" Foreground="#6B7280"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="VersionText" Text="1.0.0"/>
+                                        
+                                        <TextBlock Grid.Row="1" Text="运行时长:" Foreground="#6B7280" Margin="0,8,0,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="UptimeText" Text="0天0小时" Margin="0,8,0,0"/>
+                                        
+                                        <TextBlock Grid.Row="2" Text="启动时间:" Foreground="#6B7280" Margin="0,8,0,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="StartTimeText" Text="" Margin="0,8,0,0"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
 
-        <StatusBar Grid.Row="2" Background="#E2E8F0">
-            <StatusBarItem>
-                <TextBlock x:Name="StatusText" Text="状态：等待刷新"/>
-            </StatusBarItem>
-        </StatusBar>
+                            <!-- 系统资源 -->
+                            <Border Background="#F9FAFB" 
+                                    BorderBrush="#E5E7EB" 
+                                    BorderThickness="1" 
+                                    CornerRadius="8" 
+                                    Padding="16"
+                                    Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="系统资源" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
+                                    
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <TextBlock Grid.Row="0" Text="CPU使用率:" Foreground="#6B7280"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="CpuUsageText" Text="0%"/>
+                                        
+                                        <TextBlock Grid.Row="1" Text="内存使用:" Foreground="#6B7280" Margin="0,8,0,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="MemoryUsageText" Text="0 MB" Margin="0,8,0,0"/>
+                                        
+                                        <TextBlock Grid.Row="2" Text="缓存条数:" Foreground="#6B7280" Margin="0,8,0,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="CacheCountText" Text="0" Margin="0,8,0,0"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- API状态 -->
+                            <Border Background="#F9FAFB" 
+                                    BorderBrush="#E5E7EB" 
+                                    BorderThickness="1" 
+                                    CornerRadius="8" 
+                                    Padding="16">
+                                <StackPanel>
+                                    <TextBlock Text="API连接状态" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
+                                    
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <TextBlock Grid.Row="0" Text="REST API:" Foreground="#6B7280"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="RestApiStatusText" Text="已连接" Foreground="#10B981"/>
+                                        
+                                        <TextBlock Grid.Row="1" Text="WebSocket:" Foreground="#6B7280" Margin="0,8,0,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="WebSocketStatusText" Text="已连接" Foreground="#10B981" Margin="0,8,0,0"/>
+                                        
+                                        <TextBlock Grid.Row="2" Text="请求次数(今日):" Foreground="#6B7280" Margin="0,8,0,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="RequestCountText" Text="0" Margin="0,8,0,0"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
+
+            <!-- Tab 2: 实时日志 -->
+            <TabItem Header="📝 实时日志" FontSize="14" Padding="12,8">
+                <Border Background="White" Padding="16">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 操作栏 -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                            <ComboBox x:Name="LogLevelFilter" 
+                                      Width="120" 
+                                      Height="32"
+                                      Margin="0,0,8,0"
+                                      SelectionChanged="LogLevelFilter_Changed">
+                                <ComboBoxItem Content="全部" IsSelected="True"/>
+                                <ComboBoxItem Content="信息"/>
+                                <ComboBoxItem Content="警告"/>
+                                <ComboBoxItem Content="错误"/>
+                            </ComboBox>
+                            
+                            <Button Content="🗑️ 清空日志"
+                                    Height="32"
+                                    Padding="12,0"
+                                    Background="#EF4444"
+                                    Foreground="White"
+                                    BorderThickness="0"
+                                    Click="ClearLog_Click"
+                                    Cursor="Hand"/>
+                        </StackPanel>
+
+                        <!-- 日志内容 -->
+                        <Border Grid.Row="1" 
+                                BorderBrush="#E5E7EB" 
+                                BorderThickness="1" 
+                                CornerRadius="8"
+                                Background="#F9FAFB">
+                            <TextBox x:Name="LogTextBox"
+                                     FontFamily="Consolas"
+                                     FontSize="12"
+                                     TextWrapping="Wrap"
+                                     AcceptsReturn="True"
+                                     IsReadOnly="True"
+                                     VerticalScrollBarVisibility="Auto"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Padding="8"/>
+                        </Border>
+                    </Grid>
+                </Border>
+            </TabItem>
+
+            <!-- Tab 3: 性能指标 -->
+            <TabItem Header="📊 性能指标" FontSize="14" Padding="12,8">
+                <Border Background="White" Padding="16">
+                    <DataGrid x:Name="PerformanceGrid" 
+                              AutoGenerateColumns="False" 
+                              IsReadOnly="True" 
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              BorderThickness="1"
+                              BorderBrush="#E5E7EB"
+                              Background="White"
+                              RowBackground="White"
+                              AlternatingRowBackground="#F9FAFB">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="指标名称" Binding="{Binding Name}" Width="200"/>
+                            <DataGridTextColumn Header="当前值" Binding="{Binding CurrentValue}" Width="150"/>
+                            <DataGridTextColumn Header="平均值" Binding="{Binding AverageValue}" Width="150"/>
+                            <DataGridTextColumn Header="最大值" Binding="{Binding MaxValue}" Width="150"/>
+                            <DataGridTextColumn Header="单位" Binding="{Binding Unit}" Width="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+            </TabItem>
+        </TabControl>
     </Grid>
 </UserControl>

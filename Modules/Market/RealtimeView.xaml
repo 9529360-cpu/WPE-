@@ -24,7 +24,7 @@
                     <TextBlock Text="实时行情监控" FontSize="16" FontWeight="Bold" Foreground="White"/>
                     <TextBlock Text="通过 Binance 永续合约 WebSocket 获取实时报价" FontSize="12" Foreground="#D1D5DB"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <ComboBox x:Name="SymbolSelector" Width="140" Height="26" SelectionChanged="SymbolSelector_SelectionChanged"/>
                     <ComboBox x:Name="IntervalSelector" Width="100" Height="26" SelectionChanged="IntervalSelector_SelectionChanged">
                         <ComboBoxItem Content="1m"/>

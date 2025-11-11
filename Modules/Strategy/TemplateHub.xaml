@@ -1,76 +1,461 @@
-﻿<UserControl x:Class="币安量化机器人.Modules.Strategy.TemplateHub"
+<UserControl x:Class="币安量化机器人.Modules.Strategy.TemplateHub"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d">
-    <Grid Background="White">
+             Background="#F9FAFB">
+    
+    <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- 顶部说明 -->
-        <Border Grid.Row="0" Background="#F5F7FA" Padding="12">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="策略库 / 模板" FontSize="16" FontWeight="Bold" Margin="0,0,12,0"/>
-                <TextBlock Text="从常见模板快速新建：网格、DCA、趋势、信号跟随、做市、套利"
-                   Foreground="#6B7280" VerticalAlignment="Center"/>
-            </StackPanel>
+        <!-- 标题栏 -->
+        <Border Grid.Row="0" Background="#1F2937" Padding="16" CornerRadius="8" Margin="0,0,0,12">
+            <DockPanel>
+                <TextBlock Text="📚 策略模板库" 
+                           FontSize="20" FontWeight="Bold" 
+                           Foreground="White" 
+                           VerticalAlignment="Center"
+                           DockPanel.Dock="Left"/>
+                
+                <TextBlock Text="从模板快速创建交易策略" 
+                           FontSize="14" 
+                           Foreground="#9CA3AF"
+                           VerticalAlignment="Center"
+                           Margin="16,0,0,0"
+                           DockPanel.Dock="Left"/>
+            </DockPanel>
         </Border>
 
-        <!-- 模板卡片区 -->
+        <!-- 模板网格 -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <UniformGrid Columns="3" Margin="12" IsItemsHost="False">
-                <!-- 每张卡片做成 Button + 内部面板 -->
-                <Button Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}" Margin="6" Padding="12"
-                Tag="GRID" Click="Template_Click">
-                    <StackPanel>
-                        <TextBlock Text="📊 网格交易" FontWeight="Bold"/>
-                        <TextBlock Text="在区间内挂多层买卖单，吃波动利润（现货/合约）" Foreground="#6B7280" TextWrapping="Wrap"/>
-                    </StackPanel>
-                </Button>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <Button Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}" Margin="6" Padding="12"
-                Tag="DCA" Click="Template_Click">
-                    <StackPanel>
-                        <TextBlock Text="📈 DCA 定投 / 补仓" FontWeight="Bold"/>
-                        <TextBlock Text="分批入场/加仓，平滑成本（支持止盈/止损/追踪）" Foreground="#6B7280" TextWrapping="Wrap"/>
-                    </StackPanel>
-                </Button>
+                <!-- 第一行 (3个模板) -->
+                <Grid Grid.Row="0" Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-                <Button Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}" Margin="6" Padding="12"
-                Tag="TREND" Click="Template_Click">
-                    <StackPanel>
-                        <TextBlock Text="📉 趋势跟随" FontWeight="Bold"/>
-                        <TextBlock Text="基于均线/突破/动量信号，顺势做多或做空" Foreground="#6B7280" TextWrapping="Wrap"/>
-                    </StackPanel>
-                </Button>
+                    <!-- 网格交易 -->
+                    <Border Grid.Column="0" 
+                            Background="White" 
+                            BorderBrush="#E5E7EB" 
+                            BorderThickness="1" 
+                            CornerRadius="12" 
+                            Padding="20"
+                            Tag="GRID"
+                            MouseDown="Template_Click"
+                            Cursor="Hand">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="BorderBrush" Value="#10B981"/>
+                                        <Setter Property="BorderThickness" Value="2"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        
+                        <StackPanel>
+                            <!-- 图标 -->
+                            <Border Background="#ECFDF5" 
+                                    CornerRadius="12" 
+                                    Width="64" 
+                                    Height="64" 
+                                    HorizontalAlignment="Left"
+                                    Margin="0,0,0,12">
+                                <TextBlock Text="📊" 
+                                           FontSize="32" 
+                                           HorizontalAlignment="Center" 
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                            
+                            <!-- 标题 -->
+                            <TextBlock Text="网格交易策略" 
+                                       FontSize="18" 
+                                       FontWeight="Bold"
+                                       Margin="0,0,0,8"/>
+                            
+                            <!-- 描述 -->
+                            <TextBlock Text="在价格区间内自动挂买卖单，赚取震荡波动利润。适合震荡市场。" 
+                                       FontSize="13" 
+                                       Foreground="#6B7280"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,12"/>
+                            
+                            <!-- 标签 -->
+                            <StackPanel Orientation="Horizontal">
+                                <Border Background="#DBEAFE" 
+                                        CornerRadius="4" 
+                                        Padding="8,4"
+                                        Margin="0,0,4,0">
+                                    <TextBlock Text="现货" 
+                                               FontSize="11" 
+                                               Foreground="#1E40AF"/>
+                                </Border>
+                                <Border Background="#FEF3C7" 
+                                        CornerRadius="4" 
+                                        Padding="8,4">
+                                    <TextBlock Text="震荡市" 
+                                               FontSize="11" 
+                                               Foreground="#92400E"/>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
 
-                <Button Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}" Margin="6" Padding="12"
-                Tag="SIGNAL" Click="Template_Click">
-                    <StackPanel>
-                        <TextBlock Text="🔔 信号跟随" FontWeight="Bold"/>
-                        <TextBlock Text="接入 TradingView/自研信号，触发下单" Foreground="#6B7280" TextWrapping="Wrap"/>
-                    </StackPanel>
-                </Button>
+                    <!-- 趋势跟随 -->
+                    <Border Grid.Column="2" 
+                            Background="White" 
+                            BorderBrush="#E5E7EB" 
+                            BorderThickness="1" 
+                            CornerRadius="12" 
+                            Padding="20"
+                            Tag="TREND"
+                            MouseDown="Template_Click"
+                            Cursor="Hand">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="BorderBrush" Value="#10B981"/>
+                                        <Setter Property="BorderThickness" Value="2"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        
+                        <StackPanel>
+                            <Border Background="#FEF2F2" 
+                                    CornerRadius="12" 
+                                    Width="64" 
+                                    Height="64" 
+                                    HorizontalAlignment="Left"
+                                    Margin="0,0,0,12">
+                                <TextBlock Text="📈" 
+                                           FontSize="32" 
+                                           HorizontalAlignment="Center" 
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                            
+                            <TextBlock Text="趋势跟随策略" 
+                                       FontSize="18" 
+                                       FontWeight="Bold"
+                                       Margin="0,0,0,8"/>
+                            
+                            <TextBlock Text="基于均线/突破/动量信号,顺势做多或做空。适合趋势市场。" 
+                                       FontSize="13" 
+                                       Foreground="#6B7280"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,12"/>
+                            
 
-                <Button Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}" Margin="6" Padding="12"
-                Tag="MAKER" Click="Template_Click">
-                    <StackPanel>
-                        <TextBlock Text="🏷 做市" FontWeight="Bold"/>
-                        <TextBlock Text="双向挂单维持点差，赚取交易费与价差" Foreground="#6B7280" TextWrapping="Wrap"/>
-                    </StackPanel>
-                </Button>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Background="#FEE2E2" 
+                                        CornerRadius="4" 
+                                        Padding="8,4"
+                                        Margin="0,0,4,0">
+                                    <TextBlock Text="合约" 
+                                               FontSize="11" 
+                                               Foreground="#991B1B"/>
+                                </Border>
+                                <Border Background="#FEF3C7" 
+                                        CornerRadius="4" 
+                                        Padding="8,4">
+                                    <TextBlock Text="趋势市" 
+                                               FontSize="11" 
+                                               Foreground="#92400E"/>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
 
-                <Button Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}" Margin="6" Padding="12"
-                Tag="ARBITRAGE" Click="Template_Click">
-                    <StackPanel>
-                        <TextBlock Text="♻ 套利" FontWeight="Bold"/>
-                        <TextBlock Text="跨期/跨品种/跨交易所价差捕捉（研究用）" Foreground="#6B7280" TextWrapping="Wrap"/>
-                    </StackPanel>
-                </Button>
-            </UniformGrid>
+                    <!-- DCA定投 -->
+                    <Border Grid.Column="4" 
+                            Background="White" 
+                            BorderBrush="#E5E7EB" 
+                            BorderThickness="1" 
+                            CornerRadius="12" 
+                            Padding="20"
+                            Tag="DCA"
+                            MouseDown="Template_Click"
+                            Cursor="Hand">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="BorderBrush" Value="#10B981"/>
+                                        <Setter Property="BorderThickness" Value="2"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        
+                        <StackPanel>
+                            <Border Background="#EFF6FF" 
+                                    CornerRadius="12" 
+                                    Width="64" 
+                                    Height="64" 
+                                    HorizontalAlignment="Left"
+                                    Margin="0,0,0,12">
+                                <TextBlock Text="💰" 
+                                           FontSize="32" 
+                                           HorizontalAlignment="Center" 
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                            
+                            <TextBlock Text="DCA定投策略" 
+                                       FontSize="18" 
+                                       FontWeight="Bold"
+                                       Margin="0,0,0,8"/>
+                            
+                            <TextBlock Text="定期定额买入,分批入场平滑成本。支持止盈止损和追踪。" 
+                                       FontSize="13" 
+                                       Foreground="#6B7280"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,12"/>
+                            
+
+                            <StackPanel Orientation="Horizontal">
+                                <Border Background="#DBEAFE" 
+                                        CornerRadius="4" 
+                                        Padding="8,4"
+                                        Margin="0,0,4,0">
+                                    <TextBlock Text="现货" 
+                                               FontSize="11" 
+                                               Foreground="#1E40AF"/>
+                                </Border>
+                                <Border Background="#F3E8FF" 
+                                        CornerRadius="4" 
+                                        Padding="8,4">
+                                    <TextBlock Text="长期" 
+                                               FontSize="11" 
+                                               Foreground="#6B21A8"/>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- 第二行 (3个模板) -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- AI智能交易 -->
+                    <Border Grid.Column="0" 
+                            Background="White" 
+                            BorderBrush="#E5E7EB" 
+                            BorderThickness="1" 
+                            CornerRadius="12" 
+                            Padding="20"
+                            Tag="AI"
+                            MouseDown="Template_Click"
+                            Cursor="Hand">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="BorderBrush" Value="#10B981"/>
+                                        <Setter Property="BorderThickness" Value="2"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        
+                        <StackPanel>
+                            <Border Background="#F0FDF4" 
+                                    CornerRadius="12" 
+                                    Width="64" 
+                                    Height="64" 
+                                    HorizontalAlignment="Left"
+                                    Margin="0,0,0,12">
+                                <TextBlock Text="🤖" 
+                                           FontSize="32" 
+                                           HorizontalAlignment="Center" 
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                            
+                            <TextBlock Text="AI智能交易" 
+                                       FontSize="18" 
+                                       FontWeight="Bold"
+                                       Margin="0,0,0,8"/>
+                            
+                            <TextBlock Text="使用DeepSeek AI分析市场,自动生成交易信号并执行。" 
+                                       FontSize="13" 
+                                       Foreground="#6B7280"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,12"/>
+                            
+
+                            <StackPanel Orientation="Horizontal">
+                                <Border Background="#D1FAE5" 
+                                        CornerRadius="4" 
+                                        Padding="8,4"
+                                        Margin="0,0,4,0">
+                                    <TextBlock Text="AI驱动" 
+                                               FontSize="11" 
+                                               Foreground="#065F46"/>
+                                </Border>
+                                <Border Background="#FEF3C7" 
+                                        CornerRadius="4" 
+                                        Padding="8,4">
+                                    <TextBlock Text="全自动" 
+                                               FontSize="11" 
+                                               Foreground="#92400E"/>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 信号跟随 -->
+                    <Border Grid.Column="2" 
+                            Background="White" 
+                            BorderBrush="#E5E7EB" 
+                            BorderThickness="1" 
+                            CornerRadius="12" 
+                            Padding="20"
+                            Tag="SIGNAL"
+                            MouseDown="Template_Click"
+                            Cursor="Hand">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="BorderBrush" Value="#10B981"/>
+                                        <Setter Property="BorderThickness" Value="2"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        
+                        <StackPanel>
+                            <Border Background="#FEF9C3" 
+                                    CornerRadius="12" 
+                                    Width="64" 
+                                    Height="64" 
+                                    HorizontalAlignment="Left"
+                                    Margin="0,0,0,12">
+                                <TextBlock Text="🔔" 
+                                           FontSize="32" 
+                                           HorizontalAlignment="Center" 
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                            
+                            <TextBlock Text="信号跟随策略" 
+                                       FontSize="18" 
+                                       FontWeight="Bold"
+                                       Margin="0,0,0,8"/>
+                            
+                            <TextBlock Text="接入TradingView或自研信号源,触发自动下单。" 
+                                       FontSize="13" 
+                                       Foreground="#6B7280"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,12"/>
+                            
+
+                            <StackPanel Orientation="Horizontal">
+                                <Border Background="#FEF3C7" 
+                                        CornerRadius="4" 
+                                        Padding="8,4"
+                                        Margin="0,0,4,0">
+                                    <TextBlock Text="信号源" 
+                                               FontSize="11" 
+                                               Foreground="#92400E"/>
+                                </Border>
+                                <Border Background="#E0E7FF" 
+                                        CornerRadius="4" 
+                                        Padding="8,4">
+                                    <TextBlock Text="Webhook" 
+                                               FontSize="11" 
+                                               Foreground="#3730A3"/>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 做市策略 -->
+                    <Border Grid.Column="4" 
+                            Background="White" 
+                            BorderBrush="#E5E7EB" 
+                            BorderThickness="1" 
+                            CornerRadius="12" 
+                            Padding="20"
+                            Tag="MAKER"
+                            MouseDown="Template_Click"
+                            Cursor="Hand">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="BorderBrush" Value="#10B981"/>
+                                        <Setter Property="BorderThickness" Value="2"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        
+                        <StackPanel>
+                            <Border Background="#FCE7F3" 
+                                    CornerRadius="12" 
+                                    Width="64" 
+                                    Height="64" 
+                                    HorizontalAlignment="Left"
+                                    Margin="0,0,0,12">
+                                <TextBlock Text="🏷️" 
+                                           FontSize="32" 
+                                           HorizontalAlignment="Center" 
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                            
+                            <TextBlock Text="做市策略" 
+                                       FontSize="18" 
+                                       FontWeight="Bold"
+                                       Margin="0,0,0,8"/>
+                            
+                            <TextBlock Text="双向挂单维持点差,赚取交易手续费与价差收益。" 
+                                       FontSize="13" 
+                                       Foreground="#6B7280"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,12"/>
+                            
+
+                            <StackPanel Orientation="Horizontal">
+                                <Border Background="#FECACA" 
+                                        CornerRadius="4" 
+                                        Padding="8,4"
+                                        Margin="0,0,4,0">
+                                    <TextBlock Text="高频" 
+                                               FontSize="11" 
+                                               Foreground="#991B1B"/>
+                                </Border>
+                                <Border Background="#F3E8FF" 
+                                        CornerRadius="4" 
+                                        Padding="8,4">
+                                    <TextBlock Text="专业" 
+                                               FontSize="11" 
+                                               Foreground="#6B21A8"/>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
         </ScrollViewer>
     </Grid>
 </UserControl>

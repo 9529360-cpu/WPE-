@@ -24,7 +24,7 @@ public class ApiDataSource : IDataSource
 
     public async IAsyncEnumerable<RawDataFrame> ReadAsync(DataQuery query, CancellationToken cancellationToken = default)
     {
-        var url = $"{_endpoint}/marketdata?symbol={query.Symbol}&start={query.Start:o}&end={query.End:o}";
+        string url = $"{_endpoint}/marketdata?symbol={query.Symbol}&start={query.Start:o}&end={query.End:o}";
         var frames = await _httpClient.GetFromJsonAsync<List<ApiCandle>>(url, cancellationToken) ?? new List<ApiCandle>();
         foreach (var candle in frames)
         {

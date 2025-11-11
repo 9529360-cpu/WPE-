@@ -10,7 +10,7 @@ public class BlacklistManager
 {
     private readonly ConcurrentDictionary<string, int> _lossCounters = new();
     private readonly ConcurrentDictionary<string, DateTime> _blacklist = new();
-    private TimeSpan _cooldown = TimeSpan.FromHours(1);
+    private readonly TimeSpan _cooldown = TimeSpan.FromHours(1);
     private int _threshold = 3;
 
     public IReadOnlyCollection<string> Symbols => _blacklist.Keys.ToList();

@@ -27,10 +27,12 @@ public static class AppSettingsService
         {
             if (File.Exists(SettingsPath))
             {
-                var json = File.ReadAllText(SettingsPath);
+                string json = File.ReadAllText(SettingsPath);
                 var settings = JsonSerializer.Deserialize<AppSettings>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (settings is not null)
+                {
                     Current = settings;
+                }
             }
         }
         catch
@@ -42,7 +44,7 @@ public static class AppSettingsService
     public static void Save()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
-        var json = JsonSerializer.Serialize(Current, new JsonSerializerOptions { WriteIndented = true });
+        string json = JsonSerializer.Serialize(Current, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(SettingsPath, json);
     }
 }

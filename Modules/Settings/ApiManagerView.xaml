@@ -1,0 +1,405 @@
+<UserControl x:Class="币安量化机器人.Modules.Settings.ApiManagerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#F9FAFB">
+    
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="16"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 标题栏 -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,24">
+                <TextBlock Text="🔑 API 密钥管理" 
+                           FontSize="28" 
+                           FontWeight="Bold" 
+                           Foreground="#111827"
+                           Margin="0,0,0,8"/>
+                <TextBlock Text="配置币安交易所和 DeepSeek AI 的 API 密钥" 
+                           FontSize="14" 
+                           Foreground="#6B7280"/>
+            </StackPanel>
+
+            <!-- ==================== 币安 API 配置 ==================== -->
+            <Border Grid.Row="1" 
+                    Background="White" 
+                    CornerRadius="12" 
+                    Padding="24"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="16"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="20"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 标题 -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal">
+                        <Border Background="#FEF3C7" 
+                                Padding="8" 
+                                CornerRadius="8" 
+                                Margin="0,0,12,0">
+                            <TextBlock Text="📊" FontSize="20"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Binance 币安交易所 API" 
+                                       FontSize="18" 
+                                       FontWeight="Bold" 
+                                       Foreground="#111827"/>
+                            <TextBlock Text="用于实时交易、获取行情数据" 
+                                       FontSize="12" 
+                                       Foreground="#6B7280"
+                                       Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 状态指示器 -->
+                    <Border Grid.Row="2" 
+                            x:Name="BinanceStatusBorder"
+                            Background="#FEF2F2"
+                            Padding="12"
+                            CornerRadius="8"
+                            Margin="0,0,0,16">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚠️" FontSize="16" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="BinanceStatusText"
+                                       Text="未配置" 
+                                       FontSize="13" 
+                                       Foreground="#991B1B"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- API Key -->
+                    <StackPanel Grid.Row="3" Margin="0,0,0,16">
+                        <TextBlock Text="API Key" 
+                                   FontSize="13" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="#374151"
+                                   Margin="0,0,0,8"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="BinanceApiKeyBox"
+                                     Grid.Column="0"
+                                     Height="40"
+                                     FontSize="13"
+                                     FontFamily="Consolas"
+                                     Padding="12,0"
+                                     VerticalContentAlignment="Center"
+                                     GotFocus="BinanceApiKeyBox_GotFocus"/>
+                            <Button Grid.Column="1"
+                                    Content="📋 粘贴"
+                                    Width="80"
+                                    Height="40"
+                                    Margin="8,0,0,0"
+                                    Background="#F3F4F6"
+                                    BorderBrush="#D1D5DB"
+                                    BorderThickness="1"
+                                    Click="PasteBinanceApiKey_Click"/>
+                            <Button Grid.Column="2"
+                                    Content="🗑️ 清除"
+                                    Width="80"
+                                    Height="40"
+                                    Margin="8,0,0,0"
+                                    Background="#FEF2F2"
+                                    BorderBrush="#FCA5A5"
+                                    BorderThickness="1"
+                                    Click="ClearBinanceApiKey_Click"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Secret Key -->
+                    <StackPanel Grid.Row="4" Margin="0,0,0,16">
+                        <TextBlock Text="Secret Key" 
+                                   FontSize="13" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="#374151"
+                                   Margin="0,0,0,8"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <PasswordBox x:Name="BinanceSecretKeyBox"
+                                         Grid.Column="0"
+                                         Height="40"
+                                         FontSize="13"
+                                         FontFamily="Consolas"
+                                         Padding="12,0"
+                                         VerticalContentAlignment="Center"/>
+                            <Button Grid.Column="1"
+                                    Content="📋 粘贴"
+                                    Width="80"
+                                    Height="40"
+                                    Margin="8,0,0,0"
+                                    Background="#F3F4F6"
+                                    BorderBrush="#D1D5DB"
+                                    BorderThickness="1"
+                                    Click="PasteBinanceSecretKey_Click"/>
+                            <Button Grid.Column="2"
+                                    Content="🗑️ 清除"
+                                    Width="80"
+                                    Height="40"
+                                    Margin="8,0,0,0"
+                                    Background="#FEF2F2"
+                                    BorderBrush="#FCA5A5"
+                                    BorderThickness="1"
+                                    Click="ClearBinanceSecretKey_Click"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- 帮助提示 -->
+                    <Border Grid.Row="5"
+                            Background="#EFF6FF"
+                            Padding="12"
+                            CornerRadius="8"
+                            Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="💡 如何获取 Binance API Key?" 
+                                       FontSize="12" 
+                                       FontWeight="SemiBold"
+                                       Foreground="#1E40AF"
+                                       Margin="0,0,0,8"/>
+                            <TextBlock Text="1. 登录 Binance 账户 → 个人中心 → API 管理" 
+                                       FontSize="11" 
+                                       Foreground="#3B82F6"
+                                       Margin="0,0,0,4"/>
+                            <TextBlock Text="2. 创建新的 API Key，并勾选「现货和杠杆交易」权限" 
+                                       FontSize="11" 
+                                       Foreground="#3B82F6"
+                                       Margin="0,0,0,4"/>
+                            <TextBlock Text="3. 复制 API Key 和 Secret Key 粘贴到上方输入框" 
+                                       FontSize="11" 
+                                       Foreground="#3B82F6"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 操作按钮 -->
+                    <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="🧪 测试连接"
+                                Width="120"
+                                Height="40"
+                                Margin="0,0,8,0"
+                                Background="#3B82F6"
+                                Foreground="White"
+                                BorderThickness="0"
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Click="TestBinanceApi_Click"/>
+                        <Button Content="💾 保存配置"
+                                Width="120"
+                                Height="40"
+                                Background="#10B981"
+                                Foreground="White"
+                                BorderThickness="0"
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Click="SaveBinanceApi_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ==================== DeepSeek AI 配置 ==================== -->
+            <Border Grid.Row="4" 
+                    Background="White" 
+                    CornerRadius="12" 
+                    Padding="24"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="16"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="20"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 标题 -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal">
+                        <Border Background="#F0F9FF" 
+                                Padding="8" 
+                                CornerRadius="8" 
+                                Margin="0,0,12,0">
+                            <TextBlock Text="🤖" FontSize="20"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="DeepSeek AI 人工智能" 
+                                       FontSize="18" 
+                                       FontWeight="Bold" 
+                                       Foreground="#111827"/>
+                            <TextBlock Text="用于AI交易决策、智能分析" 
+                                       FontSize="12" 
+                                       Foreground="#6B7280"
+                                       Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 状态指示器 -->
+                    <Border Grid.Row="2" 
+                            x:Name="DeepSeekStatusBorder"
+                            Background="#FEF2F2"
+                            Padding="12"
+                            CornerRadius="8"
+                            Margin="0,0,0,16">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚠️" FontSize="16" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="DeepSeekStatusText"
+                                       Text="未配置" 
+                                       FontSize="13" 
+                                       Foreground="#991B1B"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- API Key -->
+                    <StackPanel Grid.Row="3" Margin="0,0,0,16">
+                        <TextBlock Text="DeepSeek API Key" 
+                                   FontSize="13" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="#374151"
+                                   Margin="0,0,0,8"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="DeepSeekApiKeyBox"
+                                     Grid.Column="0"
+                                     Height="40"
+                                     FontSize="13"
+                                     FontFamily="Consolas"
+                                     Padding="12,0"
+                                     VerticalContentAlignment="Center"
+                                     GotFocus="DeepSeekApiKeyBox_GotFocus"/>
+                            <Button Grid.Column="1"
+                                    Content="📋 粘贴"
+                                    Width="80"
+                                    Height="40"
+                                    Margin="8,0,0,0"
+                                    Background="#F3F4F6"
+                                    BorderBrush="#D1D5DB"
+                                    BorderThickness="1"
+                                    Click="PasteDeepSeekApiKey_Click"/>
+                            <Button Grid.Column="2"
+                                    Content="🗑️ 清除"
+                                    Width="80"
+                                    Height="40"
+                                    Margin="8,0,0,0"
+                                    Background="#FEF2F2"
+                                    BorderBrush="#FCA5A5"
+                                    BorderThickness="1"
+                                    Click="ClearDeepSeekApiKey_Click"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- 帮助提示 -->
+                    <Border Grid.Row="4"
+                            Background="#F0FDF4"
+                            Padding="12"
+                            CornerRadius="8"
+                            Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="💡 如何获取 DeepSeek API Key?" 
+                                       FontSize="12" 
+                                       FontWeight="SemiBold"
+                                       Foreground="#166534"
+                                       Margin="0,0,0,8"/>
+                            <TextBlock Text="1. 访问 DeepSeek 官网: https://platform.deepseek.com" 
+                                       FontSize="11" 
+                                       Foreground="#15803D"
+                                       Margin="0,0,0,4"/>
+                            <TextBlock Text="2. 注册/登录账户 → API Keys → 创建新密钥" 
+                                       FontSize="11" 
+                                       Foreground="#15803D"
+                                       Margin="0,0,0,4"/>
+                            <TextBlock Text="3. 复制 API Key 粘贴到上方输入框" 
+                                       FontSize="11" 
+                                       Foreground="#15803D"
+                                       Margin="0,0,0,8"/>
+                            <TextBlock Text="⚡ 推荐模型: deepseek-chat (成本低、效果好)" 
+                                       FontSize="11" 
+                                       FontWeight="SemiBold"
+                                       Foreground="#059669"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 操作按钮 -->
+                    <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="🧪 测试连接"
+                                Width="120"
+                                Height="40"
+                                Margin="0,0,8,0"
+                                Background="#3B82F6"
+                                Foreground="White"
+                                BorderThickness="0"
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Click="TestDeepSeekApi_Click"/>
+                        <Button Content="💾 保存配置"
+                                Width="120"
+                                Height="40"
+                                Background="#10B981"
+                                Foreground="White"
+                                BorderThickness="0"
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Click="SaveDeepSeekApi_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 底部说明 -->
+            <Border Grid.Row="5"
+                    Background="#FFFBEB"
+                    Padding="16"
+                    CornerRadius="8"
+                    Margin="0,16,0,0"
+                    BorderBrush="#FCD34D"
+                    BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="⚠️ 安全提示" 
+                               FontSize="14" 
+                               FontWeight="Bold"
+                               Foreground="#92400E"
+                               Margin="0,0,0,8"/>
+                    <TextBlock Text="• API Key 将保存在本地 appsettings.json 文件中" 
+                               FontSize="12" 
+                               Foreground="#78350F"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Text="• 请勿将包含 API Key 的配置文件上传到公共代码仓库" 
+                               FontSize="12" 
+                               Foreground="#78350F"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Text="• 建议设置 API 白名单 IP，限制访问权限" 
+                               FontSize="12" 
+                               Foreground="#78350F"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Text="• Binance API 建议只开启「读取」和「现货交易」权限，不要开启「提现」权限" 
+                               FontSize="12" 
+                               Foreground="#78350F"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

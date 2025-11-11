@@ -58,29 +58,79 @@
             </DataGrid>
         </Grid>
 
-        <!-- 右侧：详情 -->
+        <!-- 右侧：详情 + DeepSeek AI -->
         <Border Grid.Row="1" Grid.Column="1" Margin="6,8,12,8" BorderBrush="#E1E6EB" BorderThickness="1" CornerRadius="6">
-            <Grid Margin="10">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                <TextBlock x:Name="DetailTitle" Text="请选择左侧模型查看详情" FontSize="15" FontWeight="Bold"/>
-                <TextBlock x:Name="DetailInfo"  Grid.Row="1" Margin="0,6,0,0" TextWrapping="Wrap"
-                   Foreground="#6B7280"/>
-                <Separator Grid.Row="2" Margin="0,8,0,8"/>
-                <StackPanel Grid.Row="3">
-                    <TextBlock Text="部署实验（A/B、金丝雀、Shadow）占位：后续接入流量分配与监控" Foreground="#6B7280" TextWrapping="Wrap"/>
-                    <WrapPanel Margin="0,8,0,0">
-                        <Button Content="创建 A/B 实验" Margin="0,0,8,8" Click="CreateAB_Click"/>
-                        <Button Content="创建金丝雀" Margin="0,0,8,8" Click="CreateCanary_Click"/>
-                        <Button Content="创建 Shadow" Margin="0,0,8,8" Click="CreateShadow_Click"/>
-                    </WrapPanel>
-                </StackPanel>
-            </Grid>
+                    <!-- 模型详情 -->
+                    <TextBlock x:Name="DetailTitle" Text="请选择左侧模型查看详情" FontSize="15" FontWeight="Bold"/>
+                    <TextBlock x:Name="DetailInfo" Grid.Row="1" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="#6B7280"/>
+                    
+                    <Separator Grid.Row="2" Margin="0,8,0,8"/>
+
+                    <!-- 🆕 DeepSeek AI交易系统 -->
+                    <Expander Grid.Row="3" Header="🤖 DeepSeek AI 交易系统" IsExpanded="True" Margin="0,0,0,8">
+                        <StackPanel Margin="0,8,0,0">
+                            <!-- API配置 -->
+                            <TextBlock Text="DeepSeek API Key:" FontWeight="Bold" Margin="0,0,0,4"/>
+                            <TextBox x:Name="DeepSeekApiKeyBox" Height="28" Margin="0,0,0,8" 
+                                     ToolTip="获取: https://platform.deepseek.com/api_keys"
+                                     Text="sk-..."/>
+                            
+                            <!-- 交易对选择 -->
+                            <TextBlock Text="交易对:" FontWeight="Bold" Margin="0,0,0,4"/>
+                            <TextBox x:Name="AISymbolBox" Text="BTCUSDT" Height="28" Margin="0,0,0,8"/>
+                            
+                            <!-- 操作按钮 -->
+                            <UniformGrid Rows="1" Columns="2" Margin="0,0,0,8">
+                                <Button x:Name="AnalyzeButton" Content="单次AI分析" Margin="0,0,4,0" Height="32" Click="AnalyzeWithAI_Click"/>
+                                <Button x:Name="StartBotButton" Content="启动AI机器人" Margin="4,0,0,0" Height="32" Click="StartAIBot_Click"/>
+                            </UniformGrid>
+                            <UniformGrid Rows="1" Columns="2" Margin="0,0,0,8">
+                                <Button x:Name="StopBotButton" Content="停止机器人" Margin="0,0,4,0" Height="32" Click="StopAIBot_Click" IsEnabled="False"/>
+                                <Button Content="查看绩效" Margin="4,0,0,0" Height="32" Click="ViewAIPerformance_Click"/>
+                            </UniformGrid>
+                            
+                            <!-- 状态显示 -->
+                            <TextBlock x:Name="AIStatusText" Text="状态：未启动" Foreground="#6B7280" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                            
+                            <!-- AI信号历史 -->
+                            <TextBlock Text="最近AI信号:" FontWeight="Bold" Margin="0,8,0,4"/>
+                            <DataGrid x:Name="AISignalsGrid" Height="200" AutoGenerateColumns="False" 
+                                      IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="时间" Binding="{Binding Timestamp}" Width="60"/>
+                                    <DataGridTextColumn Header="交易对" Binding="{Binding Symbol}" Width="70"/>
+                                    <DataGridTextColumn Header="信号" Binding="{Binding Action}" Width="50"/>
+                                    <DataGridTextColumn Header="信心度" Binding="{Binding Confidence}" Width="60"/>
+                                    <DataGridTextColumn Header="入场价" Binding="{Binding EntryPrice}" Width="70"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </Expander>
+
+                    <!-- 原有部署实验 -->
+                    <Expander Grid.Row="4" Header="部署实验" IsExpanded="False" Margin="0,0,0,8">
+                        <StackPanel Margin="0,8,0,0">
+                            <TextBlock Text="A/B、金丝雀、Shadow 流量实验" Foreground="#6B7280" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <WrapPanel>
+                                <Button Content="创建 A/B 实验" Margin="0,0,8,8" Click="CreateAB_Click"/>
+                                <Button Content="创建金丝雀" Margin="0,0,8,8" Click="CreateCanary_Click"/>
+                                <Button Content="创建 Shadow" Margin="0,0,8,8" Click="CreateShadow_Click"/>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Expander>
+                </Grid>
+            </ScrollViewer>
         </Border>
 
         <!-- 状态栏 -->

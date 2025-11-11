@@ -40,7 +40,11 @@ public class TickerQuote : INotifyPropertyChanged
         get => _lastPrice;
         set
         {
-            if (Math.Abs(_lastPrice - value) < 1e-9) return;
+            if (Math.Abs(_lastPrice - value) < 1e-9)
+            {
+                return;
+            }
+
             _lastPrice = value;
             OnPropertyChanged(nameof(LastPrice));
         }
@@ -51,7 +55,11 @@ public class TickerQuote : INotifyPropertyChanged
         get => _indexPrice;
         set
         {
-            if (Math.Abs(_indexPrice - value) < 1e-9) return;
+            if (Math.Abs(_indexPrice - value) < 1e-9)
+            {
+                return;
+            }
+
             _indexPrice = value;
             OnPropertyChanged(nameof(IndexPrice));
         }
@@ -62,7 +70,11 @@ public class TickerQuote : INotifyPropertyChanged
         get => _changePercent;
         set
         {
-            if (Math.Abs(_changePercent - value) < 1e-9) return;
+            if (Math.Abs(_changePercent - value) < 1e-9)
+            {
+                return;
+            }
+
             _changePercent = value;
             OnPropertyChanged(nameof(ChangePercent));
         }
@@ -73,7 +85,11 @@ public class TickerQuote : INotifyPropertyChanged
         get => _volume;
         set
         {
-            if (Math.Abs(_volume - value) < 1e-9) return;
+            if (Math.Abs(_volume - value) < 1e-9)
+            {
+                return;
+            }
+
             _volume = value;
             OnPropertyChanged(nameof(Volume));
         }
@@ -84,7 +100,11 @@ public class TickerQuote : INotifyPropertyChanged
         get => _highPrice;
         set
         {
-            if (Math.Abs(_highPrice - value) < 1e-9) return;
+            if (Math.Abs(_highPrice - value) < 1e-9)
+            {
+                return;
+            }
+
             _highPrice = value;
             OnPropertyChanged(nameof(HighPrice));
         }
@@ -95,7 +115,11 @@ public class TickerQuote : INotifyPropertyChanged
         get => _lowPrice;
         set
         {
-            if (Math.Abs(_lowPrice - value) < 1e-9) return;
+            if (Math.Abs(_lowPrice - value) < 1e-9)
+            {
+                return;
+            }
+
             _lowPrice = value;
             OnPropertyChanged(nameof(LowPrice));
         }
@@ -107,7 +131,9 @@ public class TickerQuote : INotifyPropertyChanged
     {
         _priceHistory.Enqueue(price);
         while (_priceHistory.Count > _historyCapacity)
+        {
             _priceHistory.Dequeue();
+        }
     }
 
     protected virtual void OnPropertyChanged(string propertyName) =>

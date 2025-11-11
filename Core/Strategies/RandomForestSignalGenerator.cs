@@ -31,7 +31,7 @@ public class RandomForestSignalGenerator : IMachineLearningSignalGenerator
         }
 
         _trees.Clear();
-        for (var i = 0; i < _treeCount; i++)
+        for (int i = 0; i < _treeCount; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var sample = BootstrapSample(data);
@@ -40,16 +40,16 @@ public class RandomForestSignalGenerator : IMachineLearningSignalGenerator
                 .Take(Math.Min(_featureSampleSize, sample.First().Values.Count))
                 .ToList();
 
-            var bestFeature = 0;
-            var bestThreshold = 0d;
-            var bestScore = double.MaxValue;
+            int bestFeature = 0;
+            double bestThreshold = 0d;
+            double bestScore = double.MaxValue;
 
-            foreach (var index in featureIndices)
+            foreach (int index in featureIndices)
             {
-                var thresholds = sample.Select(v => v.Values[index]).Distinct().OrderBy(v => v).ToArray();
-                foreach (var threshold in thresholds)
+                double[] thresholds = sample.Select(v => v.Values[index]).Distinct().OrderBy(v => v).ToArray();
+                foreach (double threshold in thresholds)
                 {
-                    var score = GiniImpurity(sample, index, threshold);
+                    double score = GiniImpurity(sample, index, threshold);
                     if (score < bestScore)
                     {
                         bestScore = score;
@@ -73,24 +73,24 @@ public class RandomForestSignalGenerator : IMachineLearningSignalGenerator
             return ValueTask.FromResult(new MachineLearningSignal(features.Symbol, 0.5, 0.5, _modelVersion));
         }
 
-        var votes = 0;
+        int votes = 0;
         foreach (var tree in _trees)
         {
             cancellationToken.ThrowIfCancellationRequested();
             votes += tree.Predict(features.Values) ? 1 : -1;
         }
 
-        var probUp = (votes + _trees.Count) / (2d * _trees.Count);
-        var probDown = 1 - probUp;
+        double probUp = (votes + _trees.Count) / (2d * _trees.Count);
+        double probDown = 1 - probUp;
         return ValueTask.FromResult(new MachineLearningSignal(features.Symbol, probUp, probDown, _modelVersion));
     }
 
     private IReadOnlyList<ModelFeatureVector> BootstrapSample(IReadOnlyList<ModelFeatureVector> data)
     {
         var sample = new List<ModelFeatureVector>(data.Count);
-        for (var i = 0; i < data.Count; i++)
+        for (int i = 0; i < data.Count; i++)
         {
-            var idx = _random.Next(data.Count);
+            int idx = _random.Next(data.Count);
             sample.Add(data[idx]);
         }
 
@@ -109,15 +109,15 @@ public class RandomForestSignalGenerator : IMachineLearningSignalGenerator
                 return 0;
             }
 
-            var positives = subset.Count(v => v.Label > 0);
-            var negatives = subset.Count - positives;
-            var pPos = positives / (double)subset.Count;
-            var pNeg = negatives / (double)subset.Count;
+            int positives = subset.Count(v => v.Label > 0);
+            int negatives = subset.Count - positives;
+            double pPos = positives / (double)subset.Count;
+            double pNeg = negatives / (double)subset.Count;
             return 1 - (pPos * pPos + pNeg * pNeg);
         }
 
-        var leftWeight = left.Count / (double)(left.Count + right.Count);
-        var rightWeight = 1 - leftWeight;
+        double leftWeight = left.Count / (double)(left.Count + right.Count);
+        double rightWeight = 1 - leftWeight;
 
         return leftWeight * Score(left) + rightWeight * Score(right);
     }

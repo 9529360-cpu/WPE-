@@ -7,7 +7,7 @@ namespace 币安量化机器人.Core.Models;
 public record StrategyParameters(IReadOnlyDictionary<string, double> Values)
 {
     public double Get(string key, double defaultValue = 0d)
-        => Values != null && Values.TryGetValue(key, out var value) ? value : defaultValue;
+        => Values != null && Values.TryGetValue(key, out double value) ? value : defaultValue;
 }
 
 public record MarketObservation(
@@ -113,7 +113,8 @@ public record PositionSnapshot(
     double MaxDrawdown,
     double DailyPnl,
     int ConsecutiveLosingTrades,
-    IReadOnlyDictionary<string, double>? Indicators = null);
+    IReadOnlyDictionary<string, double>? Indicators = null,
+    DateTime OpenTime = default); // 🆕 添加开仓时间
 
 public record TradeFill(string Symbol, double Quantity, double Price, DateTime Timestamp, TradeActionType ActionType);
 
@@ -123,7 +124,12 @@ public record RiskConfiguration(
     double DailyLossLimit,
     double StopLossMultiplier,
     int BlacklistThreshold,
-    TimeSpan RiskEvaluationInterval);
+    TimeSpan RiskEvaluationInterval,
+    // 🆕 新增配置项
+    TimeSpan MaxPositionHoldingTime,         // 最大持仓时间
+    double MaxDailyLossPercent,              // 单日最大亏损百分比
+    double TrailingStopActivationPercent,    // 移动止损激活阈值
+    double TrailingStopPercent);             // 移动止损跟踪距离
 
 public record RiskProfile(
     double CurrentExposure,

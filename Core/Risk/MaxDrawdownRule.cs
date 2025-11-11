@@ -15,7 +15,7 @@ public sealed class MaxDrawdownRule : IRiskRule
 
     public RiskRuleResult Evaluate(in PositionSnapshot snapshot)
     {
-        var drawdown = snapshot.MaxDrawdown;
+        double drawdown = snapshot.MaxDrawdown;
         return drawdown <= _maxDrawdown
             ? new RiskRuleResult(true)
             : new RiskRuleResult(false, $"Drawdown {drawdown:P2} exceeds {_maxDrawdown:P2}");

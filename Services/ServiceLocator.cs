@@ -12,16 +12,100 @@ using 币安量化机器人.Core.Models;
 using 币安量化机器人.Core.Risk;
 using 币安量化机器人.Core.Strategies;
 using 币安量化机器人.Infrastructure.Data;
+using 币安量化机器人.Models.Configuration; // 🆕 配置类引用
 using 币安量化机器人.Monitoring;
+using 币安量化机器人.Services.AI;
 
 namespace 币安量化机器人.Services;
 
+/// <summary>
+/// 服务定位器 - 提供全局单例访问
+/// </summary>
+/// <remarks>
+/// 管理系统所有核心服务的生命周期和依赖关系。
+/// 
+/// 设计原则:
+/// - 延迟初始化: 使用Lazy&lt;T&gt;确保服务按需创建
+/// - 线程安全: 所有服务初始化都是线程安全的
+/// - 配置优先: 优先从appsettings.json加载配置
+/// - 容错设计: 配置加载失败时使用默认值
+/// 
+/// 未来改进:
+/// - 考虑迁移到依赖注入容器(如Microsoft.Extensions.DependencyInjection)
+/// - 添加服务健康检查机制
+/// - 实现配置热重载
+/// </remarks>
 public static class ServiceLocator
 {
     static ServiceLocator()
     {
         AppSettingsService.Load();
+
+        // 🆕 初始化配置服务
+        try
+        {
+            ConfigurationService.Initialize();
+            LogService.Info("配置服务初始化成功");
+        }
+        catch (Exception ex)
+        {
+            // 如果配置文件不存在,使用默认配置
+            LogService.Error(ex, "配置文件加载失败,使用默认配置");
+        }
     }
+
+    // 🆕 配置类工厂 - 从appsettings.json加载
+    private static readonly Lazy<TradingConfig> TradingConfigFactory = new(() =>
+    {
+        try
+        {
+            return ConfigurationService.GetTradingConfig();
+        }
+        catch
+        {
+            LogService.Warning("交易配置加载失败,使用默认配置");
+            return new TradingConfig();
+        }
+    });
+
+    private static readonly Lazy<ApiConfig> ApiConfigFactory = new(() =>
+    {
+        try
+        {
+            return ConfigurationService.GetApiConfig();
+        }
+        catch
+        {
+            LogService.Warning("API配置加载失败,使用默认配置");
+            return new ApiConfig();
+        }
+    });
+
+    private static readonly Lazy<RiskConfig> RiskConfigFactory = new(() =>
+    {
+        try
+        {
+            return ConfigurationService.GetRiskConfig();
+        }
+        catch
+        {
+            LogService.Warning("风控配置加载失败,使用默认配置");
+            return new RiskConfig();
+        }
+    });
+
+    private static readonly Lazy<BacktestConfig> BacktestConfigFactory = new(() =>
+    {
+        try
+        {
+            return ConfigurationService.GetBacktestConfig();
+        }
+        catch
+        {
+            LogService.Warning("回测配置加载失败,使用默认配置");
+            return new BacktestConfig();
+        }
+    });
 
     private static readonly Lazy<DataCacheService> CacheFactory = new(() =>
     {
@@ -30,7 +114,52 @@ public static class ServiceLocator
         return cache;
     });
 
-    private static readonly Lazy<BinanceApiClient> ApiFactory = new(() => new BinanceApiClient());
+    private static readonly Lazy<BinanceApiClient> ApiFactory = new(() =>
+    {
+        var client = new BinanceApiClient();
+
+        // 🔧 从配置文件或环境变量加载 Binance API 凭证
+        try
+        {
+            string apiKey = Environment.GetEnvironmentVariable("BINANCE_API_KEY")
+                        ?? ConfigurationService.GetValue("Api:Binance:ApiKey");
+            string secretKey = Environment.GetEnvironmentVariable("BINANCE_SECRET_KEY")
+                           ?? ConfigurationService.GetValue("Api:Binance:SecretKey");
+
+            if (!string.IsNullOrEmpty(apiKey) && !string.IsNullOrEmpty(secretKey))
+            {
+                // 🔧 验证 API Key 格式
+                if (!ValidateApiKeyFormat(apiKey, "Binance API Key"))
+                {
+                    LogService.Error("[ServiceLocator] Binance API Key 格式无效，包含非法字符");
+                    LogService.Warning("[ServiceLocator] Binance API 凭证未配置或无效，部分功能可能不可用");
+                    return client;
+                }
+
+                if (!ValidateApiKeyFormat(secretKey, "Binance Secret Key"))
+                {
+                    LogService.Error("[ServiceLocator] Binance Secret Key 格式无效，包含非法字符");
+                    LogService.Warning("[ServiceLocator] Binance API 凭证未配置或无效，部分功能可能不可用");
+                    return client;
+                }
+
+                client.SetApiCredentials(apiKey, secretKey);
+                LogService.Info("[ServiceLocator] ✅ Binance API 凭证已加载: {MaskedKey}",
+                    apiKey.Length > 8 ? $"{apiKey.Substring(0, 8)}...{apiKey.Substring(apiKey.Length - 4)}" : "****");
+            }
+            else
+            {
+                LogService.Warning("[ServiceLocator] ⚠️ Binance API 凭证未配置，部分功能可能不可用");
+                LogService.Info("[ServiceLocator] 配置方法: 前往 [API 管理] 页面配置 Binance API Key");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[ServiceLocator] ❌ 加载 Binance API 凭证失败");
+        }
+
+        return client;
+    });
     private static readonly Lazy<AiForecastService> AiFactory = new(() => new AiForecastService(Api, Cache));
     private static readonly Lazy<RiskEngine> RiskFactory = new(() => new RiskEngine(Cache));
     private static readonly Lazy<BinanceStreamClient> StreamFactory = new(() => new BinanceStreamClient());
@@ -46,7 +175,36 @@ public static class ServiceLocator
     private static readonly Lazy<ITradeMonitoringHub> MonitoringHubFactory = new(() => new InMemoryTradeMonitoringHub());
     private static readonly Lazy<StrategyOrchestrator> StrategyOrchestratorFactory = new(() => new StrategyOrchestrator(MarketDataFactory.Value, AdvancedRiskFactory.Value, FeatureStoreFactory.Value, MonitoringHubFactory.Value));
     private static readonly Lazy<GridSearchStrategyOptimizer> OptimizerFactory = new(() => new GridSearchStrategyOptimizer());
-    private static readonly Lazy<WalkForwardOptimizer> WalkForwardFactory = new(() => new WalkForwardOptimizer(OptimizerFactory.Value, new DefaultBacktestEngine()));
+    private static readonly Lazy<EnhancedBacktestEngine> EnhancedBacktestFactory = new(() => new EnhancedBacktestEngine(config: BacktestConfigFactory.Value));
+    private static readonly Lazy<WalkForwardOptimizer> WalkForwardFactory = new(() => new WalkForwardOptimizer(OptimizerFactory.Value, EnhancedBacktestFactory.Value));
+    private static readonly Lazy<OrderHistoryService> OrderHistoryFactory = new(() => new OrderHistoryService(CacheFactory.Value));
+    private static readonly Lazy<PerformanceTrackingService> PerformanceTrackingFactory = new(() => new PerformanceTrackingService(CacheFactory.Value));
+
+    // 🆕 中央AI协调器工厂
+    private static AICentralCoordinator? _aiCoordinator;
+
+    private static AITradingBot? _aiTradingBot;
+
+    // 🆕 配置类公开访问
+    /// <summary>
+    /// 交易配置 - 包含信心度、仓位、止损等参数
+    /// </summary>
+    public static TradingConfig TradingConfig => TradingConfigFactory.Value;
+
+    /// <summary>
+    /// API配置 - 包含端点、超时、速率限制等参数
+    /// </summary>
+    public static ApiConfig ApiConfig => ApiConfigFactory.Value;
+
+    /// <summary>
+    /// 风控配置 - 包含风控规则开关和参数
+    /// </summary>
+    public static RiskConfig RiskConfig => RiskConfigFactory.Value;
+
+    /// <summary>
+    /// 回测配置 - 包含资金、手续费、滑点等参数
+    /// </summary>
+    public static BacktestConfig BacktestConfig => BacktestConfigFactory.Value;
 
     public static DataCacheService Cache => CacheFactory.Value;
     public static BinanceApiClient Api => ApiFactory.Value;
@@ -63,90 +221,152 @@ public static class ServiceLocator
     public static StrategyOrchestrator StrategyOrchestrator => StrategyOrchestratorFactory.Value;
     public static WalkForwardOptimizer WalkForward => WalkForwardFactory.Value;
     public static ITradeMonitoringHub MonitoringHub => MonitoringHubFactory.Value;
+    public static OrderHistoryService OrderHistory => OrderHistoryFactory.Value;
+    public static PerformanceTrackingService PerformanceTracking => PerformanceTrackingFactory.Value;
+    public static EnhancedBacktestEngine EnhancedBacktest => EnhancedBacktestFactory.Value;
+
+    /// <summary>
+    /// 获取或创建AI交易机器人
+    /// </summary>
+    /// <param name="deepSeekApiKey">DeepSeek API密钥</param>
+    /// <returns>AI交易机器人实例</returns>
+    public static AITradingBot GetAITradingBot(string deepSeekApiKey)
+    {
+        if (_aiTradingBot == null || string.IsNullOrEmpty(deepSeekApiKey))
+        {
+            _aiTradingBot = new AITradingBot(deepSeekApiKey, Api, Cache);
+        }
+        return _aiTradingBot;
+    }
+
+    /// <summary>
+    /// 🆕 获取或创建中央AI协调器
+    /// </summary>
+    /// <remarks>
+    /// 中央AI协调器是整个系统的"大脑"，负责：
+    /// - 全局状态感知和监控
+    /// - 智能决策和工作流编排
+    /// - 模块间协同控制
+    /// - 持续学习和优化
+    /// 
+    /// 使用示例：
+    /// <code>
+    /// var coordinator = ServiceLocator.GetAICentralCoordinator();
+    /// await coordinator.StartAsync();
+    /// </code>
+    /// </remarks>
+    public static AICentralCoordinator GetAICentralCoordinator()
+    {
+        if (_aiCoordinator == null)
+        {
+            // 创建必要的依赖
+            var accountManager = new TradingAccountManager(Cache);
+            string deepSeekApiKey = Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY")
+                                ?? ConfigurationService.GetValue("Api:DeepSeek:ApiKey")
+                                ?? "";
+
+            var dataProcessor = new MarketDataPreprocessor(Api, Cache);
+            var aiAgent = new DeepSeekTradingAgent(deepSeekApiKey);
+            var riskManager = new AIRiskManager();
+            var executionEngine = new AIOrderExecutionEngine(accountManager, Api, Cache, riskManager);
+            var positionManager = new PositionManager(accountManager, Api, executionEngine);
+
+            var tradingAutomation = new AITradingAutomation(
+                Stream,
+                dataProcessor,
+                aiAgent,
+                executionEngine,
+                accountManager,
+                positionManager
+            );
+
+            _aiCoordinator = new AICentralCoordinator(
+                EnhancedBacktest,
+                tradingAutomation,
+                accountManager,
+                positionManager,
+                Api,
+                Cache
+            );
+
+            LogService.Info("🧠 [ServiceLocator] 中央AI协调器已创建");
+        }
+
+        return _aiCoordinator;
+    }
 
     private static RealTimeDataPipeline CreatePipeline()
     {
-        var dataDirectory = Path.Combine(AppContext.BaseDirectory, "Data");
+        string dataDirectory = Path.Combine(AppContext.BaseDirectory, "Data");
         Directory.CreateDirectory(dataDirectory);
-        var dbPath = Path.Combine(dataDirectory, "trading.sqlite");
-        var importPath = Path.Combine(dataDirectory, "import");
+        string dbPath = Path.Combine(dataDirectory, "trading.sqlite");
+        string importPath = Path.Combine(dataDirectory, "import");
         Directory.CreateDirectory(importPath);
 
-        var sources = new IDataSource[]
+        var sources = new Core.Data.IDataSource[]
         {
-            new DatabaseDataSource($"Data Source={dbPath}"),
-            new ApiDataSource(new HttpClient { Timeout = TimeSpan.FromSeconds(10) }, "https://api.binance.com"),
-            new FileDataSource(importPath)
+            new Infrastructure.Data.DatabaseDataSource($"Data Source={dbPath}"),
+            new Infrastructure.Data.ApiDataSource(new HttpClient { Timeout = TimeSpan.FromSeconds(10) }, "https://api.binance.com"),
+            new Infrastructure.Data.FileDataSource(importPath)
         };
 
-        var qualityRules = new IDataQualityRule[]
+        var qualityRules = new Core.Data.IDataQualityRule[]
         {
-            new NullValueQualityRule(),
-            new RangeQualityRule("close", 0, double.MaxValue),
-            new SpikeDetectionRule("close")
+            new Infrastructure.Data.NullValueQualityRule(),
+            new Infrastructure.Data.RangeQualityRule("close", 0, double.MaxValue),
+            new Infrastructure.Data.SpikeDetectionRule("close")
         };
 
-        var engineers = new IFeatureEngineer[]
+        var engineers = new Core.Data.IFeatureEngineer[]
         {
-            new TechnicalIndicatorEngineer(),
-            new LagFeatureEngineer()
+            new Infrastructure.Data.TechnicalIndicatorEngineer(),
+            new Infrastructure.Data.LagFeatureEngineer()
         };
 
         return new RealTimeDataPipeline(sources, qualityRules, engineers, FeatureStoreFactory.Value);
     }
 
+    /// <summary>
+    /// 异步释放资源
+    /// </summary>
     public static async ValueTask DisposeAsync()
     {
         if (StreamFactory.IsValueCreated)
+        {
             await StreamFactory.Value.DisposeAsync();
+        }
+
         if (ApiFactory.IsValueCreated)
+        {
             ApiFactory.Value.Dispose();
+        }
     }
 
-    private sealed class DefaultBacktestEngine : IBacktestEngine
+    /// <summary>
+    /// 🔧 验证 API Key 格式（确保只包含有效字符）
+    /// </summary>
+    /// <param name="apiKey">API Key</param>
+    /// <param name="keyName">密钥名称（用于日志）</param>
+    /// <returns>是否有效</returns>
+    private static bool ValidateApiKeyFormat(string apiKey, string keyName)
     {
-        public async ValueTask<BacktestResult> RunAsync(BacktestRequest request, CancellationToken cancellationToken = default)
+        if (string.IsNullOrEmpty(apiKey))
         {
-            var random = new Random(42);
-            var observations = GenerateSyntheticData(request.Symbol, request.Start, request.End);
-            var signals = new List<TradeSignal>();
-            await foreach (var decision in request.Strategy.RunAsync(observations, cancellationToken))
-            {
-                signals.Add(new TradeSignal(request.Symbol, decision.Action, decision.Confidence, decision.MlSignal));
-            }
-
-            var equity = signals.Count(s => s.Action.ActionType != TradeActionType.Hold) * random.NextDouble() * 10;
-            var sharpe = signals.Count == 0 ? 0.1 : 1.5;
-
-            return new BacktestResult(request.Strategy.Name, equity, sharpe, sharpe / 1.2, 0.1, sharpe / 2, 0.55, 1.4, signals);
+            return false;
         }
 
-        private static async IAsyncEnumerable<MarketObservation> GenerateSyntheticData(string symbol, DateTime start, DateTime end)
+        // 检查是否包含非 ASCII 字符或不可见字符
+        foreach (char ch in apiKey)
         {
-            var random = new Random(7);
-            var timestamp = start;
-            var price = 100d;
-            while (timestamp < end)
+            // 允许: 英文字母、数字、横杠、下划线
+            if (!char.IsLetterOrDigit(ch) && ch != '-' && ch != '_')
             {
-                var change = random.NextDouble() - 0.5;
-                var open = price;
-                var close = price + change;
-                var high = Math.Max(open, close) + random.NextDouble();
-                var low = Math.Min(open, close) - random.NextDouble();
-                var volume = random.NextDouble() * 100;
-                var indicators = new Dictionary<string, double>
-                {
-                    ["sma"] = (open + close) / 2,
-                    ["std"] = Math.Abs(change) + 0.1,
-                    ["momentum_1"] = change
-                };
-
-                yield return new MarketObservation(symbol, TimeSpan.FromMinutes(1), timestamp, open, high, low, close, volume, indicators);
-
-                price = close;
-                timestamp = timestamp.AddMinutes(1);
-                await Task.Yield();
+                LogService.Warning("[ServiceLocator] {KeyName} 包含非法字符: {Char} (ASCII: {Code})",
+                    keyName, ch, (int)ch);
+                return false;
             }
         }
+
+        return true;
     }
 }

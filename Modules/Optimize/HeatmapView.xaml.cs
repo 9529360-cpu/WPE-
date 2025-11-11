@@ -1,4 +1,4 @@
-﻿using System.Windows.Controls;
+using System.Windows.Controls;
 
 namespace 币安量化机器人.Modules.Optimize
 {
@@ -9,12 +9,16 @@ namespace 币安量化机器人.Modules.Optimize
             InitializeComponent();
 
             // 可选：加载时画一张小演示图，验证控件是否正常
-            this.Loaded += (_, __) =>
+            Loaded += (_, __) =>
             {
                 double[,] z = new double[20, 20];
                 for (int i = 0; i < 20; i++)
+                {
                     for (int j = 0; j < 20; j++)
+                    {
                         z[i, j] = 0.6 + 0.4 * System.Math.Sin(i * .2) * System.Math.Cos(j * .15);
+                    }
+                }
 
                 var plt = Plot.Plot;                 // v5：从 WpfPlot 取 Plot
                 plt.Clear();

@@ -13,7 +13,7 @@ public class MomentumStrategy : ITradingStrategy
 {
     private readonly IMultiTimeframeAnalyzer _analyzer;
     private IStrategyContext? _context;
-    private StrategyParameters _parameters;
+    private readonly StrategyParameters _parameters;
 
     public MomentumStrategy(IMultiTimeframeAnalyzer analyzer, StrategyParameters parameters)
     {
@@ -37,9 +37,9 @@ public class MomentumStrategy : ITradingStrategy
             throw new InvalidOperationException("Strategy not initialized");
         }
 
-        var momentumWindow = _parameters.Get("momentum_window", 5);
+        double momentumWindow = _parameters.Get("momentum_window", 5);
         var momentumSeries = observation.Indicators.Where(kv => kv.Key.StartsWith("momentum")).Select(kv => kv.Value).TakeLast((int)momentumWindow).ToList();
-        var momentumScore = momentumSeries.Count == 0 ? 0 : momentumSeries.Average();
+        double momentumScore = momentumSeries.Count == 0 ? 0 : momentumSeries.Average();
 
         var composite = await _analyzer.AnalyzeAsync(observation.Symbol, new Dictionary<TimeSpan, TimeframeSeries>
         {
@@ -47,8 +47,8 @@ public class MomentumStrategy : ITradingStrategy
         }, cancellationToken);
 
         var action = TradeActionType.Hold;
-        var reason = "Momentum insufficient";
-        var qty = _parameters.Get("base_quantity", 1d);
+        string reason = "Momentum insufficient";
+        double qty = _parameters.Get("base_quantity", 1d);
 
         if (momentumScore > _parameters.Get("enter_threshold", 0.5))
         {

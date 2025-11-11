@@ -1,4 +1,3 @@
-using ScottPlot;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -10,6 +9,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
+using ScottPlot;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 
@@ -37,7 +37,9 @@ public partial class RealtimeView : UserControl
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         if (_initialized)
+        {
             return;
+        }
 
         _initialized = true;
         ConnectionText.Text = "连接：准备连接";
@@ -110,7 +112,9 @@ public partial class RealtimeView : UserControl
         {
             var quote = _quotes.FirstOrDefault(q => string.Equals(q.Symbol, update.Symbol, StringComparison.OrdinalIgnoreCase));
             if (quote is null)
+            {
                 return;
+            }
 
             lock (_syncRoot)
             {
@@ -124,18 +128,24 @@ public partial class RealtimeView : UserControl
             }
 
             if (QuotesGrid.SelectedItem is TickerQuote selected && ReferenceEquals(selected, quote))
+            {
                 UpdateDetails(selected);
+            }
         });
     }
 
     private bool FilterQuotes(object obj)
     {
         if (obj is not TickerQuote quote)
+        {
             return false;
+        }
 
         string keyword = SearchBox.Text?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(keyword))
+        {
             return true;
+        }
 
         return quote.Symbol.Contains(keyword, StringComparison.OrdinalIgnoreCase);
     }
@@ -163,20 +173,27 @@ public partial class RealtimeView : UserControl
         {
             var quote = _quotes.FirstOrDefault(q => q.Symbol == symbol);
             if (quote is not null)
+            {
                 QuotesGrid.SelectedItem = quote;
+            }
         }
     }
 
     private void IntervalSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (IntervalSelector.SelectedItem is ComboBoxItem item && item.Content is string interval)
+        {
             _interval = interval;
+        }
     }
 
     private async void Forecast_Click(object sender, RoutedEventArgs e)
     {
         if (QuotesGrid.SelectedItem is not TickerQuote quote)
+        {
+            MessageBox.Show("请先选择一个交易对", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
+        }
 
         try
         {
@@ -190,13 +207,27 @@ public partial class RealtimeView : UserControl
             };
 
             var result = await _aiService.ForecastAsync(request).ConfigureAwait(true);
-            UpdateForecast(result);
-            StatusText.Text = $"状态：AI 预测已完成（{result.Symbol}）";
+
+            if (result != null)
+            {
+                UpdateForecast(result);
+                StatusText.Text = $"状态：AI 预测已完成（{result.Symbol}）";
+            }
+            else
+            {
+                StatusText.Text = "状态：AI 预测返回空结果";
+            }
+        }
+        catch (KeyNotFoundException ex)
+        {
+            StatusText.Text = "状态：交易对不存在";
+            MessageBox.Show($"找不到交易对 {quote.Symbol}\n\n{ex.Message}", "AI 预测", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
             StatusText.Text = "状态：AI 预测失败";
-            MessageBox.Show(ex.Message, "AI 预测", MessageBoxButton.OK, MessageBoxImage.Error);
+            LogService.Error(ex, "AI预测失败");
+            MessageBox.Show($"预测失败: {ex.Message}", "AI 预测", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -214,8 +245,8 @@ public partial class RealtimeView : UserControl
         DetailChange.Text = $"24h 涨跌：{quote.ChangePercent:+0.00;-0.00;0.00}%";
         DetailChange.Foreground = quote.ChangePercent switch
         {
-            > 0.0 => new SolidColorBrush(Color.FromRgb(34, 197, 94)),
-            < 0.0 => new SolidColorBrush(Color.FromRgb(239, 68, 68)),
+            > 0.0 => new SolidColorBrush(System.Windows.Media.Color.FromRgb(34, 197, 94)),
+            < 0.0 => new SolidColorBrush(System.Windows.Media.Color.FromRgb(239, 68, 68)),
             _ => Brushes.Gray
         };
 
@@ -227,7 +258,7 @@ public partial class RealtimeView : UserControl
 
     private void RenderHistory(TickerQuote quote)
     {
-        var history = quote.PriceHistory.ToArray();
+        double[] history = quote.PriceHistory.ToArray();
         var plt = PricePlot.Plot;
         plt.Clear();
 

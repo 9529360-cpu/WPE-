@@ -78,7 +78,9 @@ public class OrderRequest : INotifyPropertyChanged
     protected void SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (Equals(field, value))
+        {
             return;
+        }
 
         field = value!;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -131,4 +133,24 @@ public class TradeExecution
     public decimal Quantity { get; init; }
     public decimal Price { get; init; }
     public DateTime Time { get; init; }
+}
+
+// 🆕 订单历史记录
+public class OrderHistoryRecord
+{
+    public string OrderId { get; init; } = string.Empty;
+    public string Symbol { get; init; } = string.Empty;
+    public string Side { get; init; } = string.Empty;
+    public string Type { get; init; } = string.Empty;
+    public double Quantity { get; init; }
+    public double? Price { get; init; }
+    public double? StopPrice { get; init; }
+    public string Status { get; init; } = string.Empty;
+    public double FilledQuantity { get; init; }
+    public double? AvgFillPrice { get; init; }
+    public double Commission { get; init; }
+    public string? StrategyName { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime UpdatedAt { get; init; }
+    public DateTime? FilledAt { get; init; }
 }

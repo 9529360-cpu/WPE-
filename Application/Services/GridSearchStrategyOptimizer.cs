@@ -2,10 +2,10 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using System.Runtime.CompilerServices;
 using 币安量化机器人.Core.Abstractions;
 using 币安量化机器人.Core.Models;
 
@@ -19,8 +19,8 @@ public class GridSearchStrategyOptimizer : IStrategyOptimizer
     {
         var candidates = new ConcurrentBag<OptimizationCandidate>();
         var parameterCombinations = GenerateCombinations(request.ParameterSpace).ToList();
-        var total = parameterCombinations.Count;
-        var completed = 0;
+        int total = parameterCombinations.Count;
+        int completed = 0;
 
         await Parallel.ForEachAsync(parameterCombinations, cancellationToken, async (parameters, token) =>
         {
@@ -29,7 +29,7 @@ public class GridSearchStrategyOptimizer : IStrategyOptimizer
             var backtestResult = await request.BacktestEngine.RunAsync(new BacktestRequest(request.Symbol, request.TrainingStart, request.TrainingEnd, clone), token);
             var candidate = new OptimizationCandidate(strategyParameters, backtestResult);
             candidates.Add(candidate);
-            var score = backtestResult.Sharpe;
+            double score = backtestResult.Sharpe;
             Interlocked.Increment(ref completed);
             await _progressChannel.Writer.WriteAsync(new OptimizationProgress(strategyParameters, score, completed, total), token);
         });
@@ -78,22 +78,22 @@ public class GridSearchStrategyOptimizer : IStrategyOptimizer
 
     private static IEnumerable<IReadOnlyDictionary<string, double>> GenerateCombinations(IReadOnlyDictionary<string, IReadOnlyList<double>> parameterSpace)
     {
-        var keys = parameterSpace.Keys.ToArray();
-        var indices = new int[keys.Length];
-        var lengths = keys.Select(k => parameterSpace[k].Count).ToArray();
-        var total = lengths.Aggregate(1, (acc, len) => acc * len);
+        string[] keys = parameterSpace.Keys.ToArray();
+        int[] indices = new int[keys.Length];
+        int[] lengths = keys.Select(k => parameterSpace[k].Count).ToArray();
+        int total = lengths.Aggregate(1, (acc, len) => acc * len);
 
-        for (var i = 0; i < total; i++)
+        for (int i = 0; i < total; i++)
         {
             var combination = new Dictionary<string, double>();
-            for (var j = 0; j < keys.Length; j++)
+            for (int j = 0; j < keys.Length; j++)
             {
                 combination[keys[j]] = parameterSpace[keys[j]][indices[j]];
             }
 
             yield return combination;
 
-            for (var j = keys.Length - 1; j >= 0; j--)
+            for (int j = keys.Length - 1; j >= 0; j--)
             {
                 indices[j]++;
                 if (indices[j] < lengths[j])

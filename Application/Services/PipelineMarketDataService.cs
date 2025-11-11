@@ -80,7 +80,7 @@ public class PipelineMarketDataService : IMarketDataService
             }
 
             buffer.Add(frame);
-            var bucketSize = timeframe == TimeSpan.FromMinutes(1) ? 1 : timeframe == TimeSpan.FromMinutes(5) ? 5 : 60;
+            int bucketSize = timeframe == TimeSpan.FromMinutes(1) ? 1 : timeframe == TimeSpan.FromMinutes(5) ? 5 : 60;
             if (buffer.Count >= bucketSize)
             {
                 var obs = timeframe == TimeSpan.FromMinutes(1)
@@ -113,11 +113,11 @@ public class PipelineMarketDataService : IMarketDataService
     private async ValueTask<MarketObservation> AggregateAsync(string symbol, TimeSpan timeframe, IReadOnlyList<RawDataFrame> frames, CancellationToken cancellationToken)
     {
         var ordered = frames.OrderBy(f => f.Timestamp).ToArray();
-        var open = Convert.ToDouble(ordered.First().Payload["open"]);
-        var close = Convert.ToDouble(ordered.Last().Payload["close"]);
-        var high = ordered.Max(f => Convert.ToDouble(f.Payload["high"]));
-        var low = ordered.Min(f => Convert.ToDouble(f.Payload["low"]));
-        var volume = ordered.Sum(f => Convert.ToDouble(f.Payload["volume"]));
+        double open = Convert.ToDouble(ordered.First().Payload["open"]);
+        double close = Convert.ToDouble(ordered.Last().Payload["close"]);
+        double high = ordered.Max(f => Convert.ToDouble(f.Payload["high"]));
+        double low = ordered.Min(f => Convert.ToDouble(f.Payload["low"]));
+        double volume = ordered.Sum(f => Convert.ToDouble(f.Payload["volume"]));
         var indicators = new Dictionary<string, double>
         {
             ["open"] = open,

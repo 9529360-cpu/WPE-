@@ -1,0 +1,314 @@
+<UserControl x:Class="币安量化机器人.Modules.Optimize.ParameterOptimizerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+             mc:Ignorable="d" 
+             d:DesignHeight="800" d:DesignWidth="1400">
+    
+    <Grid Background="#F9FAFB">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部标题栏 -->
+        <Border Grid.Row="0" Background="White" Padding="24,20" 
+                BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 标题 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBlock Text="🧬" FontSize="24" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <StackPanel>
+                        <TextBlock Text="策略参数优化器" FontSize="20" FontWeight="Bold" Foreground="#111827"/>
+                        <TextBlock x:Name="StatusText" Text="智能搜索最优参数组合" 
+                                   FontSize="13" Foreground="#6B7280" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 操作按钮 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button x:Name="StartButton" Content="▶️ 开始优化" 
+                            Width="120" Height="36" Margin="0,0,8,0"
+                            Background="#10B981" Foreground="White"
+                            BorderThickness="0"
+                            FontSize="13" FontWeight="Bold"
+                            Click="Start_Click"/>
+                    
+                    <Button x:Name="StopButton" Content="⏹️ 停止" 
+                            Width="90" Height="36"
+                            Background="#EF4444" Foreground="White"
+                            BorderThickness="0"
+                            FontSize="13" FontWeight="Bold"
+                            IsEnabled="False"
+                            Click="Stop_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 主内容区 -->
+        <Grid Grid.Row="1" Margin="24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="380"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧: 配置面板 -->
+            <Border Grid.Column="0" Background="White" CornerRadius="12" 
+                    BorderBrush="#E5E7EB" BorderThickness="1">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        
+                        <!-- 优化方法 -->
+                        <TextBlock Text="优化方法" FontSize="14" FontWeight="Bold" 
+                                   Foreground="#111827" Margin="0,0,0,12"/>
+                        
+                        <ComboBox x:Name="MethodCombo" Height="36" Margin="0,0,0,20"
+                                  SelectionChanged="Method_Changed">
+                            <ComboBoxItem Content="遗传算法 (推荐)" Tag="GA" IsSelected="True"/>
+                            <ComboBoxItem Content="网格搜索" Tag="Grid"/>
+                            <ComboBoxItem Content="随机搜索" Tag="Random"/>
+                        </ComboBox>
+
+                        <!-- 策略选择 -->
+                        <TextBlock Text="目标策略" FontSize="14" FontWeight="Bold" 
+                                   Foreground="#111827" Margin="0,0,0,12"/>
+                        
+                        <ComboBox x:Name="StrategyCombo" Height="36" Margin="0,0,0,20">
+                            <ComboBoxItem Content="均值回归策略" Tag="MeanReversion" IsSelected="True"/>
+                            <ComboBoxItem Content="动量突破策略" Tag="Momentum"/>
+                            <ComboBoxItem Content="网格交易策略" Tag="Grid"/>
+                        </ComboBox>
+
+                        <!-- 参数范围 -->
+                        <TextBlock Text="参数范围" FontSize="14" FontWeight="Bold" 
+                                   Foreground="#111827" Margin="0,0,0,12"/>
+                        
+                        <Border Background="#F9FAFB" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                            <StackPanel>
+                                <!-- 快速MA周期 -->
+                                <TextBlock Text="快速MA周期" FontSize="12" Foreground="#6B7280" Margin="0,0,0,4"/>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="FastMaMinBox" Grid.Column="0" Text="5" Height="32"/>
+                                    <TextBlock Grid.Column="1" Text="~" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    <TextBox x:Name="FastMaMaxBox" Grid.Column="2" Text="50" Height="32"/>
+                                    <TextBlock Grid.Column="3" Text="步长" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="10"/>
+                                    <TextBox x:Name="FastMaStepBox" Grid.Column="4" Text="5" Height="32"/>
+                                </Grid>
+
+                                <!-- 慢速MA周期 -->
+                                <TextBlock Text="慢速MA周期" FontSize="12" Foreground="#6B7280" Margin="0,0,0,4"/>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="SlowMaMinBox" Grid.Column="0" Text="50" Height="32"/>
+                                    <TextBlock Grid.Column="1" Text="~" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    <TextBox x:Name="SlowMaMaxBox" Grid.Column="2" Text="200" Height="32"/>
+                                    <TextBlock Grid.Column="3" Text="步长" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="10"/>
+                                    <TextBox x:Name="SlowMaStepBox" Grid.Column="4" Text="10" Height="32"/>
+                                </Grid>
+
+                                <!-- RSI周期 -->
+                                <TextBlock Text="RSI周期" FontSize="12" Foreground="#6B7280" Margin="0,0,0,4"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="RsiMinBox" Grid.Column="0" Text="7" Height="32"/>
+                                    <TextBlock Grid.Column="1" Text="~" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    <TextBox x:Name="RsiMaxBox" Grid.Column="2" Text="21" Height="32"/>
+                                    <TextBlock Grid.Column="3" Text="步长" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="10"/>
+                                    <TextBox x:Name="RsiStepBox" Grid.Column="4" Text="1" Height="32"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 遗传算法参数 -->
+                        <StackPanel x:Name="GeneticPanel">
+                            <TextBlock Text="遗传算法配置" FontSize="14" FontWeight="Bold" 
+                                       Foreground="#111827" Margin="0,0,0,12"/>
+                            
+                            <Border Background="#EFF6FF" CornerRadius="8" Padding="12">
+                                <StackPanel>
+                                    <TextBlock Text="种群大小" FontSize="12" Foreground="#3B82F6" Margin="0,0,0,4"/>
+                                    <TextBox x:Name="PopulationSizeBox" Text="50" Height="32" Margin="0,0,0,12"/>
+
+                                    <TextBlock Text="迭代代数" FontSize="12" Foreground="#3B82F6" Margin="0,0,0,4"/>
+                                    <TextBox x:Name="GenerationsBox" Text="100" Height="32" Margin="0,0,0,12"/>
+
+                                    <TextBlock Text="变异率" FontSize="12" Foreground="#3B82F6" Margin="0,0,0,4"/>
+                                    <TextBox x:Name="MutationRateBox" Text="0.1" Height="32"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- 优化目标 -->
+                        <TextBlock Text="优化目标" FontSize="14" FontWeight="Bold" 
+                                   Foreground="#111827" Margin="0,20,0,12"/>
+                        
+                        <ComboBox x:Name="ObjectiveCombo" Height="36">
+                            <ComboBoxItem Content="最大化夏普比率" Tag="Sharpe" IsSelected="True"/>
+                            <ComboBoxItem Content="最大化总收益" Tag="Return"/>
+                            <ComboBoxItem Content="最小化回撤" Tag="Drawdown"/>
+                            <ComboBoxItem Content="最大化Calmar比率" Tag="Calmar"/>
+                        </ComboBox>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- 右侧: 结果展示 -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="8"/>
+                    <RowDefinition Height="300"/>
+                </Grid.RowDefinitions>
+
+                <!-- 优化进度和结果 -->
+                <Border Grid.Row="0" Background="White" CornerRadius="12" 
+                        BorderBrush="#E5E7EB" BorderThickness="1">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 进度条 -->
+                        <StackPanel Grid.Row="0" Margin="20,20,20,0">
+                            <Grid Margin="0,0,0,8">
+                                <TextBlock Text="优化进度" FontSize="14" FontWeight="Bold" Foreground="#111827"/>
+                                <TextBlock x:Name="ProgressText" Text="0%" 
+                                           FontSize="13" Foreground="#6B7280"
+                                           HorizontalAlignment="Right"/>
+                            </Grid>
+                            <ProgressBar x:Name="ProgressBar" Height="8" Value="0" Maximum="100"/>
+                            <TextBlock x:Name="ProgressDetail" Text="就绪" 
+                                       FontSize="12" Foreground="#6B7280" Margin="0,8,0,0"/>
+                        </StackPanel>
+
+                        <!-- 最优结果 -->
+                        <Border Grid.Row="1" Background="#F0FDF4" CornerRadius="8" 
+                                Margin="20,20,20,0" Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="🏆 最优参数组合" FontSize="14" FontWeight="Bold" 
+                                           Foreground="#10B981" Margin="0,0,0,12"/>
+                                
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="快速MA" FontSize="11" Foreground="#6B7280"/>
+                                        <TextBlock x:Name="BestFastMaText" Text="-" 
+                                                   FontSize="20" FontWeight="Bold" Foreground="#059669"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="慢速MA" FontSize="11" Foreground="#6B7280"/>
+                                        <TextBlock x:Name="BestSlowMaText" Text="-" 
+                                                   FontSize="20" FontWeight="Bold" Foreground="#059669"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="RSI" FontSize="11" Foreground="#6B7280"/>
+                                        <TextBlock x:Name="BestRsiText" Text="-" 
+                                                   FontSize="20" FontWeight="Bold" Foreground="#059669"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Border Background="White" CornerRadius="4" Padding="12" Margin="0,12,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="夏普比率" FontSize="11" Foreground="#6B7280"/>
+                                            <TextBlock x:Name="BestSharpeText" Text="-" 
+                                                       FontSize="16" FontWeight="Bold" Foreground="#111827"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="总收益率" FontSize="11" Foreground="#6B7280"/>
+                                            <TextBlock x:Name="BestReturnText" Text="-" 
+                                                       FontSize="16" FontWeight="Bold" Foreground="#111827"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 结果列表 -->
+                        <DataGrid x:Name="ResultsGrid" Grid.Row="2"
+                                  Margin="20,20,20,20"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  SelectionMode="Single"
+                                  GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column"
+                                  RowHeight="40"
+                                  Background="Transparent"
+                                  BorderThickness="0">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="排名" Width="60" Binding="{Binding Rank}"/>
+                                <DataGridTextColumn Header="快速MA" Width="80" Binding="{Binding FastMa}"/>
+                                <DataGridTextColumn Header="慢速MA" Width="80" Binding="{Binding SlowMa}"/>
+                                <DataGridTextColumn Header="RSI" Width="60" Binding="{Binding Rsi}"/>
+                                <DataGridTextColumn Header="夏普比率" Width="100" Binding="{Binding SharpeRatio}"/>
+                                <DataGridTextColumn Header="总收益率" Width="100" Binding="{Binding TotalReturn}"/>
+                                <DataGridTextColumn Header="最大回撤" Width="100" Binding="{Binding MaxDrawdown}"/>
+                                <DataGridTextColumn Header="胜率" Width="80" Binding="{Binding WinRate}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+
+                <!-- 适应度曲线 -->
+                <Border Grid.Row="2" Background="White" CornerRadius="12" 
+                        BorderBrush="#E5E7EB" BorderThickness="1" Padding="20">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="📈 适应度进化曲线" 
+                                   FontSize="14" FontWeight="Bold" Foreground="#111827" Margin="0,0,0,12"/>
+                        
+                        <ScottPlot:WpfPlot x:Name="FitnessPlot" Grid.Row="1" Background="White"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

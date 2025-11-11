@@ -63,12 +63,12 @@ public class WalkForwardOptimizer
     {
         return strategy switch
         {
-            Core.Strategies.MeanReversionStrategy meanReversion => new Core.Strategies.MeanReversionStrategy(GetAnalyzer(meanReversion), GetMlGenerator(meanReversion), GetFeatureStore(meanReversion), parameters),
-            Core.Strategies.MomentumStrategy momentum => new Core.Strategies.MomentumStrategy(GetAnalyzer(momentum), parameters),
+            Core.Strategies.MeanReversionStrategy meanReversion => new Core.Strategies.MeanReversionStrategy(GetMeanReversionAnalyzer(meanReversion), GetMlGenerator(meanReversion), GetFeatureStore(meanReversion), parameters),
+            Core.Strategies.MomentumStrategy momentum => new Core.Strategies.MomentumStrategy(GetMomentumAnalyzer(momentum), parameters),
             _ => throw new NotSupportedException("Unsupported strategy type")
         };
 
-        static IMultiTimeframeAnalyzer GetAnalyzer(Core.Strategies.MeanReversionStrategy strategy)
+        static IMultiTimeframeAnalyzer GetMeanReversionAnalyzer(Core.Strategies.MeanReversionStrategy strategy)
             => strategy.GetType().GetField("_analyzer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(strategy) as IMultiTimeframeAnalyzer
                ?? throw new InvalidOperationException("Analyzer unavailable");
 
@@ -80,7 +80,7 @@ public class WalkForwardOptimizer
             => strategy.GetType().GetField("_featureStore", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(strategy) as IFeatureStore
                ?? throw new InvalidOperationException("Feature store unavailable");
 
-        static IMultiTimeframeAnalyzer GetAnalyzer(Core.Strategies.MomentumStrategy strategy)
+        static IMultiTimeframeAnalyzer GetMomentumAnalyzer(Core.Strategies.MomentumStrategy strategy)
             => strategy.GetType().GetField("_analyzer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(strategy) as IMultiTimeframeAnalyzer
                ?? throw new InvalidOperationException("Analyzer unavailable");
     }

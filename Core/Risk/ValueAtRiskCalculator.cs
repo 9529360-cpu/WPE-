@@ -7,9 +7,9 @@ public class ValueAtRiskCalculator
 {
     public double Calculate(PositionSnapshot snapshot, RiskConfiguration configuration)
     {
-        var volatility = snapshot.Indicators?.GetValueOrDefault("volatility", 0.02) ?? 0.02;
-        var zScore = 2.33; // 99% confidence
-        var var = snapshot.Equity * volatility * zScore;
+        double volatility = snapshot.Indicators?.GetValueOrDefault("volatility", 0.02) ?? 0.02;
+        double zScore = 2.33; // 99% confidence
+        double var = snapshot.Equity * volatility * zScore;
         return Math.Min(var, snapshot.Equity * configuration.MaxDrawdown);
     }
 }

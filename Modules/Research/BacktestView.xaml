@@ -15,7 +15,7 @@
             </DockPanel>
         </Border>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,12" Spacing="8">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,12">
             <ComboBox x:Name="SymbolBox" Width="140" Height="28"/>
             <ComboBox x:Name="IntervalBox" Width="100" Height="28">
                 <ComboBoxItem Content="1h"/>

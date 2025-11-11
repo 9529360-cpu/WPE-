@@ -33,7 +33,10 @@ public partial class TradeView : UserControl
             var tickers = await _api.GetMiniTickersAsync();
             SymbolBox.ItemsSource = tickers.Select(t => t.Symbol).OrderBy(s => s).ToList();
             if (SymbolBox.Items.Count > 0)
+            {
                 SymbolBox.SelectedIndex = 0;
+            }
+
             StatusText.Text = "状态：交易对已刷新";
         }
         catch (Exception ex)
@@ -53,12 +56,20 @@ public partial class TradeView : UserControl
             TimeInForce = Enum.TryParse<TimeInForce>((TifBox.SelectedItem as ComboBoxItem)?.Content?.ToString(), out var tif) ? tif : TimeInForce.Gtc
         };
 
-        if (decimal.TryParse(QuantityBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var qty))
+        if (decimal.TryParse(QuantityBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal qty))
+        {
             request.Quantity = qty;
-        if (decimal.TryParse(PriceBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var price))
+        }
+
+        if (decimal.TryParse(PriceBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal price))
+        {
             request.Price = price;
-        if (decimal.TryParse(StopPriceBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var stop))
+        }
+
+        if (decimal.TryParse(StopPriceBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal stop))
+        {
             request.StopPrice = stop;
+        }
 
         return request;
     }
@@ -72,8 +83,7 @@ public partial class TradeView : UserControl
             StatusText.Text = $"状态：正在发送 {request.Symbol} 单笔订单";
             var result = await _api.PlaceOrderAsync(request);
             StatusText.Text = $"状态：订单 {result.OrderId} 已提交，成交 {result.ExecutedQuantity}";
-            MessageBox.Show($"订单 {result.OrderId} 状态：{result.Status}
-平均成交价：{result.AvgPrice}", "下单成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"订单 {result.OrderId} 状态：{result.Status}\n平均成交价：{result.AvgPrice}", "下单成功", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
@@ -139,8 +149,8 @@ public partial class TradeView : UserControl
 
     private void TypeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        var type = (TypeBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
-        var requiresPrice = type is "Limit" or "StopLossLimit" or "TakeProfitLimit";
+        string? type = (TypeBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
+        bool requiresPrice = type is "Limit" or "StopLossLimit" or "TakeProfitLimit";
         PriceBox.IsEnabled = requiresPrice;
         StopPriceBox.IsEnabled = type is "StopLoss" or "StopLossLimit" or "TakeProfit" or "TakeProfitLimit";
     }
@@ -148,18 +158,28 @@ public partial class TradeView : UserControl
     private static void ValidateRequest(OrderRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Symbol))
+        {
             throw new InvalidOperationException("请填写交易对");
+        }
+
         if (request.Quantity <= 0)
+        {
             throw new InvalidOperationException("数量需大于 0");
+        }
+
         if (request.Type is OrderType.Limit or OrderType.StopLossLimit or OrderType.TakeProfitLimit)
         {
             if (request.Price <= 0)
+            {
                 throw new InvalidOperationException("限价单需要填写价格");
+            }
         }
         if (request.Type is OrderType.StopLoss or OrderType.StopLossLimit or OrderType.TakeProfit or OrderType.TakeProfitLimit)
         {
             if (request.StopPrice <= 0)
+            {
                 throw new InvalidOperationException("触发单需要填写触发价");
+            }
         }
     }
 }

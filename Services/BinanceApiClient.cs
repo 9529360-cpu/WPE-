@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -15,11 +16,23 @@ namespace 币安量化机器人.Services;
 public class BinanceApiClient : IDisposable
 {
     private const string RestEndpoint = "https://fapi.binance.com";
+    private static readonly TimeSpan[] RetryDelays = new[]
+    {
+        TimeSpan.FromSeconds(1),
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(4)
+    };
+
     private readonly HttpClient _httpClient;
     private readonly JsonSerializerOptions _serializerOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true
     };
+
+    // 🆕 健壮性组件
+    private readonly RateLimiter _rateLimiter = new();
+    private readonly ApiCircuitBreaker _circuitBreaker = new(failureThreshold: 5, cooldown: TimeSpan.FromMinutes(1));
+    private readonly ApiHealthMonitor _healthMonitor = new();
 
     private string? _apiKey;
     private byte[]? _secretBytes;
@@ -28,14 +41,25 @@ public class BinanceApiClient : IDisposable
     {
         _httpClient = httpClient ?? new HttpClient
         {
-            BaseAddress = new Uri(RestEndpoint)
+            BaseAddress = new Uri(RestEndpoint),
+            Timeout = TimeSpan.FromSeconds(10) // 🆕 默认10秒超时
         };
     }
+
+    // 🆕 公开健康状态
+    public ApiHealthReport GetHealthReport(TimeSpan? window = null) => _healthMonitor.GetHealthReport(window);
+    public CircuitBreakerState CircuitBreakerState => _circuitBreaker.State;
+    public double ApiSuccessRate => _healthMonitor.SuccessRate;
 
     public void SetApiCredentials(string apiKey, string secretKey)
     {
         _apiKey = apiKey;
         _secretBytes = Encoding.UTF8.GetBytes(secretKey);
+
+        // 🔧 添加日志记录
+        LogService.Info("[BinanceApiClient] API 凭证已设置: Key={MaskedKey}, SecretLength={SecretLength}",
+            apiKey.Length > 8 ? $"{apiKey.Substring(0, 8)}...{apiKey.Substring(apiKey.Length - 4)}" : "****",
+            secretKey.Length);
     }
 
     public async Task<IReadOnlyList<FundingRateSnapshot>> GetFundingRatesAsync(string? symbol = null, int limit = 50, CancellationToken cancellationToken = default)
@@ -45,7 +69,9 @@ public class BinanceApiClient : IDisposable
             ["limit"] = limit.ToString(CultureInfo.InvariantCulture)
         };
         if (!string.IsNullOrWhiteSpace(symbol))
+        {
             query["symbol"] = symbol.ToUpperInvariant();
+        }
 
         var fundingRates = await SendPublicAsync<List<FundingRateDto>>(HttpMethod.Get, "/fapi/v1/fundingRate", query, cancellationToken).ConfigureAwait(false);
         var markPrices = await SendPublicAsync<List<MarkPriceDto>>(HttpMethod.Get, "/fapi/v1/premiumIndex", symbol is null ? null : new Dictionary<string, string?> { ["symbol"] = symbol.ToUpperInvariant() }, cancellationToken).ConfigureAwait(false);
@@ -63,7 +89,9 @@ public class BinanceApiClient : IDisposable
         var tickers = await SendPublicAsync<List<TickerDto>>(HttpMethod.Get, "/fapi/v1/ticker/24hr", null, cancellationToken).ConfigureAwait(false);
         HashSet<string>? filter = null;
         if (symbols is not null)
+        {
             filter = new HashSet<string>(symbols.Select(s => s.ToUpperInvariant()));
+        }
 
         return tickers
             .Where(t => filter is null || filter.Contains(t.Symbol))
@@ -71,19 +99,19 @@ public class BinanceApiClient : IDisposable
             .ToArray();
     }
 
-        public async Task<IReadOnlyList<AccountBalance>> GetAccountBalancesAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<AccountBalance>> GetAccountBalancesAsync(CancellationToken cancellationToken = default)
     {
         EnsureSigned();
         var account = await SendSignedAsync<AccountDto>(HttpMethod.Get, "/fapi/v2/account", null, cancellationToken).ConfigureAwait(false);
         return account.Assets.Select(MapBalance).Where(b => b.WalletBalance != 0 || b.AvailableBalance != 0).ToArray();
     }
 
-public async Task<IReadOnlyList<PositionSnapshot>> GetPositionsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<PositionSnapshot>> GetPositionsAsync(CancellationToken cancellationToken = default)
     {
         EnsureSigned();
         var account = await SendSignedAsync<AccountDto>(HttpMethod.Get, "/fapi/v2/account", null, cancellationToken).ConfigureAwait(false);
         return account.Positions
-            .Where(p => decimal.TryParse(p.PositionAmt, NumberStyles.Number, CultureInfo.InvariantCulture, out var qty) && qty != 0)
+            .Where(p => decimal.TryParse(p.PositionAmt, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal qty) && qty != 0)
             .Select(MapPosition)
             .ToArray();
     }
@@ -93,7 +121,9 @@ public async Task<IReadOnlyList<PositionSnapshot>> GetPositionsAsync(Cancellatio
         EnsureSigned();
         var query = new Dictionary<string, string?>();
         if (!string.IsNullOrWhiteSpace(symbol))
+        {
             query["symbol"] = symbol.ToUpperInvariant();
+        }
 
         var orders = await SendSignedAsync<List<OrderDto>>(HttpMethod.Get, "/fapi/v1/openOrders", query, cancellationToken).ConfigureAwait(false);
         return orders.Select(MapOrderResponse).ToArray();
@@ -154,7 +184,7 @@ public async Task<IReadOnlyList<PositionSnapshot>> GetPositionsAsync(Cancellatio
             ["limit"] = limit.ToString(CultureInfo.InvariantCulture)
         };
 
-        var raw = await SendPublicAsync<string>(HttpMethod.Get, "/fapi/v1/klines", query, cancellationToken).ConfigureAwait(false);
+        string raw = await SendPublicAsync<string>(HttpMethod.Get, "/fapi/v1/klines", query, cancellationToken).ConfigureAwait(false);
         using var doc = JsonDocument.Parse(raw);
         return doc.RootElement.EnumerateArray()
             .Select(k => decimal.Parse(k[4].GetString()!, CultureInfo.InvariantCulture))
@@ -181,10 +211,14 @@ public async Task<IReadOnlyList<PositionSnapshot>> GetPositionsAsync(Cancellatio
         };
 
         if (request.Type is OrderType.Limit or OrderType.StopLossLimit or OrderType.TakeProfitLimit)
+        {
             payload["price"] = request.Price.ToString(CultureInfo.InvariantCulture);
+        }
 
         if (request.Type is OrderType.StopLoss or OrderType.StopLossLimit or OrderType.TakeProfit or OrderType.TakeProfitLimit)
+        {
             payload["stopPrice"] = request.StopPrice.ToString(CultureInfo.InvariantCulture);
+        }
 
         if (request.Type is OrderType.Limit or OrderType.StopLossLimit or OrderType.TakeProfitLimit)
         {
@@ -202,8 +236,11 @@ public async Task<IReadOnlyList<PositionSnapshot>> GetPositionsAsync(Cancellatio
 
     private async Task<T> SendPublicAsync<T>(HttpMethod method, string path, IDictionary<string, string?>? query, CancellationToken cancellationToken)
     {
+        // 🆕 等待速率限制
+        await _rateLimiter.WaitForRestApiAsync(weight: 1, cancellationToken);
+
         var request = new HttpRequestMessage(method, BuildUri(path, query));
-        return await SendAsync<T>(request, cancellationToken).ConfigureAwait(false);
+        return await SendWithRetryAsync<T>(request, path, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<T> SendSignedAsync<T>(HttpMethod method, string path, IDictionary<string, string?>? query, CancellationToken cancellationToken)
@@ -212,31 +249,149 @@ public async Task<IReadOnlyList<PositionSnapshot>> GetPositionsAsync(Cancellatio
         query ??= new Dictionary<string, string?>();
         query["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture);
 
-        var queryString = BuildQueryString(query);
-        var signature = ComputeSignature(queryString);
+        string queryString = BuildQueryString(query);
+        string signature = ComputeSignature(queryString);
         query["signature"] = signature;
+
+        // 🆕 订单API需要额外限速
+        if (path.Contains("/order", StringComparison.OrdinalIgnoreCase))
+        {
+            await _rateLimiter.WaitForOrderApiAsync(cancellationToken);
+        }
+        else
+        {
+            await _rateLimiter.WaitForRestApiAsync(weight: 1, cancellationToken);
+        }
 
         var request = new HttpRequestMessage(method, BuildUri(path, query));
         request.Headers.Add("X-MBX-APIKEY", _apiKey);
-        return await SendAsync<T>(request, cancellationToken).ConfigureAwait(false);
+        return await SendWithRetryAsync<T>(request, path, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 🆕 带重试和熔断的请求发送
+    /// </summary>
+    private async Task<T> SendWithRetryAsync<T>(HttpRequestMessage request, string endpoint, CancellationToken cancellationToken)
+    {
+        // 检查熔断器
+        if (!_circuitBreaker.AllowRequest())
+        {
+            var retry = _circuitBreaker.TimeUntilRetry();
+            throw new InvalidOperationException($"API熔断中,{retry?.TotalSeconds:F0}秒后自动恢复");
+        }
+
+        Exception? lastException = null;
+        var startTime = DateTime.UtcNow;
+
+        for (int attempt = 0; attempt <= RetryDelays.Length; attempt++)
+        {
+            try
+            {
+                using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                var duration = DateTime.UtcNow - startTime;
+
+                // 🆕 429 速率限制错误,需要重试
+                if (response.StatusCode == (HttpStatusCode)429)
+                {
+                    _healthMonitor.RecordCall(endpoint, false, duration, "Rate limit exceeded", 429);
+
+                    if (attempt < RetryDelays.Length)
+                    {
+                        var delay = RetryDelays[attempt];
+                        StartupDiagnostics.Log($"API RateLimit: {endpoint}, 等待 {delay.TotalSeconds}s 重试 (attempt {attempt + 1})");
+                        await Task.Delay(delay, cancellationToken);
+                        continue;
+                    }
+
+                    throw new InvalidOperationException("API速率限制,已达最大重试次数");
+                }
+
+                // 🆕 5xx 服务器错误,可重试
+                if ((int)response.StatusCode >= 500 && (int)response.StatusCode < 600)
+                {
+                    _healthMonitor.RecordCall(endpoint, false, duration, $"Server error {response.StatusCode}", (int)response.StatusCode);
+
+                    if (attempt < RetryDelays.Length)
+                    {
+                        var delay = RetryDelays[attempt];
+                        StartupDiagnostics.Log($"API ServerError: {endpoint} {response.StatusCode}, 等待 {delay.TotalSeconds}s 重试");
+                        await Task.Delay(delay, cancellationToken);
+                        continue;
+                    }
+
+                    _circuitBreaker.RecordFailure();
+                    throw new HttpRequestException($"Binance服务器错误: {response.StatusCode}");
+                }
+
+                // 其他错误直接抛出
+                response.EnsureSuccessStatusCode();
+
+                // 解析响应
+                T data;
+                if (typeof(T) == typeof(string))
+                {
+                    string text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                    data = (T)(object)text;
+                }
+                else
+                {
+                    await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                    data = await JsonSerializer.DeserializeAsync<T>(stream, _serializerOptions, cancellationToken).ConfigureAwait(false)
+                        ?? throw new InvalidOperationException("Failed to deserialize Binance response");
+                }
+
+                // 🆕 记录成功
+                _healthMonitor.RecordCall(endpoint, true, duration);
+                _circuitBreaker.RecordSuccess();
+                return data;
+            }
+            catch (OperationCanceledException)
+            {
+                throw; // 用户取消,不重试
+            }
+            catch (Exception ex) when (attempt < RetryDelays.Length)
+            {
+                lastException = ex;
+                var duration = DateTime.UtcNow - startTime;
+                _healthMonitor.RecordCall(endpoint, false, duration, ex.Message);
+
+                var delay = RetryDelays[attempt];
+                StartupDiagnostics.Log($"API Exception: {endpoint} - {ex.Message}, 等待 {delay.TotalSeconds}s 重试");
+                await Task.Delay(delay, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                var duration = DateTime.UtcNow - startTime;
+                _healthMonitor.RecordCall(endpoint, false, duration, ex.Message);
+                _circuitBreaker.RecordFailure();
+                throw;
+            }
+        }
+
+        _circuitBreaker.RecordFailure();
+        throw lastException ?? new InvalidOperationException("API请求失败");
     }
 
     private string ComputeSignature(string queryString)
     {
         if (_secretBytes is null)
+        {
             throw new InvalidOperationException("API secret has not been configured");
+        }
 
         using var hmac = new HMACSHA256(_secretBytes);
-        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(queryString));
+        byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(queryString));
         return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
     }
 
     private static Uri BuildUri(string path, IDictionary<string, string?>? query)
     {
         if (query is null || query.Count == 0)
+        {
             return new Uri(path, UriKind.Relative);
+        }
 
-        var queryString = BuildQueryString(query);
+        string queryString = BuildQueryString(query);
         return new Uri($"{path}?{queryString}", UriKind.Relative);
     }
 
@@ -247,27 +402,12 @@ public async Task<IReadOnlyList<PositionSnapshot>> GetPositionsAsync(Cancellatio
             .Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value!)}"));
     }
 
-    private async Task<T> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        if (typeof(T) == typeof(string))
-        {
-            var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            return (T)(object)text;
-        }
-
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var data = await JsonSerializer.DeserializeAsync<T>(stream, _serializerOptions, cancellationToken).ConfigureAwait(false);
-        if (data is null)
-            throw new InvalidOperationException("Failed to deserialize Binance response");
-        return data;
-    }
-
     private void EnsureSigned()
     {
         if (string.IsNullOrEmpty(_apiKey) || _secretBytes is null)
+        {
             throw new InvalidOperationException("请先在 API 管理中配置 Binance API Key 与 Secret");
+        }
     }
 
     private static FundingRateSnapshot MapFunding(string symbol, FundingRateDto[] rates, IDictionary<string, MarkPriceDto> markMap)
@@ -280,8 +420,8 @@ public async Task<IReadOnlyList<PositionSnapshot>> GetPositionsAsync(Cancellatio
             FundingRate = r.FundingRate
         }).ToList();
 
-        var avg7 = history.TakeLast(21).Average(h => h.FundingRate);
-        var predicted = history.TakeLast(12).Any() ? history.TakeLast(12).Average(h => h.FundingRate) : history.LastOrDefault()?.FundingRate ?? 0d;
+        double avg7 = history.TakeLast(21).Average(h => h.FundingRate);
+        double predicted = history.TakeLast(12).Any() ? history.TakeLast(12).Average(h => h.FundingRate) : history.LastOrDefault()?.FundingRate ?? 0d;
 
         return new FundingRateSnapshot
         {
@@ -315,12 +455,12 @@ public async Task<IReadOnlyList<PositionSnapshot>> GetPositionsAsync(Cancellatio
 
     private static PositionSnapshot MapPosition(PositionDto dto)
     {
-        decimal.TryParse(dto.PositionAmt, NumberStyles.Number, CultureInfo.InvariantCulture, out var qty);
-        decimal.TryParse(dto.EntryPrice, NumberStyles.Number, CultureInfo.InvariantCulture, out var entry);
-        decimal.TryParse(dto.MarkPrice, NumberStyles.Number, CultureInfo.InvariantCulture, out var mark);
-        decimal.TryParse(dto.UnrealizedProfit, NumberStyles.Number, CultureInfo.InvariantCulture, out var pnl);
-        decimal.TryParse(dto.Leverage, NumberStyles.Number, CultureInfo.InvariantCulture, out var leverage);
-        decimal.TryParse(dto.MaintMargin, NumberStyles.Number, CultureInfo.InvariantCulture, out var maintMargin);
+        decimal.TryParse(dto.PositionAmt, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal qty);
+        decimal.TryParse(dto.EntryPrice, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal entry);
+        decimal.TryParse(dto.MarkPrice, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal mark);
+        decimal.TryParse(dto.UnrealizedProfit, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal pnl);
+        decimal.TryParse(dto.Leverage, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal leverage);
+        decimal.TryParse(dto.MaintMargin, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal maintMargin);
 
         return new PositionSnapshot
         {
@@ -337,10 +477,10 @@ public async Task<IReadOnlyList<PositionSnapshot>> GetPositionsAsync(Cancellatio
 
     private static AccountBalance MapBalance(AccountAssetDto dto)
     {
-        decimal.TryParse(dto.WalletBalance, NumberStyles.Number, CultureInfo.InvariantCulture, out var wallet);
-        decimal.TryParse(dto.AvailableBalance, NumberStyles.Number, CultureInfo.InvariantCulture, out var available);
-        decimal.TryParse(dto.UnrealizedProfit, NumberStyles.Number, CultureInfo.InvariantCulture, out var pnl);
-        decimal.TryParse(dto.MarginBalance, NumberStyles.Number, CultureInfo.InvariantCulture, out var margin);
+        decimal.TryParse(dto.WalletBalance, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal wallet);
+        decimal.TryParse(dto.AvailableBalance, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal available);
+        decimal.TryParse(dto.UnrealizedProfit, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal pnl);
+        decimal.TryParse(dto.MarginBalance, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal margin);
 
         return new AccountBalance
         {

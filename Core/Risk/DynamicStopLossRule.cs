@@ -16,13 +16,13 @@ public sealed class DynamicStopLossRule : IRiskRule
 
     public RiskRuleResult Evaluate(in PositionSnapshot snapshot)
     {
-        var atr = snapshot.Indicators?.GetValueOrDefault("atr", 0) ?? 0;
+        double atr = snapshot.Indicators?.GetValueOrDefault("atr", 0) ?? 0;
         if (atr <= 0)
         {
             return new RiskRuleResult(true);
         }
 
-        var stopLoss = snapshot.EntryPrice - atr * _stopLossMultiplier;
+        double stopLoss = snapshot.EntryPrice - atr * _stopLossMultiplier;
         if (snapshot.CurrentPrice <= stopLoss)
         {
             return new RiskRuleResult(false, $"Hit dynamic stop {stopLoss:F2}");

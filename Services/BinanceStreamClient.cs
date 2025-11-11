@@ -10,7 +10,10 @@ using 币安量化机器人.Models;
 
 namespace 币安量化机器人.Services;
 
-public class BinanceStreamClient : IAsyncDisposable
+/// <summary>
+/// Binance WebSocket流客户端 - 提供实时行情订阅
+/// </summary>
+public sealed class BinanceStreamClient : IAsyncDisposable
 {
     private const string StreamEndpoint = "wss://fstream.binance.com/stream";
     private static readonly TimeSpan[] RetrySchedule =
@@ -27,27 +30,44 @@ public class BinanceStreamClient : IAsyncDisposable
     private ClientWebSocket? _socket;
     private CancellationTokenSource? _cts;
     private IReadOnlyList<string> _currentSymbols = Array.Empty<string>();
+    private bool _disposed;
 
+    /// <summary>
+    /// 接收到MiniTicker更新时触发
+    /// </summary>
     public event Action<MiniTickerUpdate>? MiniTickerReceived;
+
+    /// <summary>
+    /// 连接状态变化时触发
+    /// </summary>
     public event Action<string>? ConnectionStatusChanged;
 
+    /// <summary>
+    /// 连接MiniTicker流
+    /// </summary>
+    /// <param name="symbols">要订阅的交易对列表</param>
+    /// <param name="cancellationToken">取消令牌</param>
     public async Task ConnectMiniTickerAsync(IEnumerable<string> symbols, CancellationToken cancellationToken = default)
     {
-        var requestedSymbols = symbols.Select(s => s.ToLowerInvariant()).Distinct().ToArray();
-        if (requestedSymbols.Count == 0)
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        string[] requestedSymbols = symbols.Select(s => s.ToLowerInvariant()).Distinct().ToArray();
+        if (requestedSymbols.Length == 0)
+        {
             throw new InvalidOperationException("必须至少订阅一个交易对");
+        }
 
         await StopInternalAsync().ConfigureAwait(false);
 
         _currentSymbols = requestedSymbols;
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         ConnectionStatusChanged?.Invoke("正在连接 Binance 行情流...");
-        _ = Task.Run(() => ReceiveLoopAsync(_cts.Token));
+        _ = Task.Run(() => ReceiveLoopAsync(_cts.Token), _cts.Token);
     }
 
     private async Task ReceiveLoopAsync(CancellationToken cancellationToken)
     {
-        var buffer = new byte[32 * 1024];
+        byte[] buffer = new byte[32 * 1024];
         var builder = new StringBuilder();
         int attempt = 0;
 
@@ -59,7 +79,9 @@ public class BinanceStreamClient : IAsyncDisposable
                 attempt = 0;
 
                 if (_socket is null)
+                {
                     continue;
+                }
 
                 builder.Clear();
                 WebSocketReceiveResult result;
@@ -67,7 +89,9 @@ public class BinanceStreamClient : IAsyncDisposable
                 {
                     result = await _socket.ReceiveAsync(buffer, cancellationToken).ConfigureAwait(false);
                     if (result.MessageType == WebSocketMessageType.Close)
+                    {
                         throw new WebSocketException("服务端关闭了连接");
+                    }
 
                     builder.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
                 } while (!result.EndOfMessage);
@@ -101,19 +125,26 @@ public class BinanceStreamClient : IAsyncDisposable
     private async Task EnsureConnectedAsync(CancellationToken cancellationToken)
     {
         if (_socket is { State: WebSocketState.Open })
+        {
             return;
+        }
 
         await _connectLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             if (_socket is { State: WebSocketState.Open })
+            {
                 return;
+            }
 
             await StopSocketAsync().ConfigureAwait(false);
 
             var socket = new ClientWebSocket();
-            var stream = string.Join('/', _currentSymbols.Select(s => $"{s}@miniTicker"));
+            socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(30);
+
+            string stream = string.Join('/', _currentSymbols.Select(s => $"{s}@miniTicker"));
             var uri = new Uri($"{StreamEndpoint}?streams={stream}");
+
             await socket.ConnectAsync(uri, cancellationToken).ConfigureAwait(false);
             _socket = socket;
             ConnectionStatusChanged?.Invoke("已连接 Binance 行情流");
@@ -126,30 +157,52 @@ public class BinanceStreamClient : IAsyncDisposable
 
     private void HandleMessage(string json)
     {
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("data", out var data))
-            return;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("data", out var data))
+            {
+                return;
+            }
 
-        var symbol = data.GetProperty("s").GetString() ?? string.Empty;
-        var last = double.Parse(data.GetProperty("c").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
-        var index = double.Parse(data.GetProperty("p").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
-        var change = double.Parse(data.GetProperty("P").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
-        var volume = double.Parse(data.GetProperty("v").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
-        var high = double.Parse(data.GetProperty("h").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
-        var low = double.Parse(data.GetProperty("l").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+            string symbol = data.GetProperty("s").GetString() ?? string.Empty;
+            double last = double.Parse(data.GetProperty("c").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+            double index = double.Parse(data.GetProperty("p").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+            double change = double.Parse(data.GetProperty("P").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+            double volume = double.Parse(data.GetProperty("v").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+            double high = double.Parse(data.GetProperty("h").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+            double low = double.Parse(data.GetProperty("l").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
 
-        var update = new MiniTickerUpdate(symbol, last, index, change, volume, high, low);
-        MiniTickerReceived?.Invoke(update);
+            var update = new MiniTickerUpdate(symbol, last, index, change, volume, high, low);
+            MiniTickerReceived?.Invoke(update);
+        }
+        catch (Exception ex)
+        {
+            ConnectionStatusChanged?.Invoke($"解析消息失败: {ex.Message}");
+        }
     }
 
+    /// <summary>
+    /// 停止订阅
+    /// </summary>
     public async Task StopAsync()
     {
         await StopInternalAsync().ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 释放资源
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         await StopAsync().ConfigureAwait(false);
+        _connectLock.Dispose();
     }
 
     private async Task StopInternalAsync()
@@ -165,12 +218,16 @@ public class BinanceStreamClient : IAsyncDisposable
     private async Task StopSocketAsync()
     {
         if (_socket is null)
+        {
             return;
+        }
 
         try
         {
             if (_socket.State == WebSocketState.Open)
+            {
                 await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "stop", CancellationToken.None).ConfigureAwait(false);
+            }
         }
         catch
         {

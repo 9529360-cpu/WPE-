@@ -22,7 +22,7 @@ public class FileDataSource : IDataSource
 
     public async IAsyncEnumerable<RawDataFrame> ReadAsync(DataQuery query, CancellationToken cancellationToken = default)
     {
-        var path = Path.Combine(_directory, $"{query.Symbol}.csv");
+        string path = Path.Combine(_directory, $"{query.Symbol}.csv");
         if (!File.Exists(path))
         {
             yield break;
@@ -33,7 +33,7 @@ public class FileDataSource : IDataSource
         while ((line = await reader.ReadLineAsync()) is not null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var parts = line.Split(',');
+            string[] parts = line.Split(',');
             if (parts.Length < 6)
             {
                 continue;

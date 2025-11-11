@@ -27,9 +27,9 @@ public class MultiTimeframeAnalyzer : IMultiTimeframeAnalyzer
             var recent = timeframeSeries.Observations[^1];
             var previous = timeframeSeries.Observations[^2];
 
-            var trend = CalculateTrend(timeframeSeries.Observations);
-            var momentum = recent.Close - previous.Close;
-            var deviation = recent.Close - timeframeSeries.Observations.Average(o => o.Close);
+            double trend = CalculateTrend(timeframeSeries.Observations);
+            double momentum = recent.Close - previous.Close;
+            double deviation = recent.Close - timeframeSeries.Observations.Average(o => o.Close);
 
             trendScores[timeframe] = trend;
             momentumScores[timeframe] = momentum;
@@ -43,7 +43,7 @@ public class MultiTimeframeAnalyzer : IMultiTimeframeAnalyzer
                 return 0d;
             }
 
-            var totalWeight = scores.Keys.Sum(tf => 1d / tf.TotalMinutes);
+            double totalWeight = scores.Keys.Sum(tf => 1d / tf.TotalMinutes);
             if (totalWeight == 0)
             {
                 return 0d;
@@ -52,9 +52,9 @@ public class MultiTimeframeAnalyzer : IMultiTimeframeAnalyzer
             return scores.Sum(pair => pair.Value * (1d / pair.Key.TotalMinutes)) / totalWeight;
         }
 
-        var trendScore = WeightedAverage(trendScores);
-        var momentumScore = WeightedAverage(momentumScores);
-        var meanReversionScore = WeightedAverage(meanReversionScores);
+        double trendScore = WeightedAverage(trendScores);
+        double momentumScore = WeightedAverage(momentumScores);
+        double meanReversionScore = WeightedAverage(meanReversionScores);
 
         var confidence = trendScores.Keys.ToDictionary(tf => tf, tf => Math.Min(1d, Math.Abs(trendScores[tf]) + Math.Abs(momentumScores.GetValueOrDefault(tf))));
 
@@ -70,10 +70,10 @@ public class MultiTimeframeAnalyzer : IMultiTimeframeAnalyzer
 
         double numerator = 0d;
         double denominator = 0d;
-        var avg = observations.Average(o => o.Close);
-        for (var i = 0; i < observations.Count; i++)
+        double avg = observations.Average(o => o.Close);
+        for (int i = 0; i < observations.Count; i++)
         {
-            var price = observations[i].Close;
+            double price = observations[i].Close;
             numerator += (i - observations.Count / 2d) * (price - avg);
             denominator += Math.Pow(i - observations.Count / 2d, 2);
         }

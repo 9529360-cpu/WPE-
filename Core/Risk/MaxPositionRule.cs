@@ -15,8 +15,8 @@ public sealed class MaxPositionRule : IRiskRule
 
     public RiskRuleResult Evaluate(in PositionSnapshot snapshot)
     {
-        var exposure = snapshot.Quantity * snapshot.CurrentPrice;
-        var allowed = snapshot.Equity * _maxPositionSize;
+        double exposure = snapshot.Quantity * snapshot.CurrentPrice;
+        double allowed = snapshot.Equity * _maxPositionSize;
         return exposure <= allowed
             ? new RiskRuleResult(true)
             : new RiskRuleResult(false, $"Exposure {exposure:F2} exceeds limit {allowed:F2}");

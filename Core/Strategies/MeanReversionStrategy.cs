@@ -14,7 +14,7 @@ public class MeanReversionStrategy : ITradingStrategy
     private readonly IMultiTimeframeAnalyzer _analyzer;
     private readonly IMachineLearningSignalGenerator _mlSignalGenerator;
     private readonly IFeatureStore _featureStore;
-    private StrategyParameters _parameters;
+    private readonly StrategyParameters _parameters;
     private IStrategyContext? _context;
 
     public MeanReversionStrategy(IMultiTimeframeAnalyzer analyzer, IMachineLearningSignalGenerator mlSignalGenerator, IFeatureStore featureStore, StrategyParameters parameters)
@@ -43,7 +43,7 @@ public class MeanReversionStrategy : ITradingStrategy
 
         var features = await _featureStore.GetLatestAsync(observation.Symbol, cancellationToken);
         var featureVector = new List<double>(observation.Indicators.Values);
-        foreach (var value in features.Values)
+        foreach (double value in features.Values)
         {
             featureVector.Add(value);
         }
@@ -55,13 +55,13 @@ public class MeanReversionStrategy : ITradingStrategy
             [observation.Timeframe] = new TimeframeSeries(observation.Timeframe, new List<MarketObservation> { observation })
         }, cancellationToken);
 
-        var zScore = CalculateZScore(observation);
-        var threshold = _parameters.Get("entry_z_score", 1.5);
-        var quantity = _parameters.Get("base_quantity", 1);
-        var stopMultiplier = _parameters.Get("stop_multiplier", 2);
+        double zScore = CalculateZScore(observation);
+        double threshold = _parameters.Get("entry_z_score", 1.5);
+        double quantity = _parameters.Get("base_quantity", 1);
+        double stopMultiplier = _parameters.Get("stop_multiplier", 2);
 
         var action = TradeActionType.Hold;
-        var reason = "Hold";
+        string reason = "Hold";
 
         if (Math.Abs(zScore) > threshold)
         {
@@ -96,7 +96,7 @@ public class MeanReversionStrategy : ITradingStrategy
 
     private double CalculateZScore(MarketObservation observation)
     {
-        if (!observation.Indicators.TryGetValue("sma", out var sma) || !observation.Indicators.TryGetValue("std", out var std) || std == 0)
+        if (!observation.Indicators.TryGetValue("sma", out double sma) || !observation.Indicators.TryGetValue("std", out double std) || std == 0)
         {
             return 0d;
         }

@@ -66,8 +66,8 @@ public partial class SettingsView : UserControl
         double.TryParse(StopLossBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double stopLoss);
         double.TryParse(TakeProfitBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double takeProfit);
 
-        var timeframe = (TimeframeBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "";
-        var venue = (VenueBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "";
+        string timeframe = (TimeframeBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "";
+        string venue = (VenueBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "";
 
         return new StrategyConfig
         {
@@ -97,19 +97,39 @@ public partial class SettingsView : UserControl
     private static void ValidateConfig(StrategyConfig config)
     {
         if (string.IsNullOrWhiteSpace(config.StrategyName))
+        {
             throw new InvalidOperationException("策略名称不能为空");
+        }
+
         if (string.IsNullOrWhiteSpace(config.Symbol))
+        {
             throw new InvalidOperationException("交易对不能为空");
+        }
+
         if (string.IsNullOrWhiteSpace(config.Timeframe))
+        {
             throw new InvalidOperationException("请选择时间框架");
+        }
+
         if (config.Capital <= 0)
+        {
             throw new InvalidOperationException("投入资金需大于 0");
+        }
+
         if (config.StopLossPercent <= 0)
+        {
             throw new InvalidOperationException("止损百分比需大于 0");
+        }
+
         if (config.TakeProfitPercent <= 0)
+        {
             throw new InvalidOperationException("止盈百分比需大于 0");
+        }
+
         if (config.Parameters.Count == 0)
+        {
             throw new InvalidOperationException("至少保留一个策略参数");
+        }
     }
 
     private void SaveConfig_Click(object sender, RoutedEventArgs e)
@@ -136,9 +156,9 @@ public partial class SettingsView : UserControl
             ValidateConfig(config);
 
             Directory.CreateDirectory(_configDirectory);
-            var fileName = $"{SanitizeFileName(config.StrategyName)}_{DateTime.Now:yyyyMMdd_HHmmss}.json";
-            var path = Path.Combine(_configDirectory, fileName);
-            var json = JsonSerializer.Serialize(config, _jsonOptions);
+            string fileName = $"{SanitizeFileName(config.StrategyName)}_{DateTime.Now:yyyyMMdd_HHmmss}.json";
+            string path = Path.Combine(_configDirectory, fileName);
+            string json = JsonSerializer.Serialize(config, _jsonOptions);
             File.WriteAllText(path, json, Encoding.UTF8);
 
             StatusText.Text = $"状态：已导出 {fileName}";
@@ -153,9 +173,9 @@ public partial class SettingsView : UserControl
 
     private static string SanitizeFileName(string name)
     {
-        var invalid = Path.GetInvalidFileNameChars();
+        char[] invalid = Path.GetInvalidFileNameChars();
         var builder = new StringBuilder();
-        foreach (var ch in string.IsNullOrWhiteSpace(name) ? "strategy" : name)
+        foreach (char ch in string.IsNullOrWhiteSpace(name) ? "strategy" : name)
         {
             builder.Append(invalid.Contains(ch) ? '_' : ch);
         }

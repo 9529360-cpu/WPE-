@@ -1,11 +1,14 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
-using 币安量化机器人.Services;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using 币安量化机器人.Services;
+using 币安量化机器人.Services.AI;
 
 namespace 币安量化机器人.Modules.AI
 {
@@ -14,6 +17,11 @@ namespace 币安量化机器人.Modules.AI
         private readonly ObservableCollection<ModelRow> _all = new();
         private readonly ICollectionView _view;
         private readonly AiForecastService _aiService = ServiceLocator.Ai;
+
+        // 🆕 DeepSeek AI组件
+        private AITradingBot? _aiBot;
+        private CancellationTokenSource? _analyzeCts;
+        private readonly ObservableCollection<AISignalRow> _aiSignals = new();
 
         public ModelHub()
         {
@@ -35,9 +43,16 @@ namespace 币安量化机器人.Modules.AI
             _view = CollectionViewSource.GetDefaultView(_all);
             GridModels.ItemsSource = _view;
 
+            // 🆕 绑定AI信号列表
+            AISignalsGrid.ItemsSource = _aiSignals;
+
             GridModels.SelectionChanged += (_, __) => UpdateDetail();
-            if (_all.Any()) GridModels.SelectedIndex = 0;
-            StatusText.Text = $"状态：已加载 {_all.Count} 个上线模型";
+            if (_all.Any())
+            {
+                GridModels.SelectedIndex = 0;
+            }
+
+            StatusText.Text = $"状态：已加载 {_all.Count} 个上线模型 + DeepSeek AI交易系统";
         }
 
         private void UpdateDetail()
@@ -51,10 +66,14 @@ namespace 币安量化机器人.Modules.AI
 
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            var kw = SearchBox.Text?.Trim() ?? "";
+            string kw = SearchBox.Text?.Trim() ?? "";
             _view.Filter = o =>
             {
-                if (o is not ModelRow r) return false;
+                if (o is not ModelRow r)
+                {
+                    return false;
+                }
+
                 return string.IsNullOrEmpty(kw)
                        || r.Name.Contains(kw, StringComparison.OrdinalIgnoreCase)
                        || r.Stage.Contains(kw, StringComparison.OrdinalIgnoreCase);
@@ -100,6 +119,176 @@ namespace 币安量化机器人.Modules.AI
         {
             MessageBox.Show("Shadow 占位：新模型仅收请求不出结果，用于对齐与观测。", "Shadow", MessageBoxButton.OK, MessageBoxImage.Information);
         }
+
+        // 🆕 DeepSeek AI功能
+
+        private async void AnalyzeWithAI_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string apiKey = DeepSeekApiKeyBox.Text.Trim();
+                if (string.IsNullOrEmpty(apiKey))
+                {
+                    MessageBox.Show("请先输入DeepSeek API Key", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                string symbol = AISymbolBox.Text.Trim();
+                if (string.IsNullOrEmpty(symbol))
+                {
+                    symbol = "BTCUSDT";
+                    AISymbolBox.Text = symbol;
+                }
+
+                AIStatusText.Text = $"正在分析 {symbol}...";
+                AnalyzeButton.IsEnabled = false;
+
+                _analyzeCts = new CancellationTokenSource();
+                _aiBot = ServiceLocator.GetAITradingBot(apiKey);
+
+                var signal = await _aiBot.AnalyzeOnceAsync(symbol, _analyzeCts.Token);
+
+                // 显示结果
+                _aiSignals.Insert(0, new AISignalRow
+                {
+                    Timestamp = signal.Timestamp.ToString("HH:mm:ss"),
+                    Symbol = signal.Symbol,
+                    Action = signal.Action.ToString(),
+                    Confidence = $"{signal.Confidence:P0}",
+                    EntryPrice = $"{signal.EntryPrice:F4}",
+                    TargetPrice = $"{signal.TargetPrice:F4}",
+                    StopLoss = $"{signal.StopLoss:F4}",
+                    Reason = signal.Reason
+                });
+
+                // 只保留最近20条
+                while (_aiSignals.Count > 20)
+                {
+                    _aiSignals.RemoveAt(_aiSignals.Count - 1);
+                }
+
+                AIStatusText.Text = $"{symbol} 分析完成: {signal.Action} (信心度: {signal.Confidence:P0})";
+
+                // 显示详细分析
+                MessageBox.Show(
+                    $"交易信号: {signal.Action}\n" +
+                    $"信心度: {signal.Confidence:P0}\n" +
+                    $"入场价: {signal.EntryPrice:F4}\n" +
+                    $"目标价: {signal.TargetPrice:F4}\n" +
+                    $"止损价: {signal.StopLoss:F4}\n" +
+                    $"建议仓位: {signal.PositionSize:P0}\n" +
+                    $"时间框架: {signal.Timeframe}\n" +
+                    $"风险等级: {signal.RiskLevel}\n\n" +
+                    $"分析理由:\n{signal.Reason}",
+                    "AI分析结果",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information
+                );
+            }
+            catch (Exception ex)
+            {
+                AIStatusText.Text = $"分析失败: {ex.Message}";
+                MessageBox.Show($"分析失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                AnalyzeButton.IsEnabled = true;
+                _analyzeCts?.Dispose();
+                _analyzeCts = null;
+            }
+        }
+
+        private async void StartAIBot_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string apiKey = DeepSeekApiKeyBox.Text.Trim();
+                if (string.IsNullOrEmpty(apiKey))
+                {
+                    MessageBox.Show("请先输入DeepSeek API Key", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                string symbol = AISymbolBox.Text.Trim();
+                if (string.IsNullOrEmpty(symbol))
+                {
+                    symbol = "BTCUSDT";
+                }
+
+                _aiBot = ServiceLocator.GetAITradingBot(apiKey);
+
+                if (_aiBot.IsRunning)
+                {
+                    MessageBox.Show("AI机器人已在运行中", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                var interval = TimeSpan.FromMinutes(5); // 每5分钟分析一次
+
+                AIStatusText.Text = $"AI机器人启动中...";
+                StartBotButton.IsEnabled = false;
+                StopBotButton.IsEnabled = true;
+
+                // 后台启动机器人
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _aiBot.StartAsync(symbol, interval);
+                    }
+                    catch (Exception ex)
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            AIStatusText.Text = $"机器人错误: {ex.Message}";
+                            StartBotButton.IsEnabled = true;
+                            StopBotButton.IsEnabled = false;
+                        });
+                    }
+                });
+
+                AIStatusText.Text = $"AI机器人运行中 ({symbol}, 间隔{interval.TotalMinutes}分钟)";
+            }
+            catch (Exception ex)
+            {
+                AIStatusText.Text = $"启动失败: {ex.Message}";
+                MessageBox.Show($"启动失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                StartBotButton.IsEnabled = true;
+                StopBotButton.IsEnabled = false;
+            }
+        }
+
+        private void StopAIBot_Click(object sender, RoutedEventArgs e)
+        {
+            if (_aiBot != null && _aiBot.IsRunning)
+            {
+                _aiBot.Stop();
+                AIStatusText.Text = "AI机器人已停止";
+                StartBotButton.IsEnabled = true;
+                StopBotButton.IsEnabled = false;
+            }
+        }
+
+        private void ViewAIPerformance_Click(object sender, RoutedEventArgs e)
+        {
+            if (_aiBot == null)
+            {
+                MessageBox.Show("请先运行AI分析", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var tracker = _aiBot.PerformanceTracker;
+            MessageBox.Show(
+                $"AI绩效统计:\n\n" +
+                $"总信号数: {tracker.TotalSignals}\n" +
+                $"执行交易数: {tracker.ExecutedTrades}\n" +
+                $"胜率: {tracker.WinRate:P0}\n" +
+                $"平均信心度: {tracker.AverageConfidence:P0}",
+                "AI绩效",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information
+            );
+        }
     }
 
     public class ModelRow : INotifyPropertyChanged
@@ -120,5 +309,18 @@ namespace 币安量化机器人.Modules.AI
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged(string propertyName) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    // 🆕 AI信号显示行
+    public class AISignalRow
+    {
+        public string Timestamp { get; set; } = string.Empty;
+        public string Symbol { get; set; } = string.Empty;
+        public string Action { get; set; } = string.Empty;
+        public string Confidence { get; set; } = string.Empty;
+        public string EntryPrice { get; set; } = string.Empty;
+        public string TargetPrice { get; set; } = string.Empty;
+        public string StopLoss { get; set; } = string.Empty;
+        public string Reason { get; set; } = string.Empty;
     }
 }

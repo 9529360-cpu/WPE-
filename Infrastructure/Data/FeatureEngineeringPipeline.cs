@@ -14,10 +14,10 @@ public sealed class TechnicalIndicatorEngineer : IFeatureEngineer
 
     public ValueTask<IReadOnlyDictionary<string, double>> TransformAsync(RawDataFrame frame, CancellationToken cancellationToken = default)
     {
-        var close = Convert.ToDouble(frame.Payload["close"]);
-        var high = Convert.ToDouble(frame.Payload["high"]);
-        var low = Convert.ToDouble(frame.Payload["low"]);
-        var range = high - low;
+        double close = Convert.ToDouble(frame.Payload["close"]);
+        double high = Convert.ToDouble(frame.Payload["high"]);
+        double low = Convert.ToDouble(frame.Payload["low"]);
+        double range = high - low;
         var features = new Dictionary<string, double>
         {
             ["return"] = range == 0 ? 0 : (close - low) / range,
@@ -43,7 +43,7 @@ public sealed class LagFeatureEngineer : IFeatureEngineer
 
     public ValueTask<IReadOnlyDictionary<string, double>> TransformAsync(RawDataFrame frame, CancellationToken cancellationToken = default)
     {
-        var close = Convert.ToDouble(frame.Payload["close"]);
+        double close = Convert.ToDouble(frame.Payload["close"]);
         _closeHistory.Enqueue(close);
         if (_closeHistory.Count > _lag)
         {

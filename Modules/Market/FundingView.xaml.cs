@@ -1,4 +1,3 @@
-using ScottPlot;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -8,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using ScottPlot;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 
@@ -30,7 +30,9 @@ public partial class FundingView : UserControl
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         if (_initialized)
+        {
             return;
+        }
 
         _initialized = true;
         await LoadDataAsync();
@@ -46,7 +48,9 @@ public partial class FundingView : UserControl
 
             _items.Clear();
             foreach (var item in data)
+            {
                 _items.Add(item);
+            }
 
             _view = CollectionViewSource.GetDefaultView(_items);
             _view.Filter = FilterFunding;
@@ -55,7 +59,9 @@ public partial class FundingView : UserControl
 
             StatusText.Text = $"状态：已加载 {_items.Count} 条合约 · 数据来源 Binance";
             if (_items.Count > 0)
+            {
                 FundingGrid.SelectedIndex = 0;
+            }
         }
         catch (Exception ex)
         {
@@ -67,11 +73,15 @@ public partial class FundingView : UserControl
     private bool FilterFunding(object obj)
     {
         if (obj is not FundingRateSnapshot snapshot)
+        {
             return false;
+        }
 
         string keyword = SearchBox.Text?.Trim() ?? string.Empty;
         if (string.IsNullOrEmpty(keyword))
+        {
             return true;
+        }
 
         return snapshot.Symbol.Contains(keyword, StringComparison.OrdinalIgnoreCase)
             || snapshot.Pair.Contains(keyword, StringComparison.OrdinalIgnoreCase)
@@ -92,7 +102,9 @@ public partial class FundingView : UserControl
     private void FundingGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (FundingGrid.SelectedItem is FundingRateSnapshot snapshot)
+        {
             UpdateDetails(snapshot);
+        }
     }
 
     private void UpdateDetails(FundingRateSnapshot snapshot)
@@ -114,7 +126,7 @@ public partial class FundingView : UserControl
         IndexPriceText.Text = snapshot.IndexPrice.ToString("F4");
         MarkPriceText.Text = snapshot.MarkPrice.ToString("F4");
 
-        var avg = snapshot.History.Count == 0 ? 0 : snapshot.History.Average(h => h.FundingRate);
+        double avg = snapshot.History.Count == 0 ? 0 : snapshot.History.Average(h => h.FundingRate);
         StatusDetailText.Text =
             $"预测资金率 {snapshot.PredictedFundingRate:P4} · 7日均值 {snapshot.Avg7dFundingRate:P4} · 历史均值 {avg:P4} · 未平仓量 {snapshot.OpenInterest:N0} USDT";
 

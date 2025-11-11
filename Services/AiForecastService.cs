@@ -20,9 +20,11 @@ public class AiForecastService
     {
         _apiClient = apiClient;
         _cacheService = cacheService;
-        var modelPath = Path.Combine(AppContext.BaseDirectory, "Data", "ai", "lstm_model.json");
+        string modelPath = Path.Combine(AppContext.BaseDirectory, "Data", "ai", "lstm_model.json");
         if (!File.Exists(modelPath))
+        {
             throw new FileNotFoundException("未找到 LSTM 模型权重文件", modelPath);
+        }
 
         using var stream = File.OpenRead(modelPath);
         var definition = JsonSerializer.Deserialize<LstmModelDefinition>(stream, new JsonSerializerOptions
@@ -51,19 +53,21 @@ public class AiForecastService
         var closes = await _apiClient.GetKlineClosesAsync(request.Symbol, request.Interval, request.HistoryPoints, cancellationToken).ConfigureAwait(false);
         await _cacheService.SavePricesAsync(request.Symbol, closes);
 
-        var history = closes.Select(c => (double)c).ToArray();
+        double[] history = closes.Select(c => (double)c).ToArray();
         if (history.Length == 0)
+        {
             throw new InvalidOperationException("未能获取足够的 K 线数据用于预测");
+        }
 
-        var last = history[^1];
-        var normalized = history.Select(v => (v - last) / last).ToArray();
+        double last = history[^1];
+        double[] normalized = history.Select(v => (v - last) / last).ToArray();
         var forecastNormalized = _model.Forecast(normalized, request.Horizon);
-        var predicted = forecastNormalized.Select(delta => last * (1 + delta)).ToArray();
+        double[] predicted = forecastNormalized.Select(delta => last * (1 + delta)).ToArray();
 
-        var returns = history.Zip(history.Skip(1), (prev, next) => Math.Log(next / prev)).ToArray();
-        var expectedReturn = returns.Length == 0 ? 0 : returns.Average();
-        var expectedVolatility = returns.Length == 0 ? 0 : Math.Sqrt(returns.Select(r => Math.Pow(r - expectedReturn, 2)).Average());
-        var predictedRisk = forecastNormalized.Select(Math.Abs).DefaultIfEmpty().Average();
+        double[] returns = history.Zip(history.Skip(1), (prev, next) => Math.Log(next / prev)).ToArray();
+        double expectedReturn = returns.Length == 0 ? 0 : returns.Average();
+        double expectedVolatility = returns.Length == 0 ? 0 : Math.Sqrt(returns.Select(r => Math.Pow(r - expectedReturn, 2)).Average());
+        double predictedRisk = forecastNormalized.Select(Math.Abs).DefaultIfEmpty().Average();
 
         var confInterval = ComputeConfidenceIntervals(predicted, expectedVolatility);
 
@@ -83,11 +87,11 @@ public class AiForecastService
 
     private static (IReadOnlyList<double> Upper, IReadOnlyList<double> Lower) ComputeConfidenceIntervals(IReadOnlyList<double> predicted, double sigma)
     {
-        var upper = new double[predicted.Count];
-        var lower = new double[predicted.Count];
+        double[] upper = new double[predicted.Count];
+        double[] lower = new double[predicted.Count];
         for (int i = 0; i < predicted.Count; i++)
         {
-            var delta = (i + 1) * sigma * 1.96;
+            double delta = (i + 1) * sigma * 1.96;
             upper[i] = predicted[i] * Math.Exp(delta);
             lower[i] = predicted[i] * Math.Exp(-delta);
         }
@@ -106,24 +110,26 @@ public class LstmModelDefinition
     public IReadOnlyList<double> Forecast(IReadOnlyList<double> inputs, int horizon)
     {
         if (Layers.Count == 0)
+        {
             throw new InvalidOperationException("模型未包含任何 LSTM 层");
+        }
 
         var states = Layers.Select(l => new LstmState(l.HiddenSize)).ToArray();
-        var current = new double[] { inputs[0] };
+        double[] current = new double[] { inputs[0] };
         for (int i = 0; i < inputs.Count; i++)
         {
             current[0] = inputs[i];
             RunStep(current, states);
         }
 
-        var predictions = new double[horizon];
+        double[] predictions = new double[horizon];
         double input = inputs[^1];
         for (int i = 0; i < horizon; i++)
         {
             current[0] = input;
-            var outputVector = RunStep(current, states);
-            var value = Dense(outputVector, Output.Weights, Output.Bias);
-            var delta = Math.Tanh(value) * 0.05; // clamp for stability
+            double[] outputVector = RunStep(current, states);
+            double value = Dense(outputVector, Output.Weights, Output.Bias);
+            double delta = Math.Tanh(value) * 0.05; // clamp for stability
             predictions[i] = delta;
             input = delta;
         }
@@ -133,7 +139,7 @@ public class LstmModelDefinition
 
     private double[] RunStep(double[] input, LstmState[] states)
     {
-        var current = input;
+        double[] current = input;
         for (int layerIndex = 0; layerIndex < Layers.Count; layerIndex++)
         {
             current = Layers[layerIndex].Process(current, states[layerIndex]);
@@ -146,7 +152,10 @@ public class LstmModelDefinition
     {
         double sum = bias.Length > 0 ? bias[0] : 0;
         for (int i = 0; i < hidden.Length; i++)
+        {
             sum += hidden[i] * weights[i];
+        }
+
         return sum;
     }
 }
@@ -170,13 +179,13 @@ public class LstmLayerDefinition
 
     public double[] Process(double[] input, LstmState state)
     {
-        var hidden = state.Hidden;
-        var cell = state.Cell;
+        double[] hidden = state.Hidden;
+        double[] cell = state.Cell;
 
-        var f = new double[HiddenSize];
-        var i = new double[HiddenSize];
-        var g = new double[HiddenSize];
-        var o = new double[HiddenSize];
+        double[] f = new double[HiddenSize];
+        double[] i = new double[HiddenSize];
+        double[] g = new double[HiddenSize];
+        double[] o = new double[HiddenSize];
 
         for (int h = 0; h < HiddenSize; h++)
         {
@@ -187,7 +196,7 @@ public class LstmLayerDefinition
 
             for (int j = 0; j < InputSize; j++)
             {
-                var x = input[j];
+                double x = input[j];
                 wf += Wf[h * InputSize + j] * x;
                 wi += Wi[h * InputSize + j] * x;
                 wc += Wc[h * InputSize + j] * x;
@@ -196,7 +205,7 @@ public class LstmLayerDefinition
 
             for (int j = 0; j < HiddenSize; j++)
             {
-                var hPrev = hidden[j];
+                double hPrev = hidden[j];
                 wf += Uf[h * HiddenSize + j] * hPrev;
                 wi += Ui[h * HiddenSize + j] * hPrev;
                 wc += Uc[h * HiddenSize + j] * hPrev;

@@ -1,64 +1,369 @@
 <UserControl x:Class="币安量化机器人.Modules.Risk.RiskCenterView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Background="White" Margin="4">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#F9FAFB">
+    
+    <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        <Border Grid.Row="0" Background="#111827" Padding="12" CornerRadius="6">
+
+        <!-- 标题栏 -->
+        <Border Grid.Row="0" Background="#1F2937" Padding="16" CornerRadius="8" Margin="0,0,0,12">
             <DockPanel>
-                <StackPanel Orientation="Vertical">
-                    <TextBlock Text="风险控制中心" FontSize="16" FontWeight="Bold" Foreground="White"/>
-                    <TextBlock Text="基于 VaR / CVaR 的组合风险度量" Foreground="#CBD5F5" FontSize="12"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Spacing="8">
-                    <ComboBox x:Name="BenchmarkBox" Width="140" Height="28"/>
-                    <Button Content="评估风险" Width="100" Height="28" Click="Evaluate_Click"/>
-                </StackPanel>
+                <TextBlock Text="🧮 风险控制中心" 
+                           FontSize="20" FontWeight="Bold" 
+                           Foreground="White" 
+                           VerticalAlignment="Center"
+                           DockPanel.Dock="Left"/>
+                
+                <Button Content="🔄 刷新风控数据"
+                        Height="36"
+                        Padding="16,0"
+                        Background="#10B981"
+                        Foreground="White"
+                        BorderThickness="0"
+                        HorizontalAlignment="Right"
+                        Click="Refresh_Click"
+                        Cursor="Hand">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" 
+                                                CornerRadius="6">
+                                            <ContentPresenter HorizontalAlignment="Center" 
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#059669"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
             </DockPanel>
         </Border>
 
-        <Grid Grid.Row="1" Margin="0,12,0,12">
+        <!-- 风控指标卡片 -->
+        <Grid Grid.Row="1" Margin="0,0,0,12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="12"/>
-                <ColumnDefinition Width="360"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <DataGrid x:Name="RiskGrid" Grid.Column="0" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="合约" Binding="{Binding Symbol}" Width="120"/>
-                    <DataGridTextColumn Header="VaR" Binding="{Binding ValueAtRisk}" Width="120"/>
-                    <DataGridTextColumn Header="CVaR" Binding="{Binding ConditionalVaR}" Width="120"/>
-                    <DataGridTextColumn Header="波动率" Binding="{Binding Volatility}" Width="120"/>
-                    <DataGridTextColumn Header="最大回撤" Binding="{Binding MaxDrawdown}" Width="120"/>
-                    <DataGridTextColumn Header="杠杆" Binding="{Binding Leverage}" Width="80"/>
-                    <DataGridTextColumn Header="清算价" Binding="{Binding LiquidationPrice}" Width="120"/>
-                </DataGrid.Columns>
-            </DataGrid>
-
-            <Border Grid.Column="2" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12">
+            <!-- 账户风险度 -->
+            <Border Grid.Column="0" Background="White" 
+                    BorderBrush="#E5E7EB" BorderThickness="1" 
+                    CornerRadius="8" Padding="16">
                 <StackPanel>
-                    <TextBlock Text="压力测试结果" FontWeight="Bold" FontSize="15"/>
-                    <DataGrid x:Name="StressGrid" Margin="0,8,0,0" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="情景" Binding="{Binding Scenario}" Width="160"/>
-                            <DataGridTextColumn Header="组合损益" Binding="{Binding PortfolioPnl}" Width="120"/>
-                            <DataGridTextColumn Header="保证金占用" Binding="{Binding MarginUsage}" Width="120"/>
-                            <DataGridTextColumn Header="触发概率" Binding="{Binding BreachProbability}" Width="120"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                    <TextBlock x:Name="RuleText" Margin="0,12,0,0" TextWrapping="Wrap" Foreground="#4B5563"/>
+                    <TextBlock Text="账户风险度" FontSize="12" Foreground="#6B7280"/>
+                    <TextBlock x:Name="AccountRiskText" 
+                               Text="低" 
+                               FontSize="24" 
+                               FontWeight="Bold"
+                               Foreground="#22C55E"
+                               Margin="0,4,0,0"/>
+                    <TextBlock x:Name="RiskScoreText"
+                               Text="风险评分: 0/100" 
+                               FontSize="11" 
+                               Foreground="#9CA3AF"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- 仓位利用率 -->
+            <Border Grid.Column="2" Background="White" 
+                    BorderBrush="#E5E7EB" BorderThickness="1" 
+                    CornerRadius="8" Padding="16">
+                <StackPanel>
+                    <TextBlock Text="仓位利用率" FontSize="12" Foreground="#6B7280"/>
+                    <TextBlock x:Name="PositionUsageText" 
+                               Text="0%" 
+                               FontSize="24" 
+                               FontWeight="Bold"
+                               Margin="0,4,0,0"/>
+                    <TextBlock x:Name="PositionDetailText"
+                               Text="0/5 持仓" 
+                               FontSize="11" 
+                               Foreground="#9CA3AF"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- 今日触发次数 -->
+            <Border Grid.Column="4" Background="White" 
+                    BorderBrush="#E5E7EB" BorderThickness="1" 
+                    CornerRadius="8" Padding="16">
+                <StackPanel>
+                    <TextBlock Text="今日风控触发" FontSize="12" Foreground="#6B7280"/>
+                    <TextBlock x:Name="TodayTriggersText" 
+                               Text="0 次" 
+                               FontSize="24" 
+                               FontWeight="Bold"
+                               Margin="0,4,0,0"/>
+                    <TextBlock Text="拒绝/警告" 
+                               FontSize="11" 
+                               Foreground="#9CA3AF"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- 风险暴露 -->
+            <Border Grid.Column="6" Background="White" 
+                    BorderBrush="#E5E7EB" BorderThickness="1" 
+                    CornerRadius="8" Padding="16">
+                <StackPanel>
+                    <TextBlock Text="风险暴露" FontSize="12" Foreground="#6B7280"/>
+                    <TextBlock x:Name="RiskExposureText" 
+                               Text="0 USDT" 
+                               FontSize="24" 
+                               FontWeight="Bold"
+                               Margin="0,4,0,0"/>
+                    <TextBlock x:Name="ExposurePercentText"
+                               Text="占净值 0%" 
+                               FontSize="11" 
+                               Foreground="#9CA3AF"
+                               Margin="0,4,0,0"/>
                 </StackPanel>
             </Border>
         </Grid>
 
-        <StatusBar Grid.Row="2" Background="#E2E8F0">
-            <StatusBarItem>
-                <TextBlock x:Name="StatusText" Text="状态：等待评估"/>
-            </StatusBarItem>
-        </StatusBar>
+        <!-- Tab切换 -->
+        <TabControl Grid.Row="2" 
+                    Background="White"
+                    BorderThickness="0">
+            
+            <!-- Tab 1: 风控规则 -->
+            <TabItem Header="📋 风控规则" FontSize="14" Padding="12,8">
+                <Border Background="White" Padding="16">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="风险控制规则配置" 
+                                       FontSize="18" 
+                                       FontWeight="Bold" 
+                                       Margin="0,0,0,16"/>
+
+                            <!-- 规则列表 -->
+                            <ItemsControl x:Name="RiskRulesList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#F9FAFB" 
+                                                BorderBrush="#E5E7EB" 
+                                                BorderThickness="1" 
+                                                CornerRadius="8" 
+                                                Padding="16" 
+                                                Margin="0,0,0,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- 图标 -->
+                                                <Border Grid.Column="0" 
+                                                        Background="{Binding IconBackground}"
+                                                        CornerRadius="8"
+                                                        Width="48"
+                                                        Height="48"
+                                                        Margin="0,0,12,0">
+                                                    <TextBlock Text="{Binding Icon}" 
+                                                               FontSize="24" 
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                </Border>
+
+                                                <!-- 规则信息 -->
+                                                <StackPanel Grid.Column="1">
+                                                    <TextBlock Text="{Binding RuleName}" 
+                                                               FontSize="16" 
+                                                               FontWeight="Bold"/>
+                                                    <TextBlock Text="{Binding Description}" 
+                                                               FontSize="12" 
+                                                               Foreground="#6B7280"
+                                                               Margin="0,4,0,0"
+                                                               TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding CurrentStatus}" 
+                                                               FontSize="13" 
+                                                               Margin="0,4,0,0"/>
+                                                </StackPanel>
+
+                                                <!-- 开关 -->
+                                                <CheckBox Grid.Column="2" 
+                                                          IsChecked="{Binding IsEnabled}"
+                                                          VerticalAlignment="Center"
+                                                          Content="启用"
+                                                          FontSize="13"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
+
+            <!-- Tab 2: 风控日志 -->
+            <TabItem Header="📊 风控日志" FontSize="14" Padding="12,8">
+                <Border Background="White" Padding="16">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 筛选栏 -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                            <TextBlock Text="日志类型:" 
+                                       FontSize="14" 
+                                       VerticalAlignment="Center" 
+                                       Margin="0,0,8,0"/>
+                            <ComboBox x:Name="LogTypeFilter" 
+                                      Width="150" 
+                                      Height="32"
+                                      SelectionChanged="LogTypeFilter_Changed">
+                                <ComboBoxItem Content="全部" IsSelected="True"/>
+                                <ComboBoxItem Content="拒绝"/>
+                                <ComboBoxItem Content="警告"/>
+                                <ComboBoxItem Content="通过"/>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <!-- 日志列表 -->
+                        <DataGrid Grid.Row="1" 
+                                  x:Name="RiskLogsGrid" 
+                                  AutoGenerateColumns="False" 
+                                  IsReadOnly="True" 
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal"
+                                  BorderThickness="1"
+                                  BorderBrush="#E5E7EB"
+                                  Background="White"
+                                  RowBackground="White"
+                                  AlternatingRowBackground="#F9FAFB">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="时间" Binding="{Binding Timestamp, StringFormat='yyyy-MM-dd HH:mm:ss'}" Width="140"/>
+                                <DataGridTextColumn Header="类型" Binding="{Binding LogType}" Width="80"/>
+                                <DataGridTextColumn Header="规则名称" Binding="{Binding RuleName}" Width="150"/>
+                                <DataGridTextColumn Header="交易对" Binding="{Binding Symbol}" Width="100"/>
+                                <DataGridTextColumn Header="详细信息" Binding="{Binding Message}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </TabItem>
+
+            <!-- Tab 3: VaR分析 -->
+            <TabItem Header="📈 VaR风险分析" FontSize="14" Padding="12,8">
+                <Border Background="White" Padding="16">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="VaR (Value at Risk) 风险价值分析" 
+                                       FontSize="18" 
+                                       FontWeight="Bold" 
+                                       Margin="0,0,0,16"/>
+
+                            <TextBlock Text="基于历史模拟法计算,置信度95%" 
+                                       FontSize="12" 
+                                       Foreground="#6B7280"
+                                       Margin="0,0,0,16"/>
+
+                            <!-- VaR指标卡片 -->
+                            <Grid Margin="0,0,0,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Background="#FEF2F2" 
+                                        BorderBrush="#FECACA" BorderThickness="1" 
+                                        CornerRadius="8" Padding="16">
+                                    <StackPanel>
+                                        <TextBlock Text="1日VaR (95%)" FontSize="12" Foreground="#991B1B"/>
+                                        <TextBlock x:Name="VaR1DayText" 
+                                                   Text="0.00 USDT" 
+                                                   FontSize="20" 
+                                                   FontWeight="Bold"
+                                                   Foreground="#DC2626"
+                                                   Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="2" Background="#FEF2F2" 
+                                        BorderBrush="#FECACA" BorderThickness="1" 
+                                        CornerRadius="8" Padding="16">
+                                    <StackPanel>
+                                        <TextBlock Text="CVaR (条件VaR)" FontSize="12" Foreground="#991B1B"/>
+                                        <TextBlock x:Name="CVaRText" 
+                                                   Text="0.00 USDT" 
+                                                   FontSize="20" 
+                                                   FontWeight="Bold"
+                                                   Foreground="#DC2626"
+                                                   Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="4" Background="#FFFBEB" 
+                                        BorderBrush="#FDE68A" BorderThickness="1" 
+                                        CornerRadius="8" Padding="16">
+                                    <StackPanel>
+                                        <TextBlock Text="最大回撤" FontSize="12" Foreground="#92400E"/>
+                                        <TextBlock x:Name="MaxDrawdownText" 
+                                                   Text="0%" 
+                                                   FontSize="20" 
+                                                   FontWeight="Bold"
+                                                   Foreground="#D97706"
+                                                   Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <!-- 详细说明 -->
+                            <Border Background="#F9FAFB" 
+                                    BorderBrush="#E5E7EB" 
+                                    BorderThickness="1" 
+                                    CornerRadius="8" 
+                                    Padding="16">
+                                <StackPanel>
+                                    <TextBlock Text="风险指标说明" 
+                                               FontSize="14" 
+                                               FontWeight="Bold" 
+                                               Margin="0,0,0,12"/>
+                                    
+                                    <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#6B7280">
+                                        <Run Text="• VaR: 在正常市场条件下,未来1日内账户可能损失的最大金额(95%置信度)"/>
+                                        <LineBreak/>
+                                        <LineBreak/>
+                                        <Run Text="• CVaR: 超过VaR阈值后的平均损失,反映极端情况下的风险"/>
+                                        <LineBreak/>
+                                        <LineBreak/>
+                                        <Run Text="• 最大回撤: 账户净值从最高点到最低点的最大跌幅"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
+        </TabControl>
     </Grid>
 </UserControl>

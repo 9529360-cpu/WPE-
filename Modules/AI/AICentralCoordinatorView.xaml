@@ -1,0 +1,348 @@
+<UserControl x:Class="币安量化机器人.Modules.AI.AICentralCoordinatorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d" 
+             d:DesignHeight="800" d:DesignWidth="1200"
+             Background="#F5F7FA">
+    
+    <UserControl.Resources>
+        <!-- 卡片样式 -->
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="Margin" Value="10"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="#E0E0E0" BlurRadius="10" ShadowDepth="2" Opacity="0.3"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 标题样式 -->
+        <Style x:Key="TitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#2C3E50"/>
+            <Setter Property="Margin" Value="0,0,0,15"/>
+        </Style>
+
+        <!-- 数据标签样式 -->
+        <Style x:Key="LabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#7F8C8D"/>
+            <Setter Property="Margin" Value="0,5,10,5"/>
+        </Style>
+
+        <!-- 数据值样式 -->
+        <Style x:Key="ValueStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#2C3E50"/>
+            <Setter Property="Margin" Value="0,5,0,5"/>
+        </Style>
+
+        <!-- 按钮样式 -->
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Padding" Value="20,0"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Opacity" Value="0.8"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- 标题栏 -->
+            <Border Grid.Row="0" Style="{StaticResource CardStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="🧠 中央AI协调器" FontSize="24" FontWeight="Bold" Foreground="#2C3E50"/>
+                        <TextBlock x:Name="SubtitleText" Text="系统大脑 - 智能调度 · 自主决策 · 全局统管" 
+                                   FontSize="14" Foreground="#95A5A6" Margin="0,5,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button x:Name="StartButton" Content="▶️ 启动" 
+                                Style="{StaticResource ActionButtonStyle}"
+                                Background="#27AE60" Foreground="White"
+                                Click="StartButton_Click"/>
+                        <Button x:Name="StopButton" Content="⏹️ 停止" 
+                                Style="{StaticResource ActionButtonStyle}"
+                                Background="#E74C3C" Foreground="White"
+                                Click="StopButton_Click" IsEnabled="False"/>
+                        <Button x:Name="RefreshButton" Content="🔄 刷新" 
+                                Style="{StaticResource ActionButtonStyle}"
+                                Background="#3498DB" Foreground="White"
+                                Click="RefreshButton_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 核心状态卡片 -->
+            <Grid Grid.Row="1" Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 工作流阶段 -->
+                <Border Grid.Column="0" Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="🎯 工作流阶段" Style="{StaticResource TitleStyle}"/>
+                        
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <TextBlock Grid.Column="0" x:Name="StageIcon" Text="⏸️" 
+                                       FontSize="48" VerticalAlignment="Center" Margin="0,0,20,0"/>
+                            
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock x:Name="StageName" Text="空闲" 
+                                           FontSize="20" FontWeight="Bold" Foreground="#2C3E50"/>
+                                <TextBlock x:Name="StageDescription" Text="系统空闲，等待启动" 
+                                           FontSize="13" Foreground="#95A5A6" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Separator Margin="0,15,0,15"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="运行状态:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Column="1" x:Name="RunningStatusText" Text="未启动" 
+                                       Style="{StaticResource ValueStyle}" Foreground="#E74C3C"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 市场状况 -->
+                <Border Grid.Column="1" Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="📈 市场状况" Style="{StaticResource TitleStyle}"/>
+                        
+                        <Grid Margin="0,5,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="波动率:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="VolatilityText" Text="--" Style="{StaticResource ValueStyle}"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="趋势:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="TrendText" Text="--" Style="{StaticResource ValueStyle}"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="流动性:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="LiquidityText" Text="--" Style="{StaticResource ValueStyle}"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="市场状态:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="MarketStateText" Text="--" Style="{StaticResource ValueStyle}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 账户状态 -->
+                <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="💰 账户状态" Style="{StaticResource TitleStyle}"/>
+                        
+                        <Grid Margin="0,5,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="账户类型:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="AccountTypeText" Text="--" Style="{StaticResource ValueStyle}"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="净值:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="NetValueText" Text="--" Style="{StaticResource ValueStyle}"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="今日盈亏:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="TodayPnLText" Text="--" Style="{StaticResource ValueStyle}"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="总盈亏:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="TotalPnLText" Text="--" Style="{StaticResource ValueStyle}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 详细指标卡片 -->
+            <Grid Grid.Row="2" Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 风险指标 -->
+                <Border Grid.Column="0" Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="⚠️ 风险指标" Style="{StaticResource TitleStyle}"/>
+                        
+                        <Grid Margin="0,5,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="最大回撤:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="MaxDrawdownText" Text="--" Style="{StaticResource ValueStyle}"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="当前回撤:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="CurrentDrawdownText" Text="--" Style="{StaticResource ValueStyle}"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="今日亏损:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="DailyLossText" Text="--" Style="{StaticResource ValueStyle}"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="杠杆倍数:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="LeverageText" Text="--" Style="{StaticResource ValueStyle}"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="安全性:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" x:Name="SafetyText" Text="--" Style="{StaticResource ValueStyle}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 系统资源 -->
+                <Border Grid.Column="1" Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="🖥️ 系统资源" Style="{StaticResource TitleStyle}"/>
+                        
+                        <Grid Margin="0,5,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="CPU使用率:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="CpuUsageText" Text="--" Style="{StaticResource ValueStyle}"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="内存使用率:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="MemoryUsageText" Text="--" Style="{StaticResource ValueStyle}"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="网络延迟:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="NetworkLatencyText" Text="--" Style="{StaticResource ValueStyle}"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="活动任务:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="ActiveTasksText" Text="--" Style="{StaticResource ValueStyle}"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="健康状态:" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" x:Name="HealthStatusText" Text="--" Style="{StaticResource ValueStyle}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 日志和事件历史 -->
+            <Border Grid.Row="3" Style="{StaticResource CardStyle}" Margin="10,10,10,10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <TextBlock Grid.Column="0" Text="📝 系统日志" Style="{StaticResource TitleStyle}"/>
+                        
+                        <Button Grid.Column="1" Content="清空日志" 
+                                Style="{StaticResource ActionButtonStyle}"
+                                Background="#95A5A6" Foreground="White"
+                                Width="100" Height="32"
+                                Click="ClearLog_Click"/>
+                    </Grid>
+
+                    <ListBox Grid.Row="1" x:Name="LogListBox"
+                             Background="#F8F9FA"
+                             BorderThickness="1"
+                             BorderBrush="#E0E0E0"
+                             Margin="0,10,0,0"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" 
+                                           TextWrapping="Wrap" 
+                                           Padding="10,5"
+                                           FontFamily="Consolas"
+                                           FontSize="12"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

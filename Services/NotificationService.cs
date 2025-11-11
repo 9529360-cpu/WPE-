@@ -14,19 +14,23 @@ public class NotificationService
     public async Task SendTelegramAsync(string botToken, string chatId, string message, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(botToken) || string.IsNullOrWhiteSpace(chatId))
+        {
             throw new ArgumentException("未配置 Telegram Bot Token 或 ChatId");
+        }
 
-        var url = $"https://api.telegram.org/bot{botToken}/sendMessage";
-        var payload = JsonSerializer.Serialize(new { chat_id = chatId, text = message, parse_mode = "Markdown" });
+        string url = $"https://api.telegram.org/bot{botToken}/sendMessage";
+        string payload = JsonSerializer.Serialize(new { chat_id = chatId, text = message, parse_mode = "Markdown" });
         await PostJsonAsync(url, payload, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task SendDingTalkAsync(string webhook, string message, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(webhook))
+        {
             throw new ArgumentException("未配置钉钉 Webhook 地址");
+        }
 
-        var payload = JsonSerializer.Serialize(new { msgtype = "text", text = new { content = message } });
+        string payload = JsonSerializer.Serialize(new { msgtype = "text", text = new { content = message } });
         await PostJsonAsync(webhook, payload, cancellationToken).ConfigureAwait(false);
     }
 

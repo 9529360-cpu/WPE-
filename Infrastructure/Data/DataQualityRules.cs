@@ -13,7 +13,7 @@ public sealed class NullValueQualityRule : IDataQualityRule
 
     public ValueTask<DataQualityResult> ValidateAsync(RawDataFrame frame, CancellationToken cancellationToken = default)
     {
-        foreach (var value in frame.Payload.Values)
+        foreach (object? value in frame.Payload.Values)
         {
             if (value is null)
             {
@@ -42,7 +42,7 @@ public sealed class RangeQualityRule : IDataQualityRule
 
     public ValueTask<DataQualityResult> ValidateAsync(RawDataFrame frame, CancellationToken cancellationToken = default)
     {
-        if (frame.Payload.TryGetValue(_field, out var value) && value is double numeric)
+        if (frame.Payload.TryGetValue(_field, out object? value) && value is double numeric)
         {
             if (numeric < _min || numeric > _max)
             {
@@ -70,7 +70,7 @@ public sealed class SpikeDetectionRule : IDataQualityRule
 
     public ValueTask<DataQualityResult> ValidateAsync(RawDataFrame frame, CancellationToken cancellationToken = default)
     {
-        if (!frame.Payload.TryGetValue(_field, out var value) || value is not double numeric)
+        if (!frame.Payload.TryGetValue(_field, out object? value) || value is not double numeric)
         {
             return ValueTask.FromResult(new DataQualityResult(Name, true));
         }
@@ -83,14 +83,14 @@ public sealed class SpikeDetectionRule : IDataQualityRule
 
         if (_window.Count == _length)
         {
-            var avg = 0d;
-            foreach (var item in _window)
+            double avg = 0d;
+            foreach (double item in _window)
             {
                 avg += item;
             }
 
             avg /= _window.Count;
-            var deviation = Math.Abs(numeric - avg) / (avg == 0 ? 1 : avg);
+            double deviation = Math.Abs(numeric - avg) / (avg == 0 ? 1 : avg);
             if (deviation > 0.2)
             {
                 return ValueTask.FromResult(new DataQualityResult(Name, false, $"Spike detected: {deviation:P2}"));

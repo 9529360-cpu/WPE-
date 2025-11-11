@@ -16,9 +16,14 @@ public class PositiveNegativeBrushConverter : IValueConverter
         if (value is double number)
         {
             if (number > 0.0000001)
+            {
                 return PositiveBrush;
+            }
+
             if (number < -0.0000001)
+            {
                 return NegativeBrush;
+            }
         }
 
         return NeutralBrush;
