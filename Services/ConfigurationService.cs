@@ -23,16 +23,25 @@ public static class ConfigurationService
         {
             basePath ??= AppDomain.CurrentDomain.BaseDirectory;
 
-            _configuration = new ConfigurationBuilder()
-                .SetBasePath(basePath)
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production"}.json", optional: true, reloadOnChange: true)
-                .Build();
+            try
+            {
+                _configuration = new ConfigurationBuilder()
+                    .SetBasePath(basePath)
+                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                    .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production"}.json", optional: true, reloadOnChange: true)
+                    .Build();
 
-            LogService.Info("配置服务初始化成功");
-            
-            // 🔧 检查环境变量配置
-            CheckEnvironmentVariables();
+                LogService.Info("配置服务初始化成功");
+                
+                // 🔧 检查环境变量配置
+                CheckEnvironmentVariables();
+            }
+            catch (Exception ex)
+            {
+                // 如果配置文件不存在，创建一个空的配置
+                LogService.Error(ex, "配置文件加载失败，使用默认配置");
+                _configuration = new ConfigurationBuilder().Build();
+            }
         }
     }
 
@@ -273,20 +282,37 @@ public static class ConfigurationService
     {
         EnsureInitialized();
 
-        IConfigurationSection section = _configuration!.GetSection("AI:DeepSeek");
-
-        // 🔧 优先从环境变量读取 DeepSeek API Key
-        string apiKey = Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY")
-                    ?? section["ApiKey"] ?? "";
-
-        return new AIConfig
+        try
         {
-            DeepSeekApiKey = apiKey,
-            Model = section["Model"] ?? "deepseek-chat",
-            Temperature = GetDouble(section, "Temperature", 0.3),
-            MaxTokens = GetInt(section, "MaxTokens", 2000),
-            EnableAITrading = GetBool(_configuration.GetSection("AI"), "EnableAITrading", false)
-        };
+            IConfigurationSection section = _configuration!.GetSection("AI:DeepSeek");
+
+            // 🔧 优先从环境变量读取 DeepSeek API Key
+            string apiKey = Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY")
+                        ?? section["ApiKey"] ?? "";
+
+            return new AIConfig
+            {
+                DeepSeekApiKey = apiKey,
+                Model = section["Model"] ?? "deepseek-chat",
+                Temperature = GetDouble(section, "Temperature", 0.3),
+                MaxTokens = GetInt(section, "MaxTokens", 2000),
+                EnableAITrading = GetBool(_configuration.GetSection("AI"), "EnableAITrading", false)
+            };
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[ConfigService] 获取AI配置失败，返回默认值");
+            
+            // 返回默认配置
+            return new AIConfig
+            {
+                DeepSeekApiKey = string.Empty,
+                Model = "deepseek-chat",
+                Temperature = 0.3,
+                MaxTokens = 2000,
+                EnableAITrading = false
+            };
+        }
     }
 
     /// <summary>
@@ -322,7 +348,14 @@ public static class ConfigurationService
     {
         if (_configuration == null)
         {
-            throw new InvalidOperationException("配置服务未初始化,请先调用 ConfigurationService.Initialize()");
+            // 🔧 自动初始化
+            LogService.Warning("[ConfigService] 配置未初始化，正在自动初始化...");
+            Initialize();
+            
+            if (_configuration == null)
+            {
+                throw new InvalidOperationException("配置服务自动初始化失败，请检查 appsettings.json 文件是否存在");
+            }
         }
     }
 
