@@ -104,9 +104,16 @@ namespace 币安量化机器人.Modules.AI
             });
         }
 
-        private void RefreshTimer_Tick(object sender, EventArgs e)
+        private void RefreshTimer_Tick(object? sender, EventArgs e)
         {
-            RefreshUI();
+            try
+            {
+                RefreshUI();  // 使用现有的RefreshUI方法
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "[AICentralCoordinatorView] 刷新失败");
+            }
         }
 
         private void RefreshUI()

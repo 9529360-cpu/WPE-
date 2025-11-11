@@ -67,9 +67,9 @@ public class SmartCacheManager : IDisposable
     /// <summary>
     /// 获取缓存值
     /// </summary>
-    public T Get<T>(string key) where T : class
+    public T? Get<T>(string key) where T : class
     {
-        if (_cache.TryGetValue(key, out CacheItem item))
+        if (_cache.TryGetValue(key, out CacheItem? item) && item != null)
         {
             // 检查是否过期
             if (item.ExpiresAt > DateTime.UtcNow)
@@ -77,14 +77,14 @@ public class SmartCacheManager : IDisposable
                 // 记录命中
                 Interlocked.Increment(ref _hitCount);
                 RecordAccess(key);
-
+                
                 // 更新元数据
-                if (_metadata.TryGetValue(key, out CacheEntry entry))
+                if (_metadata.TryGetValue(key, out CacheEntry? entry) && entry != null)
                 {
                     entry.LastAccess = DateTime.UtcNow;
                     entry.AccessCount++;
                 }
-
+                
                 return item.Value as T;
             }
             else
@@ -97,19 +97,19 @@ public class SmartCacheManager : IDisposable
 
         // 记录未命中
         Interlocked.Increment(ref _missCount);
-        return null!;
+        return null;
     }
 
     /// <summary>
     /// 异步获取或创建缓存值
     /// </summary>
-    public async Task<T> GetOrCreateAsync<T>(
+    public async Task<T?> GetOrCreateAsync<T>(
         string key,
         Func<Task<T>> factory,
         TimeSpan? expiration = null) where T : class
     {
         // 尝试从缓存获取
-        T value = Get<T>(key);
+        T? value = Get<T>(key);
         if (value != null)
         {
             return value;
@@ -323,12 +323,12 @@ public class SmartCacheManager : IDisposable
     /// <summary>
     /// 定期清理回调
     /// </summary>
-    private void CleanupCallback(object state)
+    private void CleanupCallback(object? state)
     {
         try
         {
             DateTime now = DateTime.UtcNow;
-
+            
             // 清理过期的缓存项
             var expiredKeys = _cache
                 .Where(kvp => kvp.Value.ExpiresAt < now)
@@ -407,7 +407,7 @@ public class SmartCacheManager : IDisposable
     /// <summary>
     /// 定期统计回调
     /// </summary>
-    private void StatsCallback(object state)
+    private void StatsCallback(object? state)
     {
         try
         {

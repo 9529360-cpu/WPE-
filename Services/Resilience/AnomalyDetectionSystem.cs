@@ -310,12 +310,12 @@ public class AnomalyDetectionSystem : IDisposable
         }
 
         // 按类型分组
-        IGrouping<AnomalyType, AnomalyEvent>[] groups = recent
+        var groups = recent
             .GroupBy(a => a.Type)
             .Where(g => g.Count() > 1)
             .ToArray();
 
-        foreach (IGrouping<AnomalyType, AnomalyEvent> group in groups)
+        foreach (var group in groups)
         {
             LogService.Info("[AnomalyDetectionSystem] 检测到相关异常: Type={Type}, Count={Count}",
                 group.Key, group.Count());
@@ -329,7 +329,7 @@ public class AnomalyDetectionSystem : IDisposable
     {
         DateTime threshold = DateTime.UtcNow.AddHours(-24);
         
-        List<string> oldPatterns = _patterns
+        var oldPatterns = _patterns
             .Where(kvp => kvp.Value.LastOccurrence < threshold)
             .Select(kvp => kvp.Key)
             .ToList();

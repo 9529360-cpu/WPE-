@@ -180,7 +180,7 @@ public class RealtimeDataProcessor : IDisposable
 
         while (batch.Count < _batchSize && DateTime.UtcNow < deadline)
         {
-            if (_inputQueue.TryDequeue(out DataItem item))
+            if (_inputQueue.TryDequeue(out DataItem? item) && item != null)
             {
                 batch.Add(item);
                 _queueSemaphore.Release();
@@ -358,7 +358,7 @@ public class ObjectPool<T> where T : class
 
     public T Rent()
     {
-        if (_objects.TryTake(out T obj))
+        if (_objects.TryTake(out T? obj) && obj != null)
         {
             return obj;
         }

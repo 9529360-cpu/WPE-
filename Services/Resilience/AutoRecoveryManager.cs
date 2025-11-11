@@ -183,7 +183,7 @@ public class AutoRecoveryManager : IDisposable
     /// </summary>
     public void ReportRecovery(string component)
     {
-        if (_componentHealth.TryGetValue(component, out ComponentHealth health))
+        if (_componentHealth.TryGetValue(component, out ComponentHealth? health) && health != null)
         {
             health.State = HealthState.Healthy;
             health.ConsecutiveFailures = 0;
@@ -206,7 +206,7 @@ public class AutoRecoveryManager : IDisposable
         Exception exception,
         CancellationToken ct)
     {
-        if (!_policies.TryGetValue(component, out RecoveryPolicy policy))
+        if (!_policies.TryGetValue(component, out RecoveryPolicy? policy) || policy == null)
         {
             LogService.Warning("[AutoRecoveryManager] 未找到恢复策略: Component={Component}", component);
             return false;
@@ -382,7 +382,7 @@ public class AutoRecoveryManager : IDisposable
         }
 
         // 获取策略
-        if (!_policies.TryGetValue(component, out RecoveryPolicy policy))
+        if (!_policies.TryGetValue(component, out RecoveryPolicy? policy) || policy == null)
         {
             return false;
         }
@@ -396,7 +396,7 @@ public class AutoRecoveryManager : IDisposable
     /// </summary>
     private bool ShouldCircuitBreak(string component, ComponentHealth health)
     {
-        if (!_policies.TryGetValue(component, out RecoveryPolicy policy))
+        if (!_policies.TryGetValue(component, out RecoveryPolicy? policy) || policy == null)
         {
             return false;
         }

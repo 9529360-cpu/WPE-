@@ -102,41 +102,46 @@ public class PerformanceMonitor : IDisposable
     /// <summary>
     /// 监控回调
     /// </summary>
-    private void MonitorCallback(object state)
+    private void MonitorCallback(object? state)
     {
         try
         {
-            // 刷新进程信息
-            _currentProcess.Refresh();
-
-            // CPU使用率（简化计算）
-            _cpuUsage = GetCpuUsage();
-
-            // 内存使用
-            _memoryUsageMB = _currentProcess.WorkingSet64 / (1024 * 1024);
-
-            // 线程数
-            _threadCount = _currentProcess.Threads.Count;
-
-            // GC统计
-            _gen0Collections = GC.CollectionCount(0);
-            _gen1Collections = GC.CollectionCount(1);
-            _gen2Collections = GC.CollectionCount(2);
-
-            // 清理旧的响应时间数据（保留最近1000个）
-            if (_responseTimes.Count > 1000)
-            {
-                var recent = _responseTimes.Take(1000).ToList();
-                _responseTimes.Clear();
-                foreach (double time in recent)
-                {
-                    _responseTimes.Add(time);
-                }
-            }
+            RecordSystemMetrics();
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "[PerformanceMonitor] 监控失败");
+            LogService.Error(ex, "[PerformanceMonitor] 监控回调失败");
+        }
+    }
+
+    private void RecordSystemMetrics()
+    {
+        // 刷新进程信息
+        _currentProcess.Refresh();
+
+        // CPU使用率（简化计算）
+        _cpuUsage = GetCpuUsage();
+
+        // 内存使用
+        _memoryUsageMB = _currentProcess.WorkingSet64 / (1024 * 1024);
+
+        // 线程数
+        _threadCount = _currentProcess.Threads.Count;
+
+        // GC统计
+        _gen0Collections = GC.CollectionCount(0);
+        _gen1Collections = GC.CollectionCount(1);
+        _gen2Collections = GC.CollectionCount(2);
+
+        // 清理旧的响应时间数据（保留最近1000个）
+        if (_responseTimes.Count > 1000)
+        {
+            var recent = _responseTimes.Take(1000).ToList();
+            _responseTimes.Clear();
+            foreach (double time in recent)
+            {
+                _responseTimes.Add(time);
+            }
         }
     }
 

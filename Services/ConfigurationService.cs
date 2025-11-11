@@ -153,8 +153,6 @@ public static class ConfigurationService
         // 🔧 优先从环境变量读取 API Key 和 Secret Key
         string apiKey = Environment.GetEnvironmentVariable("BINANCE_API_KEY")
                     ?? section["ApiKey"] ?? "";
-        string secretKey = Environment.GetEnvironmentVariable("BINANCE_SECRET_KEY")
-                       ?? section["SecretKey"] ?? "";
 
         return new ApiConfig
         {
