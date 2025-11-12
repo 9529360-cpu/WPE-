@@ -137,7 +137,26 @@ public partial class FundingView : UserControl, IModuleLifecycle
 
     private void RenderHistory(FundingRateSnapshot snapshot)
     {
-        // Temporarily disabled: ScottPlot rendering logic
-        LogService.Debug("[FundingView] 图表渲染已暂时禁用（等待 VS 重启恢复 XAML 编译）");
+        var ctrl = this.FindName("FundingPlot");
+        if (ctrl is ScottPlot.WPF.WpfPlot wpfPlot)
+        {
+            var plt = wpfPlot.Plot;
+            plt.Clear();
+
+            if (snapshot.History == null || snapshot.History.Count == 0)
+            {
+                plt.Title("暂无历史数据");
+                wpfPlot.Refresh();
+                return;
+            }
+
+            double[] rates = snapshot.History.Select(h => h.FundingRate).ToArray();
+            var signal = plt.Add.Signal(rates);
+            signal.Color = ScottPlot.Color.FromHex("#10B981");
+            plt.Title($"{snapshot.Pair} 资金费率走势");
+            plt.YLabel("资金费率");
+            plt.XLabel("样本");
+            wpfPlot.Refresh();
+        }
     }
 }

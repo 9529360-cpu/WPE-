@@ -73,9 +73,27 @@ public partial class PerformanceDashboardView : UserControl, IModuleLifecycle
 
     private void RenderEquityCurve(PerformanceReport report)
     {
-        // Temporarily disabled: ScottPlot rendering logic
-        // Will be restored after Visual Studio restart resolves XAML codegen
-        LogService.Info("[PerformanceDashboardView] 图表渲染已暂时禁用（等待 VS 重启恢复 XAML 编译）");
+        var ctrl = this.FindName("EquityPlot");
+        if (ctrl is ScottPlot.WPF.WpfPlot wpfPlot)
+        {
+            var plt = wpfPlot.Plot;
+            plt.Clear();
+
+            if (report == null || report.EquityCurve == null || report.EquityCurve.Count == 0)
+            {
+                plt.Title("暂无统计数据");
+                wpfPlot.Refresh();
+                return;
+            }
+
+            double[] equity = report.EquityCurve.Select(ep => ep.NetValue).ToArray();
+            var signal = plt.Add.Signal(equity);
+            signal.Color = ScottPlot.Color.FromHex("#10B981");
+            plt.Title("权益曲线");
+            plt.YLabel("权益 (USDT)");
+            plt.XLabel("交易次数");
+            wpfPlot.Refresh();
+        }
     }
 
     public void ExportCurrentPlot(string path, int w = 1200, int h = 600)

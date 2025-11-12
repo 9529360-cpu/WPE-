@@ -258,8 +258,27 @@ public partial class RealtimeView : UserControl, IModuleLifecycle
 
     private void RenderHistory(TickerQuote quote)
     {
-        // Temporarily disabled: ScottPlot rendering logic
-        LogService.Debug("[RealtimeView] 图表渲染已暂时禁用（等待 VS 重启恢复 XAML 编译）");
+        var ctrl = this.FindName("PricePlot");
+        if (ctrl is ScottPlot.WPF.WpfPlot wpfPlot)
+        {
+            var plt = wpfPlot.Plot;
+            plt.Clear();
+
+            if (quote.PriceHistory == null || quote.PriceHistory.Count == 0)
+            {
+                plt.Title("暂无历史数据");
+                wpfPlot.Refresh();
+                return;
+            }
+
+            double[] prices = quote.PriceHistory.ToArray();
+            var signal = plt.Add.Signal(prices);
+            signal.Color = ScottPlot.Color.FromHex("#3B82F6");
+            plt.Title($"{quote.Symbol} 价格走势");
+            plt.YLabel("价格");
+            plt.XLabel("样本");
+            wpfPlot.Refresh();
+        }
     }
 
     private async void ResetView_Click(object sender, RoutedEventArgs e)
