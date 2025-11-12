@@ -305,7 +305,7 @@
                         <TextBlock Grid.Row="0" Text="📈 适应度进化曲线" 
                                    FontSize="14" FontWeight="Bold" Foreground="#111827" Margin="0,0,0,12"/>
                         
-                        <ScottPlot:WpfPlot x:Name="FitnessPlot" Grid.Row="1" Background="White"/>
+                        <ScottPlot:FormsPlot x:Name="FitnessPlot" Grid.Row="1" Background="White"/>
                     </Grid>
                 </Border>
             </Grid>

@@ -31,7 +31,6 @@ public partial class RealtimeView : UserControl, IModuleLifecycle
     public RealtimeView()
     {
         InitializeComponent();
-        // 不再使用 Loaded/Unloaded，改为显式生命周期 StartAsync/StopAsync
     }
 
     public async Task StartAsync()
@@ -261,7 +260,7 @@ public partial class RealtimeView : UserControl, IModuleLifecycle
     private void RenderHistory(TickerQuote quote)
     {
         double[] history = quote.PriceHistory.ToArray();
-        Plot plt = PricePlot.Plot;
+        var plt = PricePlot.Plot;
         plt.Clear();
 
         if (history.Length == 0)
@@ -274,9 +273,7 @@ public partial class RealtimeView : UserControl, IModuleLifecycle
         double[] xs = Enumerable.Range(0, history.Length).Select(i => (double)i).ToArray();
         double[] ys = history;
 
-        var scatter = plt.AddScatter(xs, ys);
-        scatter.LineWidth = 2;
-
+        plt.AddScatter(xs, ys, lineWidth: 2);
         plt.Title($"{quote.Symbol} 最新 {history.Length} 笔 Tick");
         plt.YLabel("价格");
         plt.XLabel("采样序号");

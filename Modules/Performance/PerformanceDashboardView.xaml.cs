@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using ScottPlot;
 using ScottPlot.Plottables;
 using 币安量化机器人.Models;
@@ -110,27 +109,19 @@ public partial class PerformanceDashboardView : UserControl, IModuleLifecycle
             double[] positions = report.EquityCurve.Select(p => p.PositionValue).ToArray();
 
             // 绘制净值曲线 (主线)
-            var netValueLine = plt.AddScatter(dates, netValues);
+            var netValueLine = plt.AddScatter(dates, netValues, color: System.Drawing.ColorTranslator.FromHtml("#3B82F6"), label: "净值");
             netValueLine.LineWidth = 3;
-            netValueLine.Color = System.Drawing.ColorTranslator.FromHtml("#3B82F6");
-            netValueLine.Label = "净值";
             netValueLine.MarkerSize = 0;
 
             // 绘制余额曲线
-            var balanceLine = plt.AddScatter(dates, balances);
+            var balanceLine = plt.AddScatter(dates, balances, color: System.Drawing.ColorTranslator.FromHtml("#10B981"), label: "可用余额", lineStyle: ScottPlot.LineStyle.Dot);
             balanceLine.LineWidth = 2;
-            balanceLine.Color = System.Drawing.ColorTranslator.FromHtml("#10B981");
-            balanceLine.Label = "可用余额";
             balanceLine.MarkerSize = 0;
-            balanceLine.LineStyle = ScottPlot.LineStyle.Dot;
 
             // 绘制持仓价值
-            var positionLine = plt.AddScatter(dates, positions);
+            var positionLine = plt.AddScatter(dates, positions, color: System.Drawing.ColorTranslator.FromHtml("#F59E0B"), label: "持仓价值", lineStyle: ScottPlot.LineStyle.Dash);
             positionLine.LineWidth = 2;
-            positionLine.Color = System.Drawing.ColorTranslator.FromHtml("#F59E0B");
-            positionLine.Label = "持仓价值";
             positionLine.MarkerSize = 0;
-            positionLine.LineStyle = ScottPlot.LineStyle.Dash;
 
             // 图表设置
             plt.Title("账户净值曲线");
@@ -139,7 +130,7 @@ public partial class PerformanceDashboardView : UserControl, IModuleLifecycle
             // DateTime ticks helper in v5
             plt.SetAxisLimits(xMin: dates.FirstOrDefault(), xMax: dates.LastOrDefault());
 
-            plt.Legend(true, ScottPlot.Alignment.UpperLeft);
+            plt.Legend(location: ScottPlot.Alignment.UpperLeft);
             plt.Grid(true);
 
             EquityPlot.Refresh();
