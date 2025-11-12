@@ -186,26 +186,6 @@ public class EventBus : IDisposable
     {
         ClearSubscriptions();
     }
-
-    private void Publish<T>(T payload)
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        foreach (Action<T>? callback in _handlers.Values.OfType<Action<T>>())
-        {
-            try
-            {
-                callback(payload);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"EventBus: Subscriber threw: {ex.Message}");
-            }
-        }
-    }
 }
 
 /// <summary>
