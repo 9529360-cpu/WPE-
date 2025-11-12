@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using ScottPlot;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 
@@ -138,29 +137,7 @@ public partial class FundingView : UserControl, IModuleLifecycle
 
     private void RenderHistory(FundingRateSnapshot snapshot)
     {
-        FundingHistoryPoint[] history = snapshot.History
-            .OrderBy(h => h.Timestamp)
-            .ToArray();
-
-        var plt = FundingPlot.Plot;
-        plt.Clear();
-
-        if (history.Length == 0)
-        {
-            plt.Title("暂无历史样本");
-            FundingPlot.Refresh();
-            return;
-        }
-
-        double[] xs = Enumerable.Range(0, history.Length).Select(i => (double)i).ToArray();
-        double[] ys = history.Select(h => h.FundingRate).ToArray();
-
-        plt.AddScatter(xs, ys, lineWidth: 2, markerSize: 4, markerShape: ScottPlot.MarkerShape.filledCircle);
-
-        plt.Title($"{snapshot.Pair} 资金率走势");
-        plt.YLabel("资金率");
-        plt.XLabel("样本序号");
-
-        FundingPlot.Refresh();
+        // Temporarily disabled: ScottPlot rendering logic
+        LogService.Debug("[FundingView] 图表渲染已暂时禁用（等待 VS 重启恢复 XAML 编译）");
     }
 }

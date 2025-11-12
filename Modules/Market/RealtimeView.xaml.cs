@@ -9,7 +9,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
-using ScottPlot;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 using 币安量化机器人.Modules;
@@ -259,26 +258,8 @@ public partial class RealtimeView : UserControl, IModuleLifecycle
 
     private void RenderHistory(TickerQuote quote)
     {
-        double[] history = quote.PriceHistory.ToArray();
-        var plt = PricePlot.Plot;
-        plt.Clear();
-
-        if (history.Length == 0)
-        {
-            plt.Title("暂无行情样本");
-            PricePlot.Refresh();
-            return;
-        }
-
-        double[] xs = Enumerable.Range(0, history.Length).Select(i => (double)i).ToArray();
-        double[] ys = history;
-
-        plt.AddScatter(xs, ys, lineWidth: 2);
-        plt.Title($"{quote.Symbol} 最新 {history.Length} 笔 Tick");
-        plt.YLabel("价格");
-        plt.XLabel("采样序号");
-
-        PricePlot.Refresh();
+        // Temporarily disabled: ScottPlot rendering logic
+        LogService.Debug("[RealtimeView] 图表渲染已暂时禁用（等待 VS 重启恢复 XAML 编译）");
     }
 
     private async void ResetView_Click(object sender, RoutedEventArgs e)
