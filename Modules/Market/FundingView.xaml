@@ -90,7 +90,7 @@
                     </StackPanel>
 
                     <GroupBox Header="资金率走势" Grid.Row="2" Margin="0,12,0,0">
-                        <sp:FormsPlot x:Name="FundingPlot" Height="180"/>
+                        <sp:WpfPlot x:Name="FundingPlot" Height="180"/>
                     </GroupBox>
 
                     <StackPanel Grid.Row="3" Margin="0,12,0,0">
