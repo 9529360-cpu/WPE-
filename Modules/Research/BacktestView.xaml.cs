@@ -4,10 +4,10 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using ScottPlot;
+// using System.Drawing; // removed to avoid ambiguity with ScottPlot.Color
 using 币安量化机器人.Services;
 using 币安量化机器人.Application.Backtesting;
 using 币安量化机器人.Core.Models;
-using 币安量化机器人.Core.Strategies;
 
 namespace 币安量化机器人.Modules.Research;
 
@@ -21,7 +21,7 @@ public partial class BacktestView : UserControl
     private void RenderEquity(double[] equity)
     {
         var ctrl = this.FindName("EquityPlot");
-        if (ctrl is ScottPlot.WpfPlot wpfPlot)
+        if (ctrl is ScottPlot.WPF.WpfPlot wpfPlot)
         {
             var plt = wpfPlot.Plot;
             plt.Clear();
@@ -33,11 +33,12 @@ public partial class BacktestView : UserControl
                 return;
             }
 
-            plt.AddSignal(equity, sampleRate: 1);
+            var series = plt.Add.Signal(equity);
+            series.Color = ScottPlot.Color.FromHex("#10B981");
             plt.Title("回测权益曲线");
             plt.YLabel("权益");
             plt.XLabel("样本");
-            plt.Legend(true);
+            plt.Legend.IsVisible = true;
             wpfPlot.Refresh();
         }
     }
@@ -53,8 +54,7 @@ public partial class BacktestView : UserControl
 
             var engine = ServiceLocator.EnhancedBacktest; // reuse singleton engine
 
-            // create a simple MeanReversionStrategy using ServiceLocator dependencies and empty parameters
-            var strategy = new MeanReversionStrategy(
+            var strategy = new Core.Strategies.MeanReversionStrategy(
                 ServiceLocator.Analyzer,
                 ServiceLocator.MachineLearning,
                 ServiceLocator.FeatureStore,
@@ -72,7 +72,7 @@ public partial class BacktestView : UserControl
 
             await Dispatcher.InvokeAsync(() => {
                 ResultText.Text = $"策略: {result.Strategy} · 净利润: {result.NetProfit:F2} · 最大回撤: {result.MaxDrawdown:P2} · 胜率: {result.WinRate:P2}";
-                // equity series not provided by EnhancedBacktestEngine currently
+                // Render equity if available in result (currently not provided)
             });
         }
         catch (Exception ex)
