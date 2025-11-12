@@ -1,6 +1,5 @@
 using System.Windows.Controls;
 using ScottPlot;
-using ScottPlot.Plottables;
 
 namespace 币安量化机器人.Modules.Optimize
 {
@@ -10,42 +9,46 @@ namespace 币安量化机器人.Modules.Optimize
         {
             InitializeComponent();
 
-            // 可选：加载时画一张小演示图，验证控件是否正常
             Loaded += (_, __) =>
             {
-                double[,] z = new double[20, 20];
-                for (int i = 0; i < 20; i++)
+                // Only attempt to draw if a real ScottPlot control exists at runtime
+                if (this.FindName("Plot") is ScottPlot.WpfPlot plot)
                 {
-                    for (int j = 0; j < 20; j++)
+                    var plt = plot.Plot;
+                    double[,] z = new double[20, 20];
+                    for (int i = 0; i < 20; i++)
                     {
-                        z[i, j] = 0.6 + 0.4 * System.Math.Sin(i * .2) * System.Math.Cos(j * .15);
+                        for (int j = 0; j < 20; j++)
+                        {
+                            z[i, j] = 0.6 + 0.4 * System.Math.Sin(i * .2) * System.Math.Cos(j * .15);
+                        }
                     }
-                }
 
-                Plot plt = Plot.Plot;                 // v5：从 WpfPlot 取 Plot
-                plt.Clear();
-                Heatmap hm = plt.Add.Heatmap(z);         // v5：Plot.Add.Heatmap
-                hm.Colormap = new ScottPlot.Colormaps.Turbo();
-                plt.Add.ColorBar(hm);
-                plt.Title("热力图（演示）");
-                plt.XLabel("X");
-                plt.YLabel("Y");
-                Plot.Refresh();
+                    plt.Clear();
+                    var hm = plt.AddHeatmap(z);
+                    // v4 API: do not assign hm.Colormap here (read-only in some builds)
+                    // Optionally configure color mapping if supported by the version in use
+                    plt.Title("热力图（演示）");
+                    plt.XLabel("X");
+                    plt.YLabel("Y");
+                    plot.Refresh();
+                }
             };
         }
 
-        // 真正使用时：调用它来显示你的矩阵
         public void Show(double[,] z, string xLabel, string yLabel, string title)
         {
-            Plot plt = Plot.Plot;
-            plt.Clear();
-            Heatmap hm = plt.Add.Heatmap(z);
-            hm.Colormap = new ScottPlot.Colormaps.Turbo();
-            plt.Add.ColorBar(hm);
-            plt.Title(title);
-            plt.XLabel(xLabel);
-            plt.YLabel(yLabel);
-            Plot.Refresh();
+            if (this.FindName("Plot") is ScottPlot.WpfPlot plot)
+            {
+                var plt = plot.Plot;
+                plt.Clear();
+                var hm = plt.AddHeatmap(z);
+                // avoid assigning hm.Colormap to remain compatible with multiple ScottPlot v4 builds
+                plt.Title(title);
+                plt.XLabel(xLabel);
+                plt.YLabel(yLabel);
+                plot.Refresh();
+            }
         }
     }
 }

@@ -1,143 +1,83 @@
 using System;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using ScottPlot;
-using 币安量化机器人.Models;
 using 币安量化机器人.Services;
+using 币安量化机器人.Application.Backtesting;
+using 币安量化机器人.Core.Models;
+using 币安量化机器人.Core.Strategies;
 
 namespace 币安量化机器人.Modules.Research;
 
 public partial class BacktestView : UserControl
 {
-    private readonly BinanceApiClient _api = ServiceLocator.Api;
-
     public BacktestView()
     {
         InitializeComponent();
-        IntervalBox.SelectedIndex = 0;
-        _ = LoadSymbolsAsync();
     }
 
-    private async Task LoadSymbolsAsync()
+    private void RenderEquity(double[] equity)
     {
-        try
+        var ctrl = this.FindName("EquityPlot");
+        if (ctrl is ScottPlot.WpfPlot wpfPlot)
         {
-            IReadOnlyList<TickerQuote> tickers = await _api.GetMiniTickersAsync();
-            SymbolBox.ItemsSource = tickers.Select(t => t.Symbol).OrderBy(s => s).ToList();
-            if (SymbolBox.Items.Count > 0)
+            var plt = wpfPlot.Plot;
+            plt.Clear();
+
+            if (equity == null || equity.Length == 0)
             {
-                SymbolBox.SelectedIndex = 0;
+                plt.Title("暂无回测数据");
+                wpfPlot.Refresh();
+                return;
             }
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(ex.Message, "加载交易对", MessageBoxButton.OK, MessageBoxImage.Error);
+
+            plt.AddSignal(equity, sampleRate: 1);
+            plt.Title("回测权益曲线");
+            plt.YLabel("权益");
+            plt.XLabel("样本");
+            plt.Legend(true);
+            wpfPlot.Refresh();
         }
     }
 
     private async void RunBacktest_Click(object sender, RoutedEventArgs e)
     {
-        if (SymbolBox.SelectedItem is not string symbol)
-        {
-            MessageBox.Show("请选择交易对", "回测", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
         try
         {
-            string interval = (IntervalBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "1h";
-            int fast = int.TryParse(FastPeriodBox.Text, out int f) ? Math.Max(2, f) : 9;
-            int slow = int.TryParse(SlowPeriodBox.Text, out int s) ? Math.Max(fast + 1, s) : 26;
+            double initialCapital = double.Parse(InitialCapitalBox.Text);
+            int fast = int.Parse(FastPeriodBox.Text);
+            int slow = int.Parse(SlowPeriodBox.Text);
+            string symbol = SymbolBox.SelectedItem as string ?? "BTCUSDT";
 
-            double[] closes = (await _api.GetKlineClosesAsync(symbol, interval, 600)).Select(Convert.ToDouble).ToArray();
-            if (closes.Length < slow)
-            {
-                throw new InvalidOperationException("历史数据不足以运行均线策略");
-            }
+            var engine = ServiceLocator.EnhancedBacktest; // reuse singleton engine
 
-            double initialCapital = double.TryParse(InitialCapitalBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double capital)
-                ? Math.Max(100d, capital)
-                : 10_000d;
+            // create a simple MeanReversionStrategy using ServiceLocator dependencies and empty parameters
+            var strategy = new MeanReversionStrategy(
+                ServiceLocator.Analyzer,
+                ServiceLocator.MachineLearning,
+                ServiceLocator.FeatureStore,
+                new StrategyParameters(new System.Collections.Generic.Dictionary<string, double>())
+            );
 
-            double[] fastSma = MovingAverage(closes, fast);
-            double[] slowSma = MovingAverage(closes, slow);
-            double[] equity = Simulate(closes, fastSma, slowSma, initialCapital);
+            var request = new BacktestRequest(
+                Symbol: symbol,
+                Start: DateTime.UtcNow.AddDays(-7),
+                End: DateTime.UtcNow,
+                Strategy: strategy
+            );
 
-            Plot plt = EquityPlot.Plot;
-            plt.Clear();
-            plt.Add.Signal(equity);
-            plt.Title($"{symbol} {interval} 双均线策略");
-            plt.Axes.Left.Label.Text = "权益";
-            plt.Axes.Bottom.Label.Text = "样本";
-            EquityPlot.Refresh();
+            BacktestResult result = await engine.RunAsync(request);
 
-            double pnl = equity.Last() - initialCapital;
-            double maxDrawdown = ComputeMaxDrawdown(equity);
-            ResultText.Text = $"样本 {closes.Length} 根 · 初始资金 {initialCapital:F2} · 最终收益 {pnl:F2} · 最大回撤 {maxDrawdown:P2}";
+            await Dispatcher.InvokeAsync(() => {
+                ResultText.Text = $"策略: {result.Strategy} · 净利润: {result.NetProfit:F2} · 最大回撤: {result.MaxDrawdown:P2} · 胜率: {result.WinRate:P2}";
+                // equity series not provided by EnhancedBacktestEngine currently
+            });
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "回测失败", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, "回测错误", MessageBoxButton.OK, MessageBoxImage.Error);
         }
-    }
-
-    private static double[] MovingAverage(double[] values, int period)
-    {
-        double[] result = new double[values.Length];
-        double sum = 0;
-        for (int i = 0; i < values.Length; i++)
-        {
-            sum += values[i];
-            if (i >= period)
-            {
-                sum -= values[i - period];
-            }
-
-            result[i] = i >= period - 1 ? sum / period : double.NaN;
-        }
-        return result;
-    }
-
-    private static double[] Simulate(double[] closes, double[] fast, double[] slow, double initialCapital)
-    {
-        double position = 0;
-        double equity = initialCapital;
-        double[] equityCurve = new double[closes.Length];
-        equityCurve[0] = equity;
-        for (int i = 1; i < closes.Length; i++)
-        {
-            if (!double.IsNaN(fast[i]) && !double.IsNaN(slow[i]))
-            {
-                if (fast[i] > slow[i] && fast[i - 1] <= slow[i - 1])
-                {
-                    position = 1;
-                }
-                else if (fast[i] < slow[i] && fast[i - 1] >= slow[i - 1])
-                {
-                    position = 0;
-                }
-            }
-
-            double ret = closes[i] / closes[i - 1] - 1;
-            equity *= 1 + position * ret;
-            equityCurve[i] = equity;
-        }
-        return equityCurve;
-    }
-
-    private static double ComputeMaxDrawdown(double[] equity)
-    {
-        double peak = equity[0];
-        double maxDd = 0;
-        for (int i = 1; i < equity.Length; i++)
-        {
-            peak = Math.Max(peak, equity[i]);
-            double dd = peak == 0 ? 0 : 1 - equity[i] / peak;
-            maxDd = Math.Max(maxDd, dd);
-        }
-        return maxDd;
     }
 }

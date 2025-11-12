@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using ScottPlot;
-using ScottPlot.Plottables;
 using 币安量化机器人.Services;
 using GeneticOptimizationResult = 币安量化机器人.Services.OptimizationResult; // 使用别名避免冲突
 
@@ -246,44 +245,39 @@ public partial class ParameterOptimizerView : UserControl
     {
         try
         {
-            Plot plt = FitnessPlot.Plot;
-            plt.Clear();
-
-            if (!result.GenerationHistory.Any())
+            // 安全地获取控件（支持占位 Border 或真实 ScottPlot.WpfPlot）
+            var ctrl = this.FindName("FitnessPlot");
+            if (ctrl is ScottPlot.WpfPlot wpfPlot)
             {
-                plt.Title("暂无数据");
-                FitnessPlot.Refresh();
-                return;
+                var plt = wpfPlot.Plot;
+
+                plt.Clear();
+
+                if (!result.GenerationHistory.Any())
+                {
+                    plt.Title("暂无数据");
+                    wpfPlot.Refresh();
+                    return;
+                }
+
+                double[] generations = result.GenerationHistory.Select(g => (double)g.Generation).ToArray();
+                double[] bestFitness = result.GenerationHistory.Select(g => g.BestFitness).ToArray();
+                double[] avgFitness = result.GenerationHistory.Select(g => g.AverageFitness).ToArray();
+
+                // 兼容 v4 API
+                plt.AddScatter(generations, bestFitness, lineWidth: 3, color: System.Drawing.ColorTranslator.FromHtml("#10B981"));
+                plt.AddScatter(generations, avgFitness, lineWidth: 2, color: System.Drawing.ColorTranslator.FromHtml("#3B82F6"));
+
+                plt.Title("遗传算法进化曲线");
+                plt.YLabel("适应度 (夏普比率)");
+                plt.XLabel("代数");
+                plt.Legend(true);
+                wpfPlot.Refresh();
             }
-
-            double[] generations = result.GenerationHistory.Select(g => (double)g.Generation).ToArray();
-            double[] bestFitness = result.GenerationHistory.Select(g => g.BestFitness).ToArray();
-            double[] avgFitness = result.GenerationHistory.Select(g => g.AverageFitness).ToArray();
-
-            // 最优适应度曲线
-            Scatter bestLine = plt.Add.Scatter(generations, bestFitness);
-            bestLine.LineWidth = 3;
-            bestLine.Color = ScottPlot.Color.FromHex("#10B981");
-            bestLine.LegendText = "最优适应度";
-            bestLine.MarkerSize = 0;
-
-            // 平均适应度曲线
-            Scatter avgLine = plt.Add.Scatter(generations, avgFitness);
-            avgLine.LineWidth = 2;
-            avgLine.Color = ScottPlot.Color.FromHex("#3B82F6");
-            avgLine.LegendText = "平均适应度";
-            avgLine.MarkerSize = 0;
-            avgLine.LinePattern = LinePattern.Dashed;
-
-            plt.Title("遗传算法进化曲线");
-            plt.Axes.Left.Label.Text = "适应度 (夏普比率)";
-            plt.Axes.Bottom.Label.Text = "代数";
-            plt.Legend.IsVisible = true;
-            // ScottPlot v5: use Alignment instead of deprecated Location
-            plt.Legend.Alignment = Alignment.UpperLeft;
-            plt.Grid.MajorLineColor = ScottPlot.Color.FromHex("#E5E7EB");
-
-            FitnessPlot.Refresh();
+            else
+            {
+                // placeholder: do nothing
+            }
         }
         catch (Exception ex)
         {

@@ -3,7 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
              mc:Ignorable="d" 
              d:DesignHeight="800" d:DesignWidth="1400">
     
@@ -305,7 +304,7 @@
                         <TextBlock Grid.Row="0" Text="📈 适应度进化曲线" 
                                    FontSize="14" FontWeight="Bold" Foreground="#111827" Margin="0,0,0,12"/>
                         
-                        <ScottPlot:WpfPlot x:Name="FitnessPlot" Grid.Row="1" Background="White"/>
+                        <Border x:Name="FitnessPlot" Grid.Row="1" Background="#F3F4F6"><TextBlock Text="📊 适应度曲线占位" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#6B7280"/></Border>
                     </Grid>
                 </Border>
             </Grid>
