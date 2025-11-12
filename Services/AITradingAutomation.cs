@@ -32,12 +32,12 @@ public class AITradingAutomation
         TradingAccountManager accountManager,
         PositionManager positionManager)
     {
-        _streamClient = streamClient;
-        _dataProcessor = dataProcessor;
-        _aiAgent = aiAgent;
-        _executionEngine = executionEngine;
-        _accountManager = accountManager;
-        _positionManager = positionManager;
+        _streamClient = streamClient ?? throw new ArgumentNullException(nameof(streamClient));
+        _dataProcessor = dataProcessor ?? throw new ArgumentNullException(nameof(dataProcessor));
+        _aiAgent = aiAgent ?? throw new ArgumentNullException(nameof(aiAgent));
+        _executionEngine = executionEngine ?? throw new ArgumentNullException(nameof(executionEngine));
+        _accountManager = accountManager ?? throw new ArgumentNullException(nameof(accountManager));
+        _positionManager = positionManager ?? throw new ArgumentNullException(nameof(positionManager));
         _signalBroadcaster = SignalBroadcaster.Instance;
     }
 
@@ -64,8 +64,11 @@ public class AITradingAutomation
         // 切换到指定账户
         _accountManager.SwitchAccount(accountType);
 
+        string[] defaultSymbols = new[] { "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "ADAUSDT", "XRPUSDT" };
+        var subscribeSymbols = (symbols == null || symbols.Length == 0) ? defaultSymbols : symbols;
+
         LogService.Info("🤖 AI自动交易启动: 账户={Account}, 交易对={Symbols}",
-            accountType, string.Join(",", symbols ?? Array.Empty<string>()));
+            accountType, string.Join(",", subscribeSymbols));
 
         try
         {
@@ -74,7 +77,21 @@ public class AITradingAutomation
 
             // 订阅WebSocket行情 (MiniTicker)
             _streamClient.MiniTickerReceived += OnMiniTickerReceived;
-            await _streamClient.ConnectMiniTickerAsync(symbols ?? Array.Empty<string>(), _cts.Token);
+            await _streamClient.ConnectMiniTickerAsync(subscribeSymbols, _cts.Token);
+
+            if (_eventBus != null)
+            {
+                foreach (var s in subscribeSymbols)
+                {
+                    await _eventBus.PublishAsync(new MarketStreamSubscriptionRequestEvent
+                    {
+                        Symbol = s,
+                        SubscribeFundingRate = true,
+                        SubscribeOpenInterest = true,
+                        SubscribeLongShortRatio = true
+                    });
+                }
+            }
 
             LogService.Info("✅ WebSocket订阅完成,等待行情数据...");
 

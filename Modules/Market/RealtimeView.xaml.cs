@@ -13,10 +13,11 @@ using ScottPlot;
 using ScottPlot.Plottables;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
+using 币安量化机器人.Modules;
 
 namespace 币安量化机器人.Modules.Market;
 
-public partial class RealtimeView : UserControl
+public partial class RealtimeView : UserControl, IModuleLifecycle
 {
     private readonly ObservableCollection<TickerQuote> _quotes = new();
     private readonly BinanceApiClient _api = ServiceLocator.Api;
@@ -31,18 +32,17 @@ public partial class RealtimeView : UserControl
     public RealtimeView()
     {
         InitializeComponent();
-        Loaded += OnLoaded;
-        Unloaded += OnUnloaded;
+        // 不再使用 Loaded/Unloaded，改为显式生命周期 StartAsync/StopAsync
     }
 
-    private async void OnLoaded(object sender, RoutedEventArgs e)
+    public async Task StartAsync()
     {
         if (_initialized)
         {
             return;
         }
-
         _initialized = true;
+
         ConnectionText.Text = "连接：准备连接";
         _stream.ConnectionStatusChanged += OnConnectionStatusChanged;
 
@@ -57,6 +57,15 @@ public partial class RealtimeView : UserControl
             StatusText.Text = "状态：加载失败";
             MessageBox.Show(ex.Message, "实时行情", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    public Task StopAsync()
+    {
+        _stream.MiniTickerReceived -= OnMiniTicker;
+        _stream.ConnectionStatusChanged -= OnConnectionStatusChanged;
+        _streamCts?.Cancel();
+        _streamCts = null;
+        return Task.CompletedTask;
     }
 
     private async Task LoadInitialAsync()
@@ -93,13 +102,6 @@ public partial class RealtimeView : UserControl
         _streamCts?.Cancel();
         _streamCts = new CancellationTokenSource();
         await _stream.ConnectMiniTickerAsync(symbols, _streamCts.Token).ConfigureAwait(false);
-    }
-
-    private void OnUnloaded(object sender, RoutedEventArgs e)
-    {
-        _stream.MiniTickerReceived -= OnMiniTicker;
-        _stream.ConnectionStatusChanged -= OnConnectionStatusChanged;
-        _streamCts?.Cancel();
     }
 
     private void OnConnectionStatusChanged(string status)

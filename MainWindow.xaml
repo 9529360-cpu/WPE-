@@ -14,32 +14,32 @@
             <RowDefinition Height="32"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="260"/>
+            <ColumnDefinition Width="220"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- 顶部栏：Padding 放 Border 上 -->
+        <!-- 顶部栏 -->
         <Border Grid.Row="0" Grid.ColumnSpan="2" Background="#243B4A" CornerRadius="8" Padding="12">
             <DockPanel LastChildFill="True">
                 <TextBlock Text="Alpha Arena 智能量化终端"
                            Foreground="White" FontSize="18" FontWeight="Bold"
                            VerticalAlignment="Center" DockPanel.Dock="Left"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="设置" Margin="8,0,0,0" Height="28" MinWidth="72"/>
-                    <Button Content="帮助" Margin="8,0,0,0" Height="28" MinWidth="72"/>
+                    <TextBlock Text="💎 专业版" Foreground="#FCD34D" FontSize="13" FontWeight="Bold" 
+                               VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <Button Content="帮助" Margin="0,0,0,0" Height="28" MinWidth="72"/>
                 </StackPanel>
             </DockPanel>
         </Border>
 
-        <!-- 左侧菜单 -->
+        <!-- 精简左侧菜单 -->
         <Border Grid.Row="1" Grid.Column="0" Margin="8,8,12,8" Background="#F3F5F7" CornerRadius="8">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="12">
-                    <TextBlock Text="功能菜单" FontWeight="Bold" FontSize="16" Margin="0,0,0,8"/>
-                    <Separator/>
+                    <TextBlock Text="核心功能" FontWeight="Bold" FontSize="16" Margin="0,0,0,12"/>
 
-                    <!-- 🚀 仪表盘 (推荐) -->
-                    <Button Content="🚀 统一AI仪表盘"       Tag="仪表盘"  Margin="0,8,0,0" Height="52" 
+                    <!-- 🚀 仪表盘 (主推荐) -->
+                    <Button Content="🚀 仪表盘" Tag="仪表盘" Margin="0,0,0,8" Height="56" 
                             Click="NavButton_Click" 
                             Foreground="White"
                             FontWeight="Bold"
@@ -52,48 +52,44 @@
                         </Button.Background>
                     </Button>
 
-                    <Separator Margin="0,12,0,8"/>
-                    <TextBlock Text="市场与行情" FontWeight="SemiBold" FontSize="13" Foreground="#6B7280" Margin="0,0,0,4"/>
+                    <TextBlock Text="📌 仪表盘包含: AI中心、行情、绩效、交易、设置" 
+                               FontSize="11" Foreground="#6B7280" TextWrapping="Wrap" 
+                               Margin="4,0,0,12" LineHeight="16"/>
 
-                    <Button Content="📊 实时行情"           Tag="行情"       Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
-                    <Button Content="💱 资金费率"           Tag="资金费率"   Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
-
-                    <Separator Margin="0,12,0,8"/>
-                    <TextBlock Text="智能交易" FontWeight="SemiBold" FontSize="13" Foreground="#6B7280" Margin="0,0,0,4"/>
+                    <Separator Margin="0,8,0,12"/>
                     
-                    <Button Content="🤖 AI智能助手"        Tag="AI助手"     Margin="0,4,0,0" Height="38" Click="NavButton_Click"
-                            Background="#EFF6FF" Foreground="#3B82F6" FontWeight="SemiBold"/>
-                    <Button Content="📡 交易信号"           Tag="信号"       Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
-                    <Button Content="📈 绩效分析"           Tag="绩效"       Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
-                    <Button Content="🧠 AI 模型中心"        Tag="AI"         Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
+                    <!-- 独立功能模块 -->
+                    <TextBlock Text="进阶工具" FontWeight="SemiBold" FontSize="13" Foreground="#6B7280" Margin="0,0,0,8"/>
 
-                    <Separator Margin="0,12,0,8"/>
-                    <TextBlock Text="策略管理" FontWeight="SemiBold" FontSize="13" Foreground="#6B7280" Margin="0,0,0,4"/>
+                    <Button Content="🧬 参数优化" Tag="参数优化" Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
+                    <Button Content="📚 策略库" Tag="策略库" Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
+                    <Button Content="🎛️ 策略组合" Tag="组合管理" Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
 
-                    <Button Content="🎛️ 策略组合"          Tag="组合管理"   Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
-                    <Button Content="🧬 参数优化"          Tag="参数优化"   Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
-                    <Button Content="📚 策略库"            Tag="策略库"     Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
+                    <Separator Margin="0,12,0,12"/>
+                    
+                    <!-- 系统管理 -->
+                    <TextBlock Text="系统管理" FontWeight="SemiBold" FontSize="13" Foreground="#6B7280" Margin="0,0,0,8"/>
 
-                    <Separator Margin="0,12,0,8"/>
-                    <TextBlock Text="交易执行" FontWeight="SemiBold" FontSize="13" Foreground="#6B7280" Margin="0,0,0,4"/>
+                    <Button Content="🔑 API 管理" Tag="API" Margin="0,4,0,0" Height="38" Click="NavButton_Click"
+                            Background="#FEF3C7" Foreground="#92400E" FontWeight="SemiBold"/>
+                    <Button Content="🛠 系统配置" Tag="设置" Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
+                    <Button Content="🧾 日志诊断" Tag="诊断" Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
 
-                    <Button Content="💹 交易面板"          Tag="交易"       Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
-                    <Button Content="📑 持仓订单"          Tag="持仓订单"   Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
-                    <Button Content="📝 模拟交易"          Tag="纸交易"     Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
+                    <Separator Margin="0,12,0,12"/>
 
-                    <Separator Margin="0,12,0,8"/>
-                    <TextBlock Text="风险与账户" FontWeight="SemiBold" FontSize="13" Foreground="#6B7280" Margin="0,0,0,4"/>
-
-                    <Button Content="🧮 风险控制"          Tag="风控"       Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
-                    <Button Content="👤 账户资金"          Tag="账户"       Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
-                    <Button Content="🚨 预警通知"          Tag="预警"       Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
-
-                    <Separator Margin="0,12,0,8"/>
-                    <TextBlock Text="系统设置" FontWeight="SemiBold" FontSize="13" Foreground="#6B7280" Margin="0,0,0,4"/>
-
-                    <Button Content="🛠 系统配置"          Tag="设置"       Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
-                    <Button Content="🔑 API 管理"          Tag="API"        Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
-                    <Button Content="🧾 日志诊断"          Tag="诊断"       Margin="0,4,0,0" Height="38" Click="NavButton_Click"/>
+                    <!-- 提示信息 -->
+                    <Border Background="#DBEAFE" CornerRadius="6" Padding="12,10" Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="💡 使用提示" FontWeight="Bold" FontSize="12" Foreground="#1E40AF" Margin="0,0,0,6"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#1E3A8A" LineHeight="16">
+                                • 仪表盘已集成日常交易所需的所有核心功能
+                                <LineBreak/>
+                                • 点击仪表盘内的Tab标签页快速切换子模块
+                                <LineBreak/>
+                                • 独立工具适用于深度分析和系统配置
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
 
                 </StackPanel>
             </ScrollViewer>
@@ -110,16 +106,40 @@
 
                 <Border Grid.Row="0" Background="#F8FAFB" Padding="8">
                     <DockPanel LastChildFill="False">
-                        <TextBlock x:Name="SectionTitle" Text="欢迎使用 · 请选择左侧功能"
+                        <TextBlock x:Name="SectionTitle" Text="欢迎使用 Alpha Arena · 请选择功能"
                                    FontWeight="Bold" FontSize="16" VerticalAlignment="Center"
                                    DockPanel.Dock="Left"/>
                     </DockPanel>
                 </Border>
 
                 <Grid Grid.Row="1" x:Name="MainContentHost" Background="White">
-                    <TextBlock Text="这里是内容区占位（后续挂接：K线图、下单面板、风控面板等）"
-                               Foreground="#7A869A" FontSize="15" TextWrapping="Wrap"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"/>
+                    <!-- 默认欢迎界面 -->
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" 
+                                MaxWidth="500" Margin="20">
+                        <TextBlock Text="🚀" FontSize="64" TextAlignment="Center" Margin="0,0,0,16"/>
+                        <TextBlock Text="欢迎使用 Alpha Arena" 
+                                   FontSize="24" FontWeight="Bold" TextAlignment="Center"
+                                   Foreground="#111827" Margin="0,0,0,12"/>
+                        <TextBlock Text="点击左侧「仪表盘」开始使用完整功能" 
+                                   FontSize="15" TextAlignment="Center" Foreground="#6B7280"
+                                   TextWrapping="Wrap" LineHeight="24"/>
+                        <Border Background="#F3F4F6" CornerRadius="8" Padding="20" Margin="0,24,0,0">
+                            <StackPanel>
+                                <TextBlock Text="✨ 仪表盘包含:" FontWeight="Bold" FontSize="13" 
+                                           Foreground="#374151" Margin="0,0,0,10"/>
+                                <TextBlock Text="• AI 智能交易中心 - 自动分析与决策" FontSize="12" 
+                                           Foreground="#6B7280" Margin="0,0,0,4"/>
+                                <TextBlock Text="• 实时行情监控 - WebSocket 推送" FontSize="12" 
+                                           Foreground="#6B7280" Margin="0,0,0,4"/>
+                                <TextBlock Text="• 绩效分析仪表盘 - 全面统计" FontSize="12" 
+                                           Foreground="#6B7280" Margin="0,0,0,4"/>
+                                <TextBlock Text="• 快捷交易面板 - 一键下单" FontSize="12" 
+                                           Foreground="#6B7280" Margin="0,0,0,4"/>
+                                <TextBlock Text="• 系统设置管理 - API配置" FontSize="12" 
+                                           Foreground="#6B7280"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </Grid>
             </Grid>
         </Border>
@@ -127,10 +147,13 @@
         <!-- 状态栏 -->
         <StatusBar Grid.Row="2" Grid.ColumnSpan="2" Background="#F3F5F7">
             <StatusBarItem>
-                <TextBlock x:Name="StatusText" Text="状态：就绪"/>
+                <TextBlock x:Name="StatusText" Text="状态：就绪 · 准备启动量化交易"/>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <TextBlock Text="© 量化终端 毛坯版"/>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="🟢" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="系统运行正常 · © Alpha Arena v2.0"/>
+                </StackPanel>
             </StatusBarItem>
         </StatusBar>
     </Grid>

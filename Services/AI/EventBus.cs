@@ -29,22 +29,60 @@ public class EventBus : IDisposable
     }
 
     /// <summary>
-    /// 订阅事件
+    /// 订阅事件，返回 IDisposable 用于取消订阅
     /// </summary>
-    public void Subscribe<T>(Func<T, Task> handler) where T : class
+    public IDisposable Subscribe<T>(Func<T, Task> handler) where T : class
     {
         Type eventType = typeof(T);
 
+        Func<object, Task> wrapper = evt => handler((T)evt);
+
         _subscribers.AddOrUpdate(
             eventType,
-            _ => new List<Func<object, Task>> { evt => handler((T)evt) },
+            _ => new List<Func<object, Task>> { wrapper },
             (_, list) =>
             {
-                list.Add(evt => handler((T)evt));
+                list.Add(wrapper);
                 return list;
             });
 
         LogService.Debug("[EventBus] 订阅事件: {EventType}", eventType.Name);
+
+        return new Subscription(this, eventType, wrapper);
+    }
+
+    private void Unsubscribe(Type eventType, Func<object, Task> wrapper)
+    {
+        if (_subscribers.TryGetValue(eventType, out var list))
+        {
+            lock (list)
+            {
+                list.RemoveAll(d => d == wrapper);
+            }
+            LogService.Debug("[EventBus] 取消订阅: {EventType}", eventType.Name);
+        }
+    }
+
+    private sealed class Subscription : IDisposable
+    {
+        private readonly EventBus _bus;
+        private readonly Type _eventType;
+        private readonly Func<object, Task> _wrapper;
+        private bool _disposed;
+
+        public Subscription(EventBus bus, Type eventType, Func<object, Task> wrapper)
+        {
+            _bus = bus;
+            _eventType = eventType;
+            _wrapper = wrapper;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _bus.Unsubscribe(_eventType, _wrapper);
+        }
     }
 
     /// <summary>
@@ -63,18 +101,25 @@ public class EventBus : IDisposable
             LogService.Debug("[EventBus] 发布事件: {EventType}, 订阅者数={Count}",
                 eventType.Name, handlers.Count);
 
-            IEnumerable<Task> tasks = handlers.Select(handler =>
+            List<Task> tasks = new List<Task>();
+            // make a snapshot to avoid collection modification issues
+            Func<object, Task>[] snapshot;
+            lock (handlers)
+            {
+                snapshot = handlers.ToArray();
+            }
+
+            foreach (var handler in snapshot)
             {
                 try
                 {
-                    return handler(eventData);
+                    tasks.Add(handler(eventData));
                 }
                 catch (Exception ex)
                 {
                     LogService.Error(ex, "[EventBus] 事件处理器异常: {EventType}", eventType.Name);
-                    return Task.CompletedTask;
                 }
-            });
+            }
 
             await Task.WhenAll(tasks);
         }
@@ -140,6 +185,26 @@ public class EventBus : IDisposable
     public void Dispose()
     {
         ClearSubscriptions();
+    }
+
+    private void Publish<T>(T payload)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        foreach (Action<T>? callback in _handlers.Values.OfType<Action<T>>())
+        {
+            try
+            {
+                callback(payload);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"EventBus: Subscriber threw: {ex.Message}");
+            }
+        }
     }
 }
 

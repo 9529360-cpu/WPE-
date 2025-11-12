@@ -11,10 +11,11 @@ using ScottPlot;
 using ScottPlot.Plottables;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
+using 币安量化机器人.Modules;
 
 namespace 币安量化机器人.Modules.Market;
 
-public partial class FundingView : UserControl
+public partial class FundingView : UserControl, IModuleLifecycle
 {
     private readonly ObservableCollection<FundingRateSnapshot> _items = new();
     private readonly BinanceApiClient _api = ServiceLocator.Api;
@@ -25,18 +26,20 @@ public partial class FundingView : UserControl
     public FundingView()
     {
         InitializeComponent();
-        Loaded += OnLoaded;
+        // 不使用 Loaded 事件，使用 StartAsync
     }
 
-    private async void OnLoaded(object sender, RoutedEventArgs e)
+    public async Task StartAsync()
     {
-        if (_initialized)
-        {
-            return;
-        }
-
+        if (_initialized) return;
         _initialized = true;
         await LoadDataAsync();
+    }
+
+    public Task StopAsync()
+    {
+        // no-op
+        return Task.CompletedTask;
     }
 
     private async Task LoadDataAsync()
@@ -163,5 +166,37 @@ public partial class FundingView : UserControl
         plt.Axes.Bottom.Label.Text = "样本序号";
 
         FundingPlot.Refresh();
+    }
+
+    private async void Initialize()
+    {
+        if (_initialized)
+        {
+            return;
+        }
+        _initialized = true;
+
+        try
+        {
+            IReadOnlyList<FundingRateSnapshot> rates = await _api.GetFundingRatesAsync(limit: 50);
+
+            _rates.Clear();
+            foreach (FundingRateSnapshot? r in rates)
+            {
+                _rates.Add(r);
+            }
+
+            if (_rates.Count > 0)
+            {
+                PairGrid.SelectedIndex = 0;
+            }
+
+            StatusText.Text = $"状态：已加载 {_rates.Count} 个合约资金费率";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "状态：加载失败";
+            MessageBox.Show(ex.Message, "资金费率", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 }

@@ -5,19 +5,22 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using System.Collections.Generic;
 using 币安量化机器人.Services;
 using 币安量化机器人.Services.AI;
+using 币安量化机器人.Modules;
 
 namespace 币安量化机器人.Modules.AI
 {
     /// <summary>
     /// 中央AI协调器视图
     /// </summary>
-    public partial class AICentralCoordinatorView : UserControl
+    public partial class AICentralCoordinatorView : UserControl, IModuleLifecycle
     {
         private readonly AICentralCoordinator _coordinator;
         private readonly ObservableCollection<string> _logMessages = new();
         private readonly DispatcherTimer _refreshTimer;
+        private readonly List<IDisposable> _subscriptions = new();
 
         public AICentralCoordinatorView()
         {
@@ -28,21 +31,19 @@ namespace 币安量化机器人.Modules.AI
 
             LogListBox.ItemsSource = _logMessages;
 
-            // 设置定时器（每2秒刷新一次）
+            // 设置定时器（每2秒刷新一次），不在构造时启动
             _refreshTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromSeconds(2)
             };
             _refreshTimer.Tick += RefreshTimer_Tick;
-            _refreshTimer.Start();
 
-            // 订阅事件
-            SubscribeToEvents();
+            // 不在构造中订阅事件或启动定时器，改为显式 StartAsync
 
-            // 初始化UI
+            // 初始化UI（初始状态）
             RefreshUI();
 
-            AddLog("✅ [AICentralCoordinatorView] UI初始化完成");
+            AddLog("✅ [AICentralCoordinatorView] UI初始化完成（等待启动）");
         }
 
         private void SubscribeToEvents()
@@ -50,7 +51,7 @@ namespace 币安量化机器人.Modules.AI
             EventBus eventBus = _coordinator.EventBus;
 
             // 阶段切换事件
-            eventBus.Subscribe<StageTransitionEvent>(async evt =>
+            var sub1 = eventBus.Subscribe<StageTransitionEvent>(async evt =>
             {
                 await Dispatcher.InvokeAsync(() =>
                 {
@@ -58,9 +59,10 @@ namespace 币安量化机器人.Modules.AI
                     RefreshUI();
                 });
             });
+            _subscriptions.Add(sub1);
 
             // 风险警报事件
-            eventBus.Subscribe<RiskAlertEvent>(async evt =>
+            var sub2 = eventBus.Subscribe<RiskAlertEvent>(async evt =>
             {
                 await Dispatcher.InvokeAsync(() =>
                 {
@@ -74,9 +76,10 @@ namespace 币安量化机器人.Modules.AI
                     AddLog($"{icon} [{DateTime.Now:HH:mm:ss}] 风险警报 ({evt.Severity}): {evt.Message}");
                 });
             });
+            _subscriptions.Add(sub2);
 
             // 回测完成事件
-            eventBus.Subscribe<BacktestCompletedEvent>(async evt =>
+            var sub3 = eventBus.Subscribe<BacktestCompletedEvent>(async evt =>
             {
                 await Dispatcher.InvokeAsync(() =>
                 {
@@ -84,24 +87,43 @@ namespace 币安量化机器人.Modules.AI
                     AddLog($"   总收益: {evt.TotalReturn:P2} | 夏普: {evt.SharpeRatio:F2} | 回撤: {evt.MaxDrawdown:P2} | 胜率: {evt.WinRate:P2}");
                 });
             });
+            _subscriptions.Add(sub3);
 
             // 模拟交易更新事件
-            eventBus.Subscribe<SimulationUpdateEvent>(async evt =>
+            var sub4 = eventBus.Subscribe<SimulationUpdateEvent>(async evt =>
             {
                 await Dispatcher.InvokeAsync(() =>
                 {
                     AddLog($"🎮 [{DateTime.Now:HH:mm:ss}] 模拟交易更新: 余额={evt.CurrentBalance:N2}, 盈利={evt.ProfitPercent:P2}, 胜率={evt.WinRate:P2}");
                 });
             });
+            _subscriptions.Add(sub4);
 
             // 实盘交易事件
-            eventBus.Subscribe<LiveTradeEvent>(async evt =>
+            var sub5 = eventBus.Subscribe<LiveTradeEvent>(async evt =>
             {
                 await Dispatcher.InvokeAsync(() =>
                 {
                     AddLog($"💰 [{DateTime.Now:HH:mm:ss}] 实盘交易: {evt.Symbol} {evt.Action} @ {evt.Price:F4} × {evt.Quantity:F4}");
                 });
             });
+            _subscriptions.Add(sub5);
+        }
+
+        private void UnsubscribeAll()
+        {
+            foreach (var s in _subscriptions)
+            {
+                try
+                {
+                    s.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    LogService.Error(ex, "[AICentralCoordinatorView] 取消订阅失败");
+                }
+            }
+            _subscriptions.Clear();
         }
 
         private void RefreshTimer_Tick(object? sender, EventArgs e)
@@ -257,6 +279,42 @@ namespace 币安量化机器人.Modules.AI
                     _logMessages.RemoveAt(_logMessages.Count - 1);
                 }
             });
+        }
+
+        // IModuleLifecycle: explicit start/stop to control subscriptions and timer
+        public async Task StartAsync()
+        {
+            // 订阅事件并启动定时器
+            try
+            {
+                SubscribeToEvents();
+                _refreshTimer.Start();
+                AddLog("🟢 中央AI协调器视图已启动（事件订阅 & 定时器）");
+
+                // 小延迟给UI刷新
+                await Task.Delay(50);
+                RefreshUI();
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "[AICentralCoordinatorView] StartAsync 失败");
+            }
+        }
+
+        public async Task StopAsync()
+        {
+            try
+            {
+                _refreshTimer.Stop();
+                UnsubscribeAll();
+                AddLog("🔴 中央AI协调器视图已停止（事件取消订阅 & 定时器停止）");
+
+                await Task.Delay(10);
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "[AICentralCoordinatorView] StopAsync 失败");
+            }
         }
     }
 }

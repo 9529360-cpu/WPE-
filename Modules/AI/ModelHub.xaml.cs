@@ -10,10 +10,11 @@ using System.Windows.Data;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 using 币安量化机器人.Services.AI;
+using 币安量化机器人.Modules;
 
 namespace 币安量化机器人.Modules.AI
 {
-    public partial class ModelHub : UserControl
+    public partial class ModelHub : UserControl, IModuleLifecycle
     {
         private readonly ObservableCollection<ModelRow> _all = new();
         private readonly ICollectionView _view;
@@ -64,6 +65,59 @@ namespace 币安量化机器人.Modules.AI
             }
 
             StatusText.Text = $"状态：已加载 {_all.Count} 个上线模型 + DeepSeek AI交易系统";
+        }
+
+        public Task StartAsync()
+        {
+            // no-op for now, resources are created on demand in Analyze/StartAIBot
+            return Task.CompletedTask;
+        }
+
+        public async Task StopAsync()
+        {
+            try
+            {
+                // Cancel any in-flight single-shot analysis
+                _analyzeCts?.Cancel();
+                _analyzeCts?.Dispose();
+                _analyzeCts = null;
+
+                // If a single AI bot instance is running, request stop
+                try
+                {
+                    if (_aiBot != null)
+                    {
+                        if (_aiBot.IsRunning)
+                        {
+                            // AITradingBot exposes Stop() synchronous method
+                            _aiBot.Stop();
+                        }
+
+                        _aiBot = null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.Error(ex, "[ModelHub] 停止 AITradingBot 时发生异常");
+                }
+
+                // If auto-trader is running, await its StopAsync to ensure clean shutdown
+                if (_autoTrader.IsRunning)
+                {
+                    try
+                    {
+                        await _autoTrader.StopAsync().ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogService.Error(ex, "[ModelHub] 停止 AutoTradingController 失败");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "[ModelHub] StopAsync 失败");
+            }
         }
 
         private void UpdateDetail()

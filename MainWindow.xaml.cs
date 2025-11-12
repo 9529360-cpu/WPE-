@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using 币安量化机器人.Modules;
 
 namespace 币安量化机器人
 {
@@ -48,6 +49,10 @@ namespace 币安量化机器人
 
         private DispatcherTimer? _heartbeat;
 
+        // Track currently active lifecycle
+        private IModuleLifecycle? _currentLifecycle;
+        private UserControl? _currentView;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -75,18 +80,36 @@ namespace 币安量化机器人
             }
         }
 
-        private void LoadViewByTag(string tag)
+        // Make async void so we can await lifecycle Start/Stop without changing callers
+        private async void LoadViewByTag(string tag)
         {
             // 🆕 兼容旧标签：统一仪表盘 / 统一AI仪表盘
             if (tag == "统一仪表盘" || tag == "统一AI仪表盘" || tag == "统一—AI仪表盘")
             {
                 tag = "仪表盘";
             }
+
             try
             {
                 SectionTitle.Text = $"当前模块：{tag}";
                 StatusText.Text = $"状态：正在加载 {tag} 模块...";
+
+                // Stop previous lifecycle if present
+                if (_currentLifecycle != null)
+                {
+                    try
+                    {
+                        await _currentLifecycle.StopAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Services.LogService.Error(ex, "[MainWindow] 停止上一个模块失败");
+                    }
+                }
+
                 MainContentHost.Children.Clear();
+                _currentLifecycle = null;
+                _currentView = null;
 
                 if (!_viewMap.TryGetValue(tag, out string? typeName))
                 {
@@ -95,7 +118,6 @@ namespace 币安量化机器人
                     return;
                 }
 
-                // 使用"类型全名, 程序集名"解析，最稳妥
                 var type = Type.GetType(typeName, throwOnError: false);
                 if (type == null || !typeof(UserControl).IsAssignableFrom(type))
                 {
@@ -107,6 +129,26 @@ namespace 币安量化机器人
                 var view = (UserControl)Activator.CreateInstance(type)!;
                 MainContentHost.Children.Add(view);
                 StatusText.Text = $"状态：{tag} 模块加载成功 · {DateTime.Now:HH:mm:ss}";
+
+                // If view supports lifecycle, start it
+                if (view is IModuleLifecycle lifecycle)
+                {
+                    _currentLifecycle = lifecycle;
+                    _currentView = view;
+                    try
+                    {
+                        await lifecycle.StartAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Services.LogService.Error(ex, "[MainWindow] 启动模块生命周期失败");
+                    }
+                }
+                else
+                {
+                    _currentLifecycle = null;
+                    _currentView = view;
+                }
             }
             catch (Exception ex)
             {
@@ -116,6 +158,24 @@ namespace 币安量化机器人
 
                 // 记录到日志
                 Services.LogService.Error(ex, $"加载模块 {tag} 时发生异常");
+            }
+        }
+
+        protected override async void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+
+            // Ensure we stop current lifecycle cleanly
+            if (_currentLifecycle != null)
+            {
+                try
+                {
+                    await _currentLifecycle.StopAsync();
+                }
+                catch (Exception ex)
+                {
+                    Services.LogService.Error(ex, "[MainWindow] 关闭时停止模块失败");
+                }
             }
         }
 

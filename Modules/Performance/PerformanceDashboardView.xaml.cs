@@ -7,7 +7,10 @@ using ScottPlot;
 using ScottPlot.Plottables;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
+using System.Threading;
+using System.Threading.Tasks;
 using WpfColor = System.Windows.Media.Color; // 🔧 添加别名避免冲突
+using 币安量化机器人.Modules;
 
 namespace 币安量化机器人.Modules.Performance;
 
@@ -15,13 +18,14 @@ namespace 币安量化机器人.Modules.Performance;
 /// 绩效分析仪表盘
 /// 展示完整的交易绩效统计和可视化
 /// </summary>
-public partial class PerformanceDashboardView : UserControl
+public partial class PerformanceDashboardView : UserControl, IModuleLifecycle
 {
     private readonly TradingAccountManager _accountManager;
     private readonly PerformanceAnalyzer _performanceAnalyzer;
     private readonly DataCacheService _cacheService;
 
     private AccountType _currentAccountType = AccountType.Simulated;
+    private CancellationTokenSource? _cts;
 
     public PerformanceDashboardView()
     {
@@ -32,25 +36,14 @@ public partial class PerformanceDashboardView : UserControl
         _accountManager = new TradingAccountManager(_cacheService);
         _performanceAnalyzer = new PerformanceAnalyzer(_accountManager, _cacheService);
 
-        // 若使用 MVVM，则尝试在加载后初始化 ViewModel
-        this.Loaded += async (_, __) =>
-        {
-            if (DataContext is PerformanceDashboardViewModel vm)
-            {
-                await vm.InitializeAsync();
-            }
-            else
-            {
-                await LoadPerformanceDataAsync(); // 兼容旧逻辑
-            }
-        };
+        // 移除 Loaded 绑定，使用显式 StartAsync
     }
 
-    private async System.Threading.Tasks.Task LoadPerformanceDataAsync()
+    private async Task LoadPerformanceDataAsync(CancellationToken ct)
     {
         try
         {
-            // 已移除对 StatusText/AccountTypeCombo 等 x:Name 的直接依赖，保留为 ScottPlot 渲染与导出等逻辑
+            ct.ThrowIfCancellationRequested();
 
             // 🔧 确保账户存在
             if (_accountManager.SimulatedAccount == null)
@@ -69,10 +62,17 @@ public partial class PerformanceDashboardView : UserControl
             // 生成绩效报告
             PerformanceReport report = await _performanceAnalyzer.GenerateReportAsync(_currentAccountType);
 
+            ct.ThrowIfCancellationRequested();
+
             if (report != null)
             {
-                RenderEquityCurve(report);
+                // 在 UI 线程上渲染
+                await Dispatcher.InvokeAsync(() => RenderEquityCurve(report));
             }
+        }
+        catch (OperationCanceledException)
+        {
+            LogService.Info("[PerformanceDashboardView] 加载绩效数据已取消");
         }
         catch (Exception ex)
         {
@@ -160,6 +160,29 @@ public partial class PerformanceDashboardView : UserControl
         catch (Exception ex)
         {
             LogService.Warning("导出PNG失败: {0}", ex.Message);
+        }
+    }
+
+    // IModuleLifecycle
+    public async Task StartAsync()
+    {
+        _cts = new CancellationTokenSource();
+        await LoadPerformanceDataAsync(_cts.Token);
+    }
+
+    public Task StopAsync()
+    {
+        try
+        {
+            _cts?.Cancel();
+            _cts?.Dispose();
+            _cts = null;
+            return Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[PerformanceDashboardView] StopAsync 失败");
+            return Task.CompletedTask;
         }
     }
 }

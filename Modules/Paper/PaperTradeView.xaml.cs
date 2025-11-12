@@ -8,10 +8,11 @@ using System.Windows.Threading;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 using 币安量化机器人.Services.AI;
+using 币安量化机器人.Modules;
 
 namespace 币安量化机器人.Modules.Paper;
 
-public partial class PaperTradeView : UserControl
+public partial class PaperTradeView : UserControl, IModuleLifecycle
 {
     private readonly TradingAccountManager _accountManager;
     private readonly AITradingAutomation _aiAutomation;
@@ -65,13 +66,12 @@ public partial class PaperTradeView : UserControl
         PositionsGrid.ItemsSource = _positions;
         LogList.ItemsSource = _logs;
 
-        // 启动更新定时器
-        StartUpdateTimer();
+        // 不在构造中启动定时器或 AI
 
         // 初始更新
         UpdateUI();
 
-        AddLog("✅ AI模拟交易中心已就绪");
+        AddLog("✅ AI模拟交易中心已就绪（等待启动）");
     }
 
     /// <summary>
@@ -85,6 +85,19 @@ public partial class PaperTradeView : UserControl
         };
         _updateTimer.Tick += (_, __) => UpdateUI();
         _updateTimer.Start();
+    }
+
+    /// <summary>
+    /// 停止更新定时器
+    /// </summary>
+    private void StopUpdateTimer()
+    {
+        if (_updateTimer != null)
+        {
+            _updateTimer.Stop();
+            _updateTimer.Tick -= (_, __) => UpdateUI();
+            _updateTimer = null;
+        }
     }
 
     /// <summary>
@@ -277,5 +290,19 @@ public partial class PaperTradeView : UserControl
                 AddLog($"❌ 平仓失败: {ex.Message}");
             }
         }
+    }
+
+    // IModuleLifecycle
+    public Task StartAsync()
+    {
+        StartUpdateTimer();
+        UpdateUI();
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync()
+    {
+        StopUpdateTimer();
+        return Task.CompletedTask;
     }
 }

@@ -8,6 +8,10 @@
 		<!-- 代码质量（按需留） -->
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
+		<!-- Disable auto-generation of assembly attributes to avoid duplicate attribute errors during publish/run in test harness -->
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<!-- Prevent SDK from emitting TargetFrameworkAttribute (duplicate when WPF temp project also emits it) -->
+		<GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
 	</PropertyGroup>
 
     <ItemGroup>
@@ -22,6 +26,8 @@
       <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
       <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
       <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+      <!-- Ensure runtime binding for System.Text.Json 9.x used by configuration packages -->
+      <PackageReference Include="System.Text.Json" Version="9.0.10" />
       <!-- 可选：SourceLink（如果你需要）
   <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
   -->
