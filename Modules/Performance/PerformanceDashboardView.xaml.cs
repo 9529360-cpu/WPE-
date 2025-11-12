@@ -3,12 +3,11 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using ScottPlot;
-using ScottPlot.Plottables;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 using System.Threading;
 using System.Threading.Tasks;
-using WpfColor = System.Windows.Media.Color; // 🔧 添加别名避免冲突
+using WpfColor = System.Windows.Media.Color;
 using 币安量化机器人.Modules;
 
 namespace 币安量化机器人.Modules.Performance;
@@ -34,8 +33,6 @@ public partial class PerformanceDashboardView : UserControl, IModuleLifecycle
         _cacheService = ServiceLocator.Cache;
         _accountManager = new TradingAccountManager(_cacheService);
         _performanceAnalyzer = new PerformanceAnalyzer(_accountManager, _cacheService);
-
-        // 移除 Loaded 绑定，使用显式 StartAsync
     }
 
     private async Task LoadPerformanceDataAsync(CancellationToken ct)
@@ -44,28 +41,24 @@ public partial class PerformanceDashboardView : UserControl, IModuleLifecycle
         {
             ct.ThrowIfCancellationRequested();
 
-            // 🔧 确保账户存在
             if (_accountManager.SimulatedAccount == null)
             {
                 LogService.Info("[PerformanceDashboardView] 模拟账户不存在，正在创建...");
                 _accountManager.CreateSimulatedAccount("模拟账户", 100m);
             }
 
-            // 🔧 确保有激活账户
             if (!_accountManager.HasActiveAccount)
             {
                 LogService.Info("[PerformanceDashboardView] 没有激活账户，正在激活模拟账户...");
                 _accountManager.SwitchToSimulated();
             }
 
-            // 生成绩效报告
             PerformanceReport report = await _performanceAnalyzer.GenerateReportAsync(_currentAccountType);
 
             ct.ThrowIfCancellationRequested();
 
             if (report != null)
             {
-                // 在 UI 线程上渲染
                 await Dispatcher.InvokeAsync(() => RenderEquityCurve(report));
             }
         }
@@ -79,9 +72,6 @@ public partial class PerformanceDashboardView : UserControl, IModuleLifecycle
         }
     }
 
-    /// <summary>
-    /// 渲染净值曲线
-    /// </summary>
     private void RenderEquityCurve(PerformanceReport report)
     {
         try
@@ -92,7 +82,7 @@ public partial class PerformanceDashboardView : UserControl, IModuleLifecycle
                 return;
             }
 
-            Plot plt = EquityPlot.Plot;
+            var plt = EquityPlot.Plot;
             plt.Clear();
 
             if (report.EquityCurve == null || !report.EquityCurve.Any())
@@ -102,32 +92,18 @@ public partial class PerformanceDashboardView : UserControl, IModuleLifecycle
                 return;
             }
 
-            // 准备数据
             double[] dates = report.EquityCurve.Select(p => p.Date.ToOADate()).ToArray();
             double[] netValues = report.EquityCurve.Select(p => p.NetValue).ToArray();
             double[] balances = report.EquityCurve.Select(p => p.Balance).ToArray();
             double[] positions = report.EquityCurve.Select(p => p.PositionValue).ToArray();
 
-            // 绘制净值曲线 (主线)
-            var netValueLine = plt.AddScatter(dates, netValues, color: System.Drawing.ColorTranslator.FromHtml("#3B82F6"), label: "净值");
-            netValueLine.LineWidth = 3;
-            netValueLine.MarkerSize = 0;
+            plt.AddScatter(dates, netValues, color: System.Drawing.ColorTranslator.FromHtml("#3B82F6"), label: "净值", lineWidth: 3);
+            plt.AddScatter(dates, balances, color: System.Drawing.ColorTranslator.FromHtml("#10B981"), label: "可用余额", lineWidth: 2, lineStyle: ScottPlot.LineStyle.Dot);
+            plt.AddScatter(dates, positions, color: System.Drawing.ColorTranslator.FromHtml("#F59E0B"), label: "持仓价值", lineWidth: 2, lineStyle: ScottPlot.LineStyle.Dash);
 
-            // 绘制余额曲线
-            var balanceLine = plt.AddScatter(dates, balances, color: System.Drawing.ColorTranslator.FromHtml("#10B981"), label: "可用余额", lineStyle: ScottPlot.LineStyle.Dot);
-            balanceLine.LineWidth = 2;
-            balanceLine.MarkerSize = 0;
-
-            // 绘制持仓价值
-            var positionLine = plt.AddScatter(dates, positions, color: System.Drawing.ColorTranslator.FromHtml("#F59E0B"), label: "持仓价值", lineStyle: ScottPlot.LineStyle.Dash);
-            positionLine.LineWidth = 2;
-            positionLine.MarkerSize = 0;
-
-            // 图表设置
             plt.Title("账户净值曲线");
             plt.YLabel("净值 (USDT)");
             plt.XLabel("日期");
-            // DateTime ticks helper in v5
             plt.SetAxisLimits(xMin: dates.FirstOrDefault(), xMax: dates.LastOrDefault());
 
             plt.Legend(location: ScottPlot.Alignment.UpperLeft);
@@ -141,7 +117,6 @@ public partial class PerformanceDashboardView : UserControl, IModuleLifecycle
         }
     }
 
-    // 保留导出按钮逻辑供 ViewModel 调用，或后续迁移到命令
     public void ExportCurrentPlot(string path, int w = 1200, int h = 600)
     {
         try
@@ -154,7 +129,6 @@ public partial class PerformanceDashboardView : UserControl, IModuleLifecycle
         }
     }
 
-    // IModuleLifecycle
     public async Task StartAsync()
     {
         _cts = new CancellationTokenSource();
