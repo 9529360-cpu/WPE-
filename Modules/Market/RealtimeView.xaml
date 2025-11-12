@@ -87,9 +87,7 @@
                     <TextBlock x:Name="DetailPrice" Grid.Row="1" Margin="0,4,0,0" FontSize="14" Foreground="#111827"/>
 
                     <GroupBox Header="价格走势" Grid.Row="2" Margin="0,12,0,0">
-                        <Border x:Name="PricePlot" Height="200" Background="#F3F4F6">
-                            <TextBlock Text="📊 ScottPlot 图表占位（需VS重启后恢复）" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#6B7280"/>
-                        </Border>
+                        <sp:WpfPlot x:Name="PricePlot" Height="200"/>
                     </GroupBox>
 
                     <GroupBox Header="AI 预测 / 风险预估" Grid.Row="3" Margin="0,12,0,0">

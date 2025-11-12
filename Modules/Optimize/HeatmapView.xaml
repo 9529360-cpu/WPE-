@@ -3,8 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:sp="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF">
     <Grid>
-        <Border x:Name="Plot" Background="#F3F4F6">
-            <TextBlock Text="📊 ScottPlot 热力图占位" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#6B7280"/>
-        </Border>
+        <sp:WpfPlot x:Name="Plot"/>
     </Grid>
 </UserControl>
