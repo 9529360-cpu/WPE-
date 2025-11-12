@@ -1,6 +1,7 @@
 <UserControl x:Class="币安量化机器人.Modules.Market.FundingView"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+xmlns:sp="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF">
     <UserControl.Resources>
         <Style x:Key="RightAlignCell" TargetType="TextBlock">
             <Setter Property="HorizontalAlignment" Value="Right"/>
@@ -89,9 +90,7 @@
                     </StackPanel>
 
                     <GroupBox Header="资金率走势" Grid.Row="2" Margin="0,12,0,0">
-                        <Border x:Name="FundingPlot" Height="180" Background="#F3F4F6">
-                            <TextBlock Text="📊 图表占位" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#6B7280"/>
-                        </Border>
+                        <sp:WpfPlot x:Name="FundingPlot" Height="180" Background="#FFFFFF"/>
                     </GroupBox>
 
                     <StackPanel Grid.Row="3" Margin="0,12,0,0">
