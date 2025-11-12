@@ -5,128 +5,78 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using 币安量化机器人.Services;
+using 币安量化机器人.Models;
 
 namespace 币安量化机器人.Modules.Strategy;
 
-/// <summary>
-/// 多策略组合管理视图
-/// </summary>
 public partial class StrategyPortfolioView : UserControl
 {
     private readonly StrategyPortfolioManager _portfolioManager;
-    private readonly TradingAccountManager _accountManager;
+    private readonly TradingAccountManager _account_manager;
     private readonly ObservableCollection<StrategyRow> _strategies = new();
     private readonly DataCacheService _cacheService;
+
+    // 新增：仅显示合约策略开关（可与XAML绑定）
+    private bool _futuresOnly = true;
 
     public StrategyPortfolioView()
     {
         InitializeComponent();
 
-        // 初始化服务
         _cacheService = ServiceLocator.Cache;
-        _accountManager = new TradingAccountManager(_cacheService);
-        _portfolioManager = new StrategyPortfolioManager(_accountManager);
+        _account_manager = new TradingAccountManager(_cacheService);
+        _portfolioManager = ServiceLocator.StrategyPortfolio; // 使用全局实例，包含磁盘数据
 
         StrategiesGrid.ItemsSource = _strategies;
 
-        // 加载示例策略
-        LoadSampleStrategies();
+        // 订阅策略变化事件，自动刷新
+        _portfolioManager.StrategiesChanged += () => Dispatcher.Invoke(UpdateUI);
+
+        // 订阅全局账户类型变更（来自 RuntimeState）
+        RuntimeState.OnAccountTypeChanged += (acct) => Dispatcher.Invoke(() => AccountModeComboBox.SelectedIndex = acct == AccountType.Live ? 1 : 0);
+
+        // 初始加载
+        _portfolioManager.LoadFromDisk();
+        UpdateUI();
+
+        // 初始化 AccountModeComboBox 默认值
+        if (AccountModeComboBox != null)
+        {
+            AccountModeComboBox.SelectedIndex = RuntimeState.CurrentAccountType == AccountType.Live ? 1 : 0;
+        }
+    }
+
+    private void AccountModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (AccountModeComboBox == null)
+        {
+            return;
+        }
+        var idx = AccountModeComboBox.SelectedIndex;
+        RuntimeState.CurrentAccountType = idx == 1 ? AccountType.Live : AccountType.Simulated;
+    }
+
+    private void FuturesOnlyCheck_Checked(object sender, RoutedEventArgs e)
+    {
+        _futuresOnly = true;
         UpdateUI();
     }
 
-    /// <summary>
-    /// 加载示例策略
-    /// </summary>
-    private void LoadSampleStrategies()
+    private void FuturesOnlyCheck_Unchecked(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            // 添加示例策略
-            StrategyInstance[] strategies = new[]
-            {
-                new StrategyInstance
-                {
-                    Name = "均值回归策略",
-                    Type = "MeanReversion",
-                    Description = "基于价格偏离均线的回归策略",
-                    Weight = 0.3,
-                    IsRunning = false,
-                    TotalReturn = 0.15m,
-                    SharpeRatio = 1.8,
-                    MaxDrawdown = -0.08,
-                    TotalTrades = 45,
-                    WinningTrades = 28,
-                    Symbols = new() { "BTCUSDT", "ETHUSDT" }
-                },
-                new StrategyInstance
-                {
-                    Name = "动量突破策略",
-                    Type = "Momentum",
-                    Description = "追踪强势突破趋势",
-                    Weight = 0.25,
-                    IsRunning = false,
-                    TotalReturn = 0.22m,
-                    SharpeRatio = 2.1,
-                    MaxDrawdown = -0.12,
-                    TotalTrades = 32,
-                    WinningTrades = 20,
-                    Symbols = new() { "BTCUSDT", "BNBUSDT" }
-                },
-                new StrategyInstance
-                {
-                    Name = "网格交易策略",
-                    Type = "Grid",
-                    Description = "震荡市场网格套利",
-                    Weight = 0.25,
-                    IsRunning = false,
-                    TotalReturn = 0.08m,
-                    SharpeRatio = 1.2,
-                    MaxDrawdown = -0.05,
-                    TotalTrades = 68,
-                    WinningTrades = 45,
-                    Symbols = new() { "ETHUSDT" }
-                },
-                new StrategyInstance
-                {
-                    Name = "AI智能策略",
-                    Type = "AI",
-                    Description = "DeepSeek AI驱动的智能交易",
-                    Weight = 0.2,
-                    IsRunning = false,
-                    TotalReturn = 0.28m,
-                    SharpeRatio = 2.5,
-                    MaxDrawdown = -0.10,
-                    TotalTrades = 38,
-                    WinningTrades = 26,
-                    Symbols = new() { "BTCUSDT", "ETHUSDT", "SOLUSDT" }
-                }
-            };
-
-            foreach (StrategyInstance? strategy in strategies)
-            {
-                _portfolioManager.AddStrategy(strategy);
-            }
-
-            LogService.Info("[StrategyPortfolioView] 已加载 {Count} 个示例策略", strategies.Length);
-        }
-        catch (Exception ex)
-        {
-            LogService.Error(ex, "[StrategyPortfolioView] 加载示例策略失败");
-        }
+        _futuresOnly = false;
+        UpdateUI();
     }
 
-    /// <summary>
-    /// 更新UI
-    /// </summary>
     private void UpdateUI()
     {
         try
         {
-            // 更新策略列表
             _strategies.Clear();
-            IReadOnlyList<StrategyInstance> allStrategies = _portfolioManager.GetAllStrategies();
+            var all = _portfolioManager.GetAllStrategies();
+            var filtered = _futuresOnly ? all.Where(s => s.Market == MarketType.Futures) : all;
 
-            foreach (StrategyInstance strategy in allStrategies)
+            foreach (var strategy in filtered)
             {
                 _strategies.Add(new StrategyRow
                 {
@@ -140,13 +90,15 @@ public partial class StrategyPortfolioView : UserControl
                     TotalTrades = strategy.TotalTrades,
                     WinningTrades = strategy.WinningTrades,
                     WinRate = strategy.WinRate,
-                    RunningTime = strategy.RunningTime
+                    RunningTime = strategy.RunningTime,
+                    Market = strategy.Market,
+                    Stage = strategy.Stage,
+                    AuditSource = strategy.Audit?.Source ?? string.Empty,
+                    AuditTimestampUtc = strategy.Audit?.CreatedUtc
                 });
             }
 
-            // 更新组合统计
-            PortfolioStats stats = _portfolioManager.GetPortfolioStats();
-
+            var stats = _portfolioManager.GetPortfolioStats();
             PortfolioReturnText.Text = $"{stats.TotalReturn:P2}";
             PortfolioReturnText.Foreground = stats.TotalReturn >= 0
                 ? new SolidColorBrush(Color.FromRgb(5, 150, 105))
@@ -156,7 +108,6 @@ public partial class StrategyPortfolioView : UserControl
             RunningCountText.Text = $"{stats.RunningStrategies}/{stats.TotalStrategies}";
             StrategyCountText.Text = $"({stats.TotalStrategies} 个策略)";
 
-            // 更新最佳/最差表现
             if (stats.BestPerformer != null)
             {
                 BestPerformerName.Text = stats.BestPerformer.Name;
@@ -179,26 +130,18 @@ public partial class StrategyPortfolioView : UserControl
         }
     }
 
-    /// <summary>
-    /// 添加策略
-    /// </summary>
     private void Add_Click(object sender, RoutedEventArgs e)
     {
-        // TODO: 打开添加策略对话框
         MessageBox.Show("添加策略功能开发中...", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
-    /// <summary>
-    /// 平衡权重
-    /// </summary>
     private void Balance_Click(object sender, RoutedEventArgs e)
     {
-        MessageBoxResult result = MessageBox.Show(
+        var result = MessageBox.Show(
             "确定要自动平衡所有策略的权重吗？\n\n每个策略将获得相等的资金分配。",
             "确认",
             MessageBoxButton.YesNo,
-            MessageBoxImage.Question
-        );
+            MessageBoxImage.Question);
 
         if (result == MessageBoxResult.Yes)
         {
@@ -208,28 +151,58 @@ public partial class StrategyPortfolioView : UserControl
         }
     }
 
-    /// <summary>
-    /// 刷新
-    /// </summary>
     private void Refresh_Click(object sender, RoutedEventArgs e)
     {
+        _portfolioManager.LoadFromDisk();
         UpdateUI();
     }
 
-    /// <summary>
-    /// 启动策略
-    /// </summary>
     private async void Start_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button btn && btn.Tag is string strategyId)
         {
             try
             {
-                await _portfolioManager.StartStrategyAsync(strategyId);
+                // 使用 UI 上选择的账户模式作为运行时选择
+                var selectedMode = AccountModeComboBox != null && AccountModeComboBox.SelectedIndex == 1 ? AccountType.Live : AccountType.Simulated;
+
+                if (selectedMode == AccountType.Live)
+                {
+                    var confirm = MessageBox.Show("你选择了实盘模式，真实下单可能造成资金损失。确认要以实盘模式启动此策略吗？", "确认实盘启动", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    if (confirm != MessageBoxResult.Yes)
+                    {
+                        return;
+                    }
+                }
+
+                // 切换到用户选择的账户类型（不改变策略的存储 AccountType 字段）
+                RuntimeState.CurrentAccountType = selectedMode;
+                var acctType = selectedMode;
+
+                // 启动策略（传入 runAs 以确保实际执行所用账户与 UI 选择一致）
+                await _portfolioManager.StartStrategyAsync(strategyId, StrategyStage.LiveRunning, acctType);
+
+                // 如果执行器依赖于 ActiveAccount，请确保切换账户
+                try
+                {
+                    if (acctType == AccountType.Live)
+                    {
+                        _account_manager.SwitchToLive();
+                    }
+                    else
+                    {
+                        _account_manager.SwitchToSimulated();
+                    }
+                }
+                catch (Exception exSwitch)
+                {
+                    LogService.Warning("切换账户失败: {Message}", exSwitch.Message);
+                }
+
                 UpdateUI();
 
-                StrategyRow? strategy = _strategies.FirstOrDefault(s => s.Id == strategyId);
-                MessageBox.Show($"策略 '{strategy?.Name}' 已启动！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                var strategy = _strategies.FirstOrDefault(s => s.Id == strategyId);
+                MessageBox.Show($"策略 '{strategy?.Name}' 已启动（模式: {acctType}）！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -238,9 +211,6 @@ public partial class StrategyPortfolioView : UserControl
         }
     }
 
-    /// <summary>
-    /// 停止策略
-    /// </summary>
     private void Stop_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button btn && btn.Tag is string strategyId)
@@ -250,7 +220,7 @@ public partial class StrategyPortfolioView : UserControl
                 _portfolioManager.StopStrategy(strategyId);
                 UpdateUI();
 
-                StrategyRow? strategy = _strategies.FirstOrDefault(s => s.Id == strategyId);
+                var strategy = _strategies.FirstOrDefault(s => s.Id == strategyId);
                 MessageBox.Show($"策略 '{strategy?.Name}' 已停止！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -260,34 +230,26 @@ public partial class StrategyPortfolioView : UserControl
         }
     }
 
-    /// <summary>
-    /// 编辑策略
-    /// </summary>
     private void Edit_Click(object sender, RoutedEventArgs e)
     {
-        // TODO: 打开编辑对话框
         MessageBox.Show("编辑策略功能开发中...", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
-    /// <summary>
-    /// 删除策略
-    /// </summary>
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button btn && btn.Tag is string strategyId)
         {
-            StrategyRow? strategy = _strategies.FirstOrDefault(s => s.Id == strategyId);
+            var strategy = _strategies.FirstOrDefault(s => s.Id == strategyId);
             if (strategy == null)
             {
                 return;
             }
 
-            MessageBoxResult result = MessageBox.Show(
+            var result = MessageBox.Show(
                 $"确定要删除策略 '{strategy.Name}' 吗？",
                 "确认删除",
                 MessageBoxButton.YesNo,
-                MessageBoxImage.Warning
-            );
+                MessageBoxImage.Warning);
 
             if (result == MessageBoxResult.Yes)
             {
@@ -296,11 +258,73 @@ public partial class StrategyPortfolioView : UserControl
             }
         }
     }
+
+    private async void ContextStart_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem mi && mi.CommandParameter is string id)
+        {
+            try
+            {
+                var acct = RuntimeState.CurrentAccountType;
+                var confirm = MessageBoxResult.Yes;
+                if (acct == AccountType.Live)
+                {
+                    confirm = MessageBox.Show("你选择了实盘模式，真实下单可能造成资金损失。确认要以实盘模式启动此策略吗？", "确认实盘启动", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                }
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+
+                await _portfolioManager.StartStrategyAsync(id, StrategyStage.LiveRunning, acct);
+                UpdateUI();
+                MessageBox.Show("策略已启动", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"启动失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+
+    private void ContextStop_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem mi && mi.CommandParameter is string id)
+        {
+            ServiceLocator.StrategyPortfolio.StopStrategy(id);
+            UpdateUI();
+            MessageBox.Show("策略已停止", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
+
+    private void ContextEdit_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem mi && mi.CommandParameter is string id)
+        {
+            // reuse Edit_Click flow
+            Edit_Click(sender, new RoutedEventArgs());
+        }
+    }
+
+    private void ContextDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem mi && mi.CommandParameter is string id)
+        {
+            var row = _strategies.FirstOrDefault(s => s.Id == id);
+            if (row == null)
+            {
+                return;
+            }
+            var result = MessageBox.Show($"确定要删除策略 '{row.Name}' 吗？", "确认删除", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (result == MessageBoxResult.Yes)
+            {
+                _portfolioManager.RemoveStrategy(id);
+                UpdateUI();
+            }
+        }
+    }
 }
 
-/// <summary>
-/// 策略行数据
-/// </summary>
 public class StrategyRow
 {
     public string Id { get; set; } = string.Empty;
@@ -315,7 +339,12 @@ public class StrategyRow
     public double WinRate { get; set; }
     public TimeSpan RunningTime { get; set; }
 
-    // UI 绑定属性
+    // 新增显示字段
+    public MarketType Market { get; set; }
+    public StrategyStage Stage { get; set; }
+    public string AuditSource { get; set; } = string.Empty;
+    public DateTime? AuditTimestampUtc { get; set; }
+
     public string StatusText => IsRunning ? "运行中" : "已停止";
     public Brush StatusColor => IsRunning
         ? new SolidColorBrush(Color.FromRgb(16, 185, 129))

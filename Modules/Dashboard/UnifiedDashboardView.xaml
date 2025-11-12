@@ -12,7 +12,7 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- 顶部标题栏（保留，但移除启动按钮，启动功能由子模块 AI Tab 提供） -->
+        <!-- 顶部标题栏 -->
         <Border Grid.Row="0" Background="White" Padding="24,20" 
                 BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
             <Grid>
@@ -47,30 +47,99 @@
                                FontSize="13" Foreground="#6B7280" VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <!-- 快捷操作（移除启动/停止按钮，保留自动驾驶开关） -->
+                <!-- 快捷操作 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="💡 提示: 在下方 AI Tab 中启动交易" 
                                FontSize="12" Foreground="#6B7280" 
                                VerticalAlignment="Center" Margin="0,0,12,0"/>
-                    <CheckBox x:Name="AutoPilotToggle" Content="AI全自动" 
-                              Margin="0,0,12,0" VerticalAlignment="Center"
-                              ToolTip="启用AI全自动模式（需先启动交易）"/>
-                    <CheckBox x:Name="LiveAutoPilotToggle" Content="实盘自动驾驶" 
-                              Margin="0,0,0,0" VerticalAlignment="Center"
-                              ToolTip="启用实盘自动驾驶（谨慎开启）"/>
+
+                    <ComboBox x:Name="AccountTypeCombo" Width="120" Margin="0,0,8,0">
+                        <ComboBoxItem Tag="Sim">Simulated</ComboBoxItem>
+                        <ComboBoxItem Tag="Live">Live</ComboBoxItem>
+                    </ComboBox>
+                    <TextBox x:Name="SymbolsInput" Width="200" Text="BTCUSDT" Margin="0,0,8,0"/>
+                    <Button x:Name="StartAIButton" Content="▶️ 启动AI" Width="100" Margin="0,0,8,0"/>
+                    <Button x:Name="StopAIButton" Content="⏹ 停止AI" Width="100" IsEnabled="False"/>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- 主内容区 -->
-        <!-- LegacyContent 保留原始布局以便回退，初始隐藏 -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" x:Name="LegacyContent" Visibility="Collapsed">
-            <Grid Margin="24">
-                <!-- 原始内容保留用于回退 -->
-            </Grid>
-        </ScrollViewer>
+        <!-- 主内容区: 左侧为 CombinedHost, 右侧为侧边栏 -->
+        <Grid Grid.Row="1" Margin="24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="360"/>
+            </Grid.ColumnDefinitions>
 
-        <!-- 综合模块宿主：显示打包后的五个子模块（默认显示） -->
-        <ContentControl x:Name="CombinedHost" Grid.Row="1"/>
+            <ContentControl x:Name="CombinedHost" Grid.Column="0"/>
+
+            <!-- 侧边栏 -->
+            <Border Grid.Column="1" Background="White" CornerRadius="12" BorderBrush="#E5E7EB" BorderThickness="1" Padding="12">
+                <StackPanel>
+                    <TextBlock Text="运行中策略" FontSize="14" FontWeight="Bold" Foreground="#111827" Margin="0,0,0,8"/>
+                    <ListView x:Name="RunningStrategiesList" Height="160" Margin="0,0,0,8">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Vertical">
+                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" />
+                                    <TextBlock Text="{Binding SymbolsText}" FontSize="12" Foreground="#6B7280"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <TextBlock Text="最近订单" FontSize="14" FontWeight="Bold" Foreground="#111827" Margin="0,8,0,8"/>
+                    <ListView x:Name="RecentOrdersList" Height="140" Margin="0,0,0,8">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Orientation="Vertical">
+                                        <TextBlock Text="{Binding Symbol}" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding ShortInfo}" FontSize="12" Foreground="#6B7280"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{Binding TimeText}" Foreground="#6B7280" VerticalAlignment="Top"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <!-- Learning actions -->
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Stretch" Margin="0,8,0,0">
+                        <Button x:Name="ExportTrainingButton" Content="导出训练数据" Height="32" Margin="0,0,0,8" Click="ExportTraining_Click"/>
+                        <Button x:Name="StartTrainingButton" Content="开始训练" Height="32" Click="StartTraining_Click"/>
+                    </StackPanel>
+
+                    <TextBlock x:Name="TrainingStatusText" Text="" FontSize="12" Foreground="#6B7280" Margin="0,8,0,0"/>
+
+                    <!-- 学习管理 -->
+                    <Separator Margin="0,12,0,12"/>
+                    <TextBlock Text="学习管理" FontSize="14" FontWeight="Bold" Foreground="#111827" Margin="0,0,0,8"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="0,0,0,8">
+                        <Button x:Name="SaveLearningStateButton" Content="保存学习状态" Width="120" Height="28" Margin="0,0,8,0" Click="SaveLearningState_Click"/>
+                        <Button x:Name="LoadLearningStateButton" Content="加载学习状态" Width="120" Height="28" Margin="0,0,8,0" Click="LoadLearningState_Click"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                        <Button x:Name="ResetLearningButton" Content="重置学习状态" Width="120" Height="28" Click="ResetLearning_Click"/>
+                    </StackPanel>
+
+                    <TextBlock Text="因子性能" FontSize="13" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                    <ListView x:Name="FactorStatsList" Height="180">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="因子" DisplayMemberBinding="{Binding FactorCode}" Width="120" />
+                                <GridViewColumn Header="样本" DisplayMemberBinding="{Binding TotalSamples}" Width="60" />
+                                <GridViewColumn Header="胜率" DisplayMemberBinding="{Binding WinRateText}" Width="60" />
+                                <GridViewColumn Header="平均收益" DisplayMemberBinding="{Binding AvgProfitText}" Width="80" />
+                                <GridViewColumn Header="相关" DisplayMemberBinding="{Binding CorrelationText}" Width="60" />
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

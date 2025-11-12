@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using 币安量化机器人.Models.Configuration;
 using 币安量化机器人.Services;
+using 币安量化机器人.Services.AI;
 
 namespace 币安量化机器人.Modules.Settings;
 
@@ -98,6 +99,10 @@ public partial class ApiManagerView : UserControl
                 DeepSeekApiKeyBox.Tag = null;
                 UpdateDeepSeekStatus(false, "未配置 ⚠️");
             }
+
+            // 加载其他设置
+            LoadSettings();
+
         }
         catch (Exception ex)
         {
@@ -147,7 +152,52 @@ public partial class ApiManagerView : UserControl
         return $"{apiKey.Substring(0, 4)}••••••••••••••••••{apiKey.Substring(apiKey.Length - 4)}";
     }
 
+    private void LoadSettings()
+    {
+        try
+        {
+            AIConfig aiConfig = ConfigurationService.GetAIConfig();
+            var deepSeekCheck = this.FindName("DeepSeekEnabledCheck") as CheckBox;
+            if (deepSeekCheck != null)
+            {
+                deepSeekCheck.IsChecked = aiConfig.EnableAITrading;
+            }
+
+            ToggleDeepSeekControls(aiConfig.EnableAITrading);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[ApiManagerView] 加载设置失败");
+        }
+    }
+
+    private void ToggleDeepSeekControls(bool enabled)
+    {
+        var testBtn = this.FindName("TestDeepSeekButton") as Button;
+        var saveBtn = this.FindName("SaveDeepSeekButton") as Button;
+        var keyBox = this.FindName("DeepSeekApiKeyBox") as TextBox;
+        var statusText = this.FindName("DeepSeekStatusText") as TextBlock;
+
+        if (testBtn != null)
+        {
+            testBtn.IsEnabled = enabled;
+        }
+        if (saveBtn != null)
+        {
+            saveBtn.IsEnabled = enabled;
+        }
+        if (keyBox != null)
+        {
+            keyBox.IsEnabled = enabled;
+        }
+        if (statusText != null)
+        {
+            statusText.Text = enabled ? "已启用" : "已禁用";
+        }
+    }
+
     #region Binance API 操作
+
 
     /// <summary>
     /// 🔧 当用户点击输入框时，如果是掩码，则恢复原始值

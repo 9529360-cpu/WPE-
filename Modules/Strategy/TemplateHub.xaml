@@ -24,6 +24,23 @@
                            VerticalAlignment="Center"
                            Margin="16,0,0,0"
                            DockPanel.Dock="Left"/>
+
+                <!-- 专业建议: 生成 AI 策略按钮 -->
+                <Button x:Name="GenerateAIStrategyButton"
+                        Content="生成 AI 策略"
+                        DockPanel.Dock="Right"
+                        Padding="10,6"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        Click="GenerateAIStrategy_Click"/>
+
+                <!-- 新增：仅保存为模板 / 同时添加到组合 复选框（不选=同时添加到组合） -->
+                <CheckBox x:Name="AiSaveOnlyCheck"
+                          Content="仅保存为模板"
+                          DockPanel.Dock="Right"
+                          VerticalAlignment="Center"
+                          Margin="0,0,8,0"
+                          ToolTip="选中：仅保存为模板；未选中：同时添加到组合"/>
             </DockPanel>
         </Border>
 

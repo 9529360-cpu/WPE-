@@ -17,11 +17,14 @@ public class DeepSeekTradingAgent
     private readonly string _apiKey;
     private readonly double _temperature;
 
+    public bool IsEnabled { get; }
+
     public DeepSeekTradingAgent(string apiKey, double temperature = 0.3, HttpClient? httpClient = null)
     {
-        _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
+        _apiKey = apiKey ?? string.Empty;
         _temperature = temperature;
         _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        IsEnabled = !string.IsNullOrWhiteSpace(_apiKey);
     }
 
     /// <summary>
@@ -31,6 +34,11 @@ public class DeepSeekTradingAgent
         MarketDataSnapshot marketData,
         CancellationToken ct = default)
     {
+        if (!IsEnabled)
+        {
+            throw new InvalidOperationException("DeepSeek AI agent 未启用或未配置 API Key");
+        }
+
         string prompt = BuildTradingPrompt(marketData);
 
         var request = new
@@ -72,6 +80,11 @@ public class DeepSeekTradingAgent
         string? context = null,
         CancellationToken ct = default)
     {
+        if (!IsEnabled)
+        {
+            throw new InvalidOperationException("DeepSeek AI agent 未启用或未配置 API Key");
+        }
+
         try
         {
             string systemPrompt = """
@@ -319,6 +332,11 @@ public class DeepSeekTradingAgent
     /// </summary>
     public async Task ValidateAccessAsync(CancellationToken ct = default)
     {
+        if (!IsEnabled)
+        {
+            throw new InvalidOperationException("DeepSeek AI 未启用或未配置 API Key");
+        }
+
         using var req = new HttpRequestMessage(HttpMethod.Get, ModelsUrl);
         string cleanApiKey = ValidateAndCleanApiKey(_apiKey);
         req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {cleanApiKey}");

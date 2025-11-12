@@ -26,7 +26,7 @@
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
                     <TextBlock Text="🎛️" FontSize="24" VerticalAlignment="Center" Margin="0,0,12,0"/>
                     <StackPanel>
-                        <TextBlock Text="多策略组合管理" FontSize="20" FontWeight="Bold" Foreground="#111827"/>
+                        <TextBlock Text="📦 多策略组合管理" FontSize="20" FontWeight="Bold" Foreground="#111827"/>
                         <TextBlock x:Name="StatusText" Text="统一管理多个交易策略" 
                                    FontSize="13" Foreground="#6B7280" Margin="0,4,0,0"/>
                     </StackPanel>
@@ -64,7 +64,16 @@
                 </StackPanel>
 
                 <!-- 操作按钮 -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- 账户模式选择 -->
+                    <ComboBox x:Name="AccountModeComboBox" Width="120" Margin="0,0,8,0" SelectionChanged="AccountModeComboBox_SelectionChanged">
+                        <ComboBoxItem>Simulated</ComboBoxItem>
+                        <ComboBoxItem>Live</ComboBoxItem>
+                    </ComboBox>
+
+                    <!-- 仅显示合约 开关 -->
+                    <CheckBox x:Name="FuturesOnlyCheck" Content="仅显示合约" Margin="0,0,8,0" IsChecked="True" Checked="FuturesOnlyCheck_Checked" Unchecked="FuturesOnlyCheck_Unchecked" ToolTip="勾选时仅显示 Market=Futures 的策略"/>
+
                     <Button x:Name="AddButton" Content="➕ 添加策略" 
                             Width="110" Height="36" Margin="0,0,8,0"
                             Background="#10B981" Foreground="White"
@@ -156,15 +165,19 @@
                             </DataGridTextColumn>
 
                             <!-- 类型 -->
-                            <DataGridTextColumn Header="类型" Width="120" Binding="{Binding Type}">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="FontSize" Value="13"/>
-                                        <Setter Property="Foreground" Value="#6B7280"/>
-                                        <Setter Property="VerticalAlignment" Value="Center"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="类型" Width="120" Binding="{Binding Type}"/>
+
+                            <!-- 市场类型 -->
+                            <DataGridTextColumn Header="市场" Width="100" Binding="{Binding Market}"/>
+
+                            <!-- 阶段 -->
+                            <DataGridTextColumn Header="阶段" Width="100" Binding="{Binding Stage}"/>
+
+                            <!-- 审计来源 -->
+                            <DataGridTextColumn Header="来源" Width="120" Binding="{Binding AuditSource}"/>
+
+                            <!-- 审计时间 -->
+                            <DataGridTextColumn Header="生成时间(UTC)" Width="160" Binding="{Binding AuditTimestampUtc, StringFormat=yyyy-MM-dd HH:mm}"/>
 
                             <!-- 权重 -->
                             <DataGridTemplateColumn Header="资金权重" Width="120">
@@ -182,62 +195,22 @@
                             </DataGridTemplateColumn>
 
                             <!-- 收益率 -->
-                            <DataGridTextColumn Header="总收益率" Width="100" Binding="{Binding ReturnText}">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="FontSize" Value="14"/>
-                                        <Setter Property="FontWeight" Value="Bold"/>
-                                        <Setter Property="VerticalAlignment" Value="Center"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="总收益率" Width="100" Binding="{Binding ReturnText}"/>
 
                             <!-- 夏普比率 -->
-                            <DataGridTextColumn Header="夏普比率" Width="100" Binding="{Binding SharpeText}">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="FontSize" Value="13"/>
-                                        <Setter Property="Foreground" Value="#111827"/>
-                                        <Setter Property="VerticalAlignment" Value="Center"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="夏普比率" Width="100" Binding="{Binding SharpeText}"/>
 
                             <!-- 交易次数 -->
-                            <DataGridTextColumn Header="交易次数" Width="100" Binding="{Binding TradesText}">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="FontSize" Value="13"/>
-                                        <Setter Property="Foreground" Value="#6B7280"/>
-                                        <Setter Property="VerticalAlignment" Value="Center"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="交易次数" Width="100" Binding="{Binding TradesText}"/>
 
                             <!-- 胜率 -->
-                            <DataGridTextColumn Header="胜率" Width="80" Binding="{Binding WinRateText}">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="FontSize" Value="13"/>
-                                        <Setter Property="Foreground" Value="#10B981"/>
-                                        <Setter Property="VerticalAlignment" Value="Center"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="胜率" Width="80" Binding="{Binding WinRateText}"/>
 
                             <!-- 运行时间 -->
-                            <DataGridTextColumn Header="运行时间" Width="100" Binding="{Binding RunningTimeText}">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="FontSize" Value="12"/>
-                                        <Setter Property="Foreground" Value="#6B7280"/>
-                                        <Setter Property="VerticalAlignment" Value="Center"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="运行时间" Width="100" Binding="{Binding RunningTimeText}"/>
 
                             <!-- 操作 -->
-                            <DataGridTemplateColumn Header="操作" Width="180">
+                            <DataGridTemplateColumn Header="操作" Width="220">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">

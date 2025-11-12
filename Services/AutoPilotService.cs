@@ -167,7 +167,16 @@ public sealed class AutoPilotService
         await _portfolio.StartStrategyAsync(s.Id, targetAccount == AccountType.Live ? StrategyStage.LiveRunning : StrategyStage.PaperRunning);
 
         // 保存最佳模板
-        var template = new StrategyTemplate(s.Name, s.Type, s.Symbols, s.AccountType, s.Parameters, new TemplateMetrics(result.WinRate, result.MaxDrawdown, result.Sharpe, result.ProfitFactor), DateTime.UtcNow);
+        var template = new StrategyTemplate(
+            s.Name,
+            s.Type,
+            s.Symbols,
+            s.AccountType,
+            s.Parameters,
+            new TemplateMetrics(result.WinRate, result.MaxDrawdown, result.Sharpe, result.ProfitFactor),
+            DateTime.UtcNow,
+            new TemplateAudit { Source = "Backtest", ModelVersion = string.Empty, CreatedUtc = DateTime.UtcNow }
+        );
         ServiceLocator.StrategyTemplates.SaveTemplate(template);
 
         // 更新首次绩效快照（包含真实波动率）

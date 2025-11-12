@@ -1,8 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
+using 币安量化机器人.Services;
+using 币安量化机器人.Services.AI;
 
 namespace 币安量化机器人.Services.AI;
 
@@ -36,11 +41,29 @@ public class LearningModule
     private double _learningRate = 0.01; // 学习率
     private int _optimizationCycle = 0;  // 优化周期计数
 
+    private const string LearningStateKey = "learning_module_state_v1";
+
     public LearningModule(DataCacheService cacheService)
     {
         _cacheService = cacheService;
         _decisionHistory = new List<DecisionRecord>();
         _factorPerformance = new Dictionary<string, FactorPerformance>();
+
+        // Try to restore persisted learning state
+        try
+        {
+            var _ = LoadStateAsync().ContinueWith(t =>
+            {
+                if (t.IsCompletedSuccessfully)
+                {
+                    LogService.Info("[LearningModule] 学习状态已恢复");
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning("[LearningModule] 恢复学习状态失败: {0}", ex.Message);
+        }
     }
 
     /// <summary>
@@ -111,8 +134,18 @@ public class LearningModule
                 }
             }
 
-            // TODO: 持久化到数据库
-            // await _cacheService.SaveDecisionRecordAsync(record);
+            // 持久化到数据库
+            try
+            {
+                long tsMs = new DateTimeOffset(record.Timestamp).ToUnixTimeMilliseconds();
+                string stateJson = JsonSerializer.Serialize(state);
+                string decisionJson = JsonSerializer.Serialize(decision);
+                await _cacheService.SaveDecisionRecordAsync(tsMs, stateJson, decisionJson).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.Warning("[LearningModule] 保存决策记录到数据库失败: {Message}", ex.Message);
+            }
 
             LogService.Debug("[LearningModule] 记录决策: {Action}", decision.PrimaryAction);
         }
@@ -143,9 +176,21 @@ public class LearningModule
                 {
                     record.Outcome = outcome;
 
-                    LogService.Debug("[LearningModule] 更新决策结果: 成功={Success}, 收益={Profit:F2}",
+                    LogService.Debug("[LearningModule] 更新决策结果: 成功={Success}, 收益={ProfitPercent:F2}",
                         outcome.Success, outcome.ProfitPercent);
                 }
+            }
+
+            // 持久化 outcome 到数据库
+            try
+            {
+                long tsMs = new DateTimeOffset(decisionTimestamp).ToUnixTimeMilliseconds();
+                string outcomeJson = JsonSerializer.Serialize(outcome);
+                await _cacheService.UpdateDecisionRecordOutcomeAsync(tsMs, outcomeJson).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.Warning("[LearningModule] 更新决策结果到数据库失败: {Message}", ex.Message);
             }
         }
         catch (Exception ex)
@@ -356,7 +401,7 @@ public class LearningModule
         try
         {
             _optimizationCycle++;
-            
+
             // 1. 如果结果不存在，不优化
             if (lastOutcome == null)
             {
@@ -366,7 +411,7 @@ public class LearningModule
             // 2. 记录因子表现
             if (lastDecision.FactorBreakdown != null)
             {
-                await RecordFactorPerformanceAsync(lastDecision.FactorBreakdown, lastOutcome, ct);
+                await RecordFactorPerformanceAsync(lastDecision.FactorBreakdown, lastOutcome, ct).ConfigureAwait(false);
             }
 
             // 3. 每10次决策执行一次权重优化
@@ -393,10 +438,10 @@ public class LearningModule
                     // 梯度下降更新：weight = weight + learning_rate * contribution
                     double adjustment = _learningRate * contribution;
                     decimal newWeight = currentWeight + (decimal)adjustment;
-                    
+
                     // 约束权重范围 [0.01, 0.30]
                     newWeight = Math.Clamp(newWeight, 0.01m, 0.30m);
-                    
+
                     optimizedWeights[factorCode] = newWeight;
                 }
                 else
@@ -416,6 +461,16 @@ public class LearningModule
 
                 LogService.Info("[LearningModule] 🎓 因子权重已优化 (周期={Cycle})", _optimizationCycle);
                 LogTopFactorWeightChanges(currentWeights, normalizedWeights);
+
+                // 持久化学习状态
+                try
+                {
+                    await SaveStateAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    LogService.Warning("[LearningModule] 优化后保存学习状态失败: {0}", ex.Message);
+                }
 
                 return normalizedWeights;
             }
@@ -458,7 +513,7 @@ public class LearningModule
 
                 var perf = _factorPerformance[factorCode];
                 perf.TotalSamples++;
-                
+
                 if (outcome.Success)
                 {
                     perf.SuccessfulPredictions++;
@@ -475,6 +530,39 @@ public class LearningModule
                     perf.OutcomeHistory.RemoveAt(0);
                 }
             }
+        }
+
+        // 持久化学习状态：当某个因子样本累积到阈值时保存一次（限频）
+        try
+        {
+            bool shouldSave = false;
+            lock (_lock)
+            {
+                foreach (var perf in _factorPerformance.Values)
+                {
+                    if (perf.TotalSamples > 0 && perf.TotalSamples % 50 == 0)
+                    {
+                        shouldSave = true;
+                        break;
+                    }
+                }
+            }
+
+            if (shouldSave)
+            {
+                try
+                {
+                    await SaveStateAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    LogService.Warning("[LearningModule] 自动保存学习状态失败: {0}", ex.Message);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning("[LearningModule] 检查自动保存条件失败: {0}", ex.Message);
         }
     }
 
@@ -633,6 +721,197 @@ public class LearningModule
             _factorPerformance.Clear();
             _optimizationCycle = 0;
             LogService.Info("[LearningModule] 因子学习状态已重置");
+        }
+    }
+
+    /// <summary>
+    /// 导出训练数据到 Data/exports，返回导出文件夹路径
+    /// </summary>
+    public async Task<string> ExportTrainingDataAsync(string? symbol = null)
+    {
+        string dataDir = Path.Combine(AppContext.BaseDirectory, "Data", "exports");
+        Directory.CreateDirectory(dataDir);
+
+        // signals
+        var signals = await _cacheService.LoadSignalsAsync(symbol, limit: 1000);
+        string signalsPath = Path.Combine(dataDir, $"signals_{(symbol ?? "all")}_{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
+        var sb = new StringBuilder();
+        sb.AppendLine("id,symbol,action,confidence,reason,source,timestamp");
+        foreach (var s in signals)
+        {
+            var reasonEscaped = (s.Reason ?? string.Empty).Replace("\"", "'");
+            var sourceEscaped = (s.Source ?? string.Empty).Replace("\"", "'");
+            sb.AppendLine(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0},\"{1}\",{2},{3},\"{4}\",\"{5}\",{6}",
+                s.Id,
+                s.Symbol,
+                s.Action,
+                s.Confidence,
+                reasonEscaped,
+                sourceEscaped,
+                new DateTimeOffset(s.Timestamp).ToUnixTimeMilliseconds()));
+        }
+        await File.WriteAllTextAsync(signalsPath, sb.ToString(), Encoding.UTF8).ConfigureAwait(false);
+
+        // orders
+        var orders = await _cacheService.LoadOrdersAsync(symbol, limit: 1000);
+        string ordersPath = Path.Combine(dataDir, $"orders_{(symbol ?? "all")}_{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
+        var sb2 = new StringBuilder();
+        sb2.AppendLine("order_id,symbol,side,type,quantity,price,stop_price,status,filled_qty,avg_fill_price,commission,strategy_name,created_at,updated_at,filled_at");
+        foreach (var o in orders)
+        {
+            var price = o.Price.HasValue ? o.Price.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
+            var stop = o.StopPrice.HasValue ? o.StopPrice.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
+            var avg = o.AvgFillPrice.HasValue ? o.AvgFillPrice.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty;
+            var strategy = (o.StrategyName ?? string.Empty).Replace("\"", "'");
+            long createdTs = new DateTimeOffset(o.CreatedAt).ToUnixTimeMilliseconds();
+            long updatedTs = new DateTimeOffset(o.UpdatedAt).ToUnixTimeMilliseconds();
+            long filledTs = o.FilledAt.HasValue ? new DateTimeOffset(o.FilledAt.Value).ToUnixTimeMilliseconds() : 0;
+            sb2.AppendLine(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "{0},\"{1}\",{2},{3},{4},{5},{6},{7},{8},{9},{10},\"{11}\",{12},{13},{14}",
+                o.OrderId,
+                o.Symbol,
+                o.Side,
+                o.Type,
+                o.Quantity,
+                price,
+                stop,
+                o.Status,
+                o.FilledQuantity,
+                avg,
+                o.Commission,
+                strategy,
+                createdTs,
+                updatedTs,
+                filledTs));
+        }
+        await File.WriteAllTextAsync(ordersPath, sb2.ToString(), Encoding.UTF8).ConfigureAwait(false);
+
+        return dataDir;
+    }
+
+    /// <summary>
+    /// 启动训练（stub 实现），返回模型文件路径
+    /// </summary>
+    public async Task<string> StartTrainingAsync(string? exportFolder = null, CancellationToken ct = default)
+    {
+        try
+        {
+            string folder = exportFolder ?? await ExportTrainingDataAsync(null);
+            if (!Directory.Exists(folder))
+            {
+                throw new ArgumentException("导出文件夹不存在", nameof(exportFolder));
+            }
+
+            string modelsDir = Path.Combine(AppContext.BaseDirectory, "Data", "models");
+            Directory.CreateDirectory(modelsDir);
+            string modelPath = Path.Combine(modelsDir, $"ai_model_{DateTime.UtcNow:yyyyMMddHHmmss}.bin");
+
+            LogService.Info("[LearningModule] 开始训练，使用数据目录: {0}", folder);
+
+            // 模拟长时间训练，支持取消
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                LogService.Info("[LearningModule] 训练被取消");
+                throw;
+            }
+
+            // 生成 placeholder 模型内容，包含简单因子统计摘要
+            var stats = GetStatistics();
+            var meta = new StringBuilder();
+            meta.AppendLine("Model: Placeholder");
+            meta.AppendLine($"TrainedAt: {DateTime.UtcNow:O}");
+            meta.AppendLine($"TotalRecords: {stats.TotalRecords}");
+            meta.AppendLine($"RecordsWithOutcome: {stats.RecordsWithOutcome}");
+            meta.AppendLine($"OverallSuccessRate: {stats.OverallSuccessRate:F4}");
+            meta.AppendLine($"OverallAvgProfit: {stats.OverallAvgProfit:F4}");
+
+            await File.WriteAllTextAsync(modelPath, meta.ToString(), Encoding.UTF8).ConfigureAwait(false);
+
+            LogService.Info("[LearningModule] 训练完成，模型已保存: {0}", modelPath);
+            return modelPath;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[LearningModule] 训练失败");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// 保存当前学习状态到持久层
+    /// </summary>
+    public async Task SaveStateAsync()
+    {
+        try
+        {
+            var state = new
+            {
+                LearningRate = _learningRate,
+                OptimizationCycle = _optimizationCycle,
+                FactorPerformance = _factorPerformance
+            };
+
+            string json = JsonSerializer.Serialize(state);
+            await _cacheService.SaveLearningStateAsync(LearningStateKey, json).ConfigureAwait(false);
+            LogService.Info("[LearningModule] 学习状态已保存");
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning("[LearningModule] 保存学习状态失败: {0}", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// 从持久层加载学习状态
+    /// </summary>
+    public async Task LoadStateAsync()
+    {
+        try
+        {
+            string? json = await _cacheService.LoadLearningStateAsync(LearningStateKey).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return;
+            }
+
+            var doc = JsonSerializer.Deserialize<JsonElement>(json);
+            if (!doc.TryGetProperty("OptimizationCycle", out var cycleProp))
+            {
+                return;
+            }
+
+            if (doc.TryGetProperty("LearningRate", out var lrProp) && lrProp.ValueKind == JsonValueKind.Number)
+            {
+                _learningRate = lrProp.GetDouble();
+            }
+
+            _optimizationCycle = cycleProp.GetInt32();
+
+            if (doc.TryGetProperty("FactorPerformance", out var fpProp) && fpProp.ValueKind != JsonValueKind.Null)
+            {
+                var dict = JsonSerializer.Deserialize<Dictionary<string, FactorPerformance>>(fpProp.GetRawText());
+                if (dict != null)
+                {
+                    lock (_lock)
+                    {
+                        _factorPerformance.Clear();
+                        foreach (var kv in dict)
+                        {
+                            _factorPerformance[kv.Key] = kv.Value;
+                        }
+                    }
+                }
+            }
+
+            LogService.Info("[LearningModule] 学习状态加载完成 (周期={0})", _optimizationCycle);
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning("[LearningModule] 加载学习状态失败: {0}", ex.Message);
         }
     }
 }

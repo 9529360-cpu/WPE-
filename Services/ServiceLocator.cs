@@ -55,6 +55,86 @@ public static class ServiceLocator
         }
         // 初始化就绪服务
         SystemReady.RefreshFromConfig();
+
+        // 订阅策略集合变化，自动驱动 AutoTrader（当有运行中策略时启动自动交易，若无则停止）
+        try
+        {
+            StrategyPortfolio.StrategiesChanged += () =>
+            {
+                try
+                {
+                    var running = StrategyPortfolio.GetAllStrategies().Where(s => s.IsRunning).ToList();
+                    if (running.Count > 0)
+                    {
+                        var symbols = running.SelectMany(s => (IEnumerable<string>)(s.Symbols ?? Enumerable.Empty<string>()))
+                                          .Select(x => x.Trim().ToUpperInvariant())
+                                          .Where(x => x.Length > 0)
+                                          .Distinct()
+                                          .ToArray();
+                        var acct = RuntimeState.CurrentAccountType;
+                        _ = AutoTrader.StartAsync(symbols, acct, enableScalping: false);
+                        LogService.Info("[ServiceLocator] AutoTrader 启动请求, 策略数={Count}, Symbols={Symbols}, Acct={Acct}", running.Count, string.Join(',', symbols), acct);
+                    }
+                    else
+                    {
+                        _ = AutoTrader.StopAsync();
+                        LogService.Info("[ServiceLocator] AutoTrader 停止请求 (无运行策略)");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.Error(ex, "[ServiceLocator] 处理 StrategiesChanged 事件失败");
+                }
+            };
+
+            // 当 UI 切换账户模式时，如果 AutoTrader 正在运行，重启以使用新账户
+            RuntimeState.OnAccountTypeChanged += (acct) =>
+            {
+                try
+                {
+                    var running = StrategyPortfolio.GetAllStrategies().Where(s => s.IsRunning).ToList();
+                    if (running.Count > 0)
+                    {
+                        var symbols = running.SelectMany(s => (IEnumerable<string>)(s.Symbols ?? Enumerable.Empty<string>()))
+                                          .Select(x => x.Trim().ToUpperInvariant())
+                                          .Where(x => x.Length > 0)
+                                          .Distinct()
+                                          .ToArray();
+                        _ = AutoTrader.StartAsync(symbols, acct, enableScalping: false);
+                        LogService.Info("[ServiceLocator] AutoTrader 账户切换请求, 使用账户={Acct}", acct);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.Error(ex, "[ServiceLocator] 处理 AccountTypeChanged 事件失败");
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning("[ServiceLocator] 无法订阅策略集合变化或账户模式变更: {Message}", ex.Message);
+        }
+
+        try
+        {
+            // ensure Cache is initialized before creating LearningModule
+            LearningModule = new LearningModule(Cache);
+            _ = LearningModule.LoadStateAsync().ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                {
+                    LogService.Warning("[ServiceLocator] 恢复 LearningModule 状态失败: {0}", t.Exception?.GetBaseException().Message);
+                }
+                else
+                {
+                    LogService.Info("[ServiceLocator] LearningModule 状态恢复完成");
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning("[ServiceLocator] 初始化 LearningModule 失败: {0}", ex.Message);
+        }
     }
 
     private static readonly Lazy<SystemReadyService> SystemReadyFactory = new(() => new SystemReadyService());
@@ -192,6 +272,15 @@ public static class ServiceLocator
         return mgr;
     });
 
+    // 公共策略模板和工厂（供系统其他模块使用）
+    private static readonly Lazy<StrategyTemplateLibrary> StrategyTemplatesFactory = new(() => new StrategyTemplateLibrary(AppContext.BaseDirectory));
+    private static readonly Lazy<StrategyFactory> StrategyFactoryFactory = new(() => new StrategyFactory(AnalyzerFactory.Value, MlFactory.Value, FeatureStoreFactory.Value));
+    public static StrategyTemplateLibrary StrategyTemplates => StrategyTemplatesFactory.Value;
+    public static StrategyFactory StrategyFactory => StrategyFactoryFactory.Value;
+
+    // 公开策略组合管理器
+    public static StrategyPortfolioManager StrategyPortfolio => StrategyPortfolioManagerFactory.Value;
+
     // 🆕 中央AI协调器工厂
     private static AICentralCoordinator? _aiCoordinator;
 
@@ -245,7 +334,6 @@ public static class ServiceLocator
     public static OrderHistoryService OrderHistory => OrderHistoryFactory.Value;
     public static PerformanceTrackingService PerformanceTracking => PerformanceTrackingFactory.Value;
     public static EnhancedBacktestEngine EnhancedBacktest => EnhancedBacktestFactory.Value;
-    public static StrategyPortfolioManager StrategyPortfolio => StrategyPortfolioManagerFactory.Value;
 
     // 公开自动交易控制器
     public static AutoTradingController AutoTrader => AutoTradingControllerFactory.Value;
@@ -298,7 +386,19 @@ public static class ServiceLocator
             string deepSeekApiKey = ConfigurationService.GetDeepSeekApiKey();
 
             var dataProcessor = new MarketDataPreprocessor(Api, Cache);
-            var aiAgent = new DeepSeekTradingAgent(deepSeekApiKey);
+
+            // 🆕 仅在配置启用时创建 DeepSeek agent
+            bool aiEnabled = ConfigurationService.GetAIConfig().EnableAITrading;
+            DeepSeekTradingAgent? aiAgent = null;
+            if (aiEnabled && !string.IsNullOrWhiteSpace(deepSeekApiKey))
+            {
+                aiAgent = new DeepSeekTradingAgent(deepSeekApiKey);
+            }
+            else
+            {
+                LogService.Info("[ServiceLocator] DeepSeek AI 已禁用或未配置，AI代理不创建");
+            }
+
             var riskManager = new AIRiskManager();
             var executionEngine = new AIOrderExecutionEngine(accountManager, Api, Cache, riskManager);
             var positionManager = new PositionManager(accountManager, Api, executionEngine);
@@ -306,7 +406,7 @@ public static class ServiceLocator
             var tradingAutomation = new AITradingAutomation(
                 Stream,
                 dataProcessor,
-                aiAgent,
+                aiAgent ?? new DeepSeekTradingAgent(""), // safe fallback with empty key will throw if used
                 executionEngine,
                 accountManager,
                 positionManager
@@ -405,9 +505,5 @@ public static class ServiceLocator
         return true;
     }
 
-    private static readonly Lazy<StrategyTemplateLibrary> StrategyTemplatesFactory = new(() => new StrategyTemplateLibrary(AppContext.BaseDirectory));
-    public static StrategyTemplateLibrary StrategyTemplates => StrategyTemplatesFactory.Value;
-
-    private static readonly Lazy<StrategyFactory> StrategyFactoryFactory = new(() => new StrategyFactory(AnalyzerFactory.Value, MlFactory.Value, FeatureStoreFactory.Value));
-    public static StrategyFactory StrategyFactory => StrategyFactoryFactory.Value;
+    public static LearningModule? LearningModule { get; private set; }
 }

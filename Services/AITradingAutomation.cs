@@ -136,6 +136,9 @@ public class AITradingAutomation
     {
         try
         {
+            using var act = Services.Observability.TraceManager.StartActivity("AITradingAutomation.OnTicker", System.Diagnostics.ActivityKind.Consumer);
+            Services.Observability.TraceManager.AddTag("symbol", ticker.Symbol);
+
             // 限制分析频率 (避免太频繁)
             if ((DateTime.UtcNow - _lastAnalysisTime).TotalSeconds < AnalysisIntervalSeconds)
             {
@@ -152,11 +155,24 @@ public class AITradingAutomation
             // 2. AI分析生成信号
             AITradingSignal signal = await _aiAgent.AnalyzeMarketSituationAsync(marketData);
 
+            Services.Observability.TraceManager.AddTag("signal.action", signal.Action);
+            Services.Observability.TraceManager.AddTag("signal.confidence", signal.Confidence);
+
             LogService.Info("🧠 AI信号: {Symbol} {Action} 信心度={Confidence:P0} 理由={Reason}",
                 signal.Symbol, signal.Action, signal.Confidence, signal.Reason ?? string.Empty);
 
             // 广播到UI
             _signalBroadcaster.BroadcastSignal(signal, "AITradingAutomation");
+
+            // Persist signal for learning
+            try
+            {
+                await ServiceLocator.Cache.SaveSignalAsync(signal.Symbol, signal.Action.ToString(), signal.Confidence, signal.Reason, "AITradingAutomation", DateTime.UtcNow);
+            }
+            catch (Exception ex)
+            {
+                LogService.Warning("保存信号失败: {Message}", ex.Message);
+            }
 
             if (_eventBus != null)
             {
@@ -193,6 +209,33 @@ public class AITradingAutomation
             {
                 LogService.Info("✅ 订单执行成功: {OrderId} @ {Price}",
                     result.OrderId ?? string.Empty, result.ExecutedPrice);
+
+                // 保存订单到历史
+                try
+                {
+                    var orderHistory = new OrderHistoryService(ServiceLocator.Cache);
+                    long orderIdLong;
+                    if (!long.TryParse(result.OrderId, out orderIdLong))
+                    {
+                        // fallback: use stable hash of guid
+                        orderIdLong = Math.Abs(result.OrderId?.GetHashCode() ?? Guid.NewGuid().GetHashCode());
+                    }
+
+                    await orderHistory.RecordOrderPlacedAsync(new OrderResponse
+                    {
+                        OrderId = orderIdLong,
+                        Symbol = signal.Symbol,
+                        Status = "FILLED",
+                        ExecutedQuantity = (decimal)result.ExecutedQuantity,
+                        Price = (decimal)result.ExecutedPrice,
+                        AvgPrice = (decimal)result.ExecutedPrice,
+                        Time = DateTime.UtcNow
+                    }, strategyName: "AutoTrader");
+                }
+                catch (Exception ex)
+                {
+                    LogService.Warning("保存订单历史失败: {Message}", ex.Message);
+                }
             }
             else if (!result.IsSuccess && string.Equals(result.Error, "Hold", StringComparison.OrdinalIgnoreCase))
             {

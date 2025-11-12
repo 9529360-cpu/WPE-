@@ -23,7 +23,17 @@ public sealed class StrategyTemplateLibrary
         lock (_lock)
         {
             var list = LoadAllInternal();
-            list.Add(template with { Timestamp = DateTime.UtcNow });
+            var withAudit = template with
+            {
+                Timestamp = DateTime.UtcNow,
+                Audit = template.Audit ?? new TemplateAudit
+                {
+                    Source = "AI",
+                    ModelVersion = "deepseek-chat",
+                    CreatedUtc = DateTime.UtcNow
+                }
+            };
+            list.Add(withAudit);
             Persist(list);
         }
     }
@@ -58,7 +68,25 @@ public sealed class StrategyTemplateLibrary
         try
         {
             string json = File.ReadAllText(_path);
-            return JsonSerializer.Deserialize<List<StrategyTemplate>>(json) ?? new List<StrategyTemplate>();
+            var list = JsonSerializer.Deserialize<List<StrategyTemplate>>(json) ?? new List<StrategyTemplate>();
+            // Backfill audit
+            for (int i = 0; i < list.Count; i++)
+            {
+                var t = list[i];
+                if (t.Audit is null)
+                {
+                    list[i] = t with
+                    {
+                        Audit = new TemplateAudit
+                        {
+                            Source = "Unknown",
+                            ModelVersion = string.Empty,
+                            CreatedUtc = t.Timestamp == default ? DateTime.UtcNow : t.Timestamp
+                        }
+                    };
+                }
+            }
+            return list;
         }
         catch
         {
@@ -80,6 +108,14 @@ public record StrategyTemplate(
     AccountType AccountType,
     IReadOnlyDictionary<string, double> Parameters,
     TemplateMetrics Metrics,
-    DateTime Timestamp);
+    DateTime Timestamp,
+    TemplateAudit? Audit);
 
 public record TemplateMetrics(double WinRate, double MaxDrawdown, double Sharpe, double ProfitFactor);
+
+public record TemplateAudit
+{
+    public string Source { get; init; } = string.Empty; // AI / Manual / Import
+    public string ModelVersion { get; init; } = string.Empty; // e.g., deepseek-chat@2024-xx
+    public DateTime CreatedUtc { get; init; } = DateTime.UtcNow;
+}

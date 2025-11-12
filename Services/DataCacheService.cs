@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using 币安量化机器人.Models;
+using System.Text.Json;
 
 namespace 币安量化机器人.Services;
 
@@ -120,9 +121,38 @@ public class DataCacheService
                 losing_trades INTEGER DEFAULT 0
             );";
 
+        // 新增：AI信号表
+        string createSignals = @"CREATE TABLE IF NOT EXISTS signals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                symbol TEXT NOT NULL,
+                action TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                reason TEXT,
+                source TEXT,
+                timestamp INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_signals_symbol ON signals(symbol);
+            CREATE INDEX IF NOT EXISTS idx_signals_timestamp ON signals(timestamp DESC);";
+
+        // 新增：决策记录表
+        string createDecisionRecords = @"CREATE TABLE IF NOT EXISTS decision_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp INTEGER UNIQUE NOT NULL,
+                state_json TEXT NOT NULL,
+                decision_json TEXT NOT NULL,
+                outcome_json TEXT,
+                created_at INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_decision_records_timestamp ON decision_records(timestamp DESC);";
+
+        string createLearningState = @"CREATE TABLE IF NOT EXISTS learning_state (
+                key TEXT PRIMARY KEY,
+                json TEXT NOT NULL,
+                updated_at INTEGER NOT NULL
+            );";
+
         await using SqliteCommand cmd = connection.CreateCommand();
-        // Fix: use Environment.NewLine to join multiple DDL statements
-        cmd.CommandText = string.Join(Environment.NewLine, new[] { createFunding, createPrices, createAccounts, createOrders, createTrades, createStrategyPerf, createDailyPnl });
+        cmd.CommandText = string.Join(Environment.NewLine, new[] { createFunding, createPrices, createAccounts, createOrders, createTrades, createStrategyPerf, createDailyPnl, createSignals, createDecisionRecords, createLearningState });
         await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
     }
 
@@ -472,6 +502,156 @@ public class DataCacheService
                 MaxDrawdown = reader.GetDouble(9),
                 UpdatedAt = DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(10)).UtcDateTime
             };
+        }
+
+        return null;
+    }
+
+    // 新增方法：保存 AI 信号
+    public async Task SaveSignalAsync(string symbol, string action, double confidence, string? reason, string? source, DateTime timestamp)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        await using SqliteCommand cmd = connection.CreateCommand();
+        cmd.CommandText = @"INSERT INTO signals(symbol, action, confidence, reason, source, timestamp) VALUES ($symbol, $action, $confidence, $reason, $source, $ts);";
+        cmd.Parameters.AddWithValue("$symbol", symbol);
+        cmd.Parameters.AddWithValue("$action", action);
+        cmd.Parameters.AddWithValue("$confidence", confidence);
+        cmd.Parameters.AddWithValue("$reason", (object?)reason ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$source", (object?)source ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$ts", new DateTimeOffset(timestamp).ToUnixTimeMilliseconds());
+        await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+    }
+
+    // 新增方法：查询 AI 信号
+    public async Task<IReadOnlyList<SignalRecord>> LoadSignalsAsync(string? symbol = null, int limit = 100)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        await using SqliteCommand cmd = connection.CreateCommand();
+
+        if (string.IsNullOrWhiteSpace(symbol))
+        {
+            cmd.CommandText = "SELECT id, symbol, action, confidence, reason, source, timestamp FROM signals ORDER BY timestamp DESC LIMIT $limit";
+        }
+        else
+        {
+            cmd.CommandText = "SELECT id, symbol, action, confidence, reason, source, timestamp FROM signals WHERE symbol = $symbol ORDER BY timestamp DESC LIMIT $limit";
+            cmd.Parameters.AddWithValue("$symbol", symbol);
+        }
+        cmd.Parameters.AddWithValue("$limit", limit);
+
+        var result = new List<SignalRecord>();
+        await using SqliteDataReader reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            result.Add(new SignalRecord
+            {
+                Id = reader.GetInt64(0),
+                Symbol = reader.GetString(1),
+                Action = reader.GetString(2),
+                Confidence = reader.GetDouble(3),
+                Reason = reader.IsDBNull(4) ? null : reader.GetString(4),
+                Source = reader.IsDBNull(5) ? null : reader.GetString(5),
+                Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(6)).UtcDateTime
+            });
+        }
+
+        return result;
+    }
+
+    public async Task SaveDecisionRecordAsync(long timestampMs, string stateJson, string decisionJson)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        await using SqliteCommand cmd = connection.CreateCommand();
+        cmd.CommandText = @"INSERT OR REPLACE INTO decision_records(timestamp, state_json, decision_json, created_at) VALUES ($ts, $state, $decision, $created);";
+        cmd.Parameters.AddWithValue("$ts", timestampMs);
+        cmd.Parameters.AddWithValue("$state", stateJson);
+        cmd.Parameters.AddWithValue("$decision", decisionJson);
+        cmd.Parameters.AddWithValue("$created", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+    }
+
+    public async Task UpdateDecisionRecordOutcomeAsync(long timestampMs, string outcomeJson)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        await using SqliteCommand cmd = connection.CreateCommand();
+        cmd.CommandText = @"UPDATE decision_records SET outcome_json = $outcome WHERE timestamp = $ts;";
+        cmd.Parameters.AddWithValue("$outcome", outcomeJson);
+        cmd.Parameters.AddWithValue("$ts", timestampMs);
+        await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<DecisionRecordDb>> LoadDecisionRecordsAsync(int limit = 100)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        await using SqliteCommand cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT timestamp, state_json, decision_json, outcome_json FROM decision_records ORDER BY timestamp DESC LIMIT $limit";
+        cmd.Parameters.AddWithValue("$limit", limit);
+
+        var result = new List<DecisionRecordDb>();
+        await using SqliteDataReader reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            result.Add(new DecisionRecordDb
+            {
+                Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(0)).UtcDateTime,
+                StateJson = reader.GetString(1),
+                DecisionJson = reader.GetString(2),
+                OutcomeJson = reader.IsDBNull(3) ? null : reader.GetString(3)
+            });
+        }
+
+        return result;
+    }
+
+    public class SignalRecord
+    {
+        public long Id { get; set; }
+        public string Symbol { get; set; } = string.Empty;
+        public string Action { get; set; } = string.Empty;
+        public double Confidence { get; set; }
+        public string? Reason { get; set; }
+        public string? Source { get; set; }
+        public DateTime Timestamp { get; set; }
+    }
+
+    public class DecisionRecordDb
+    {
+        public DateTime Timestamp { get; set; }
+        public string StateJson { get; set; } = string.Empty;
+        public string DecisionJson { get; set; } = string.Empty;
+        public string? OutcomeJson { get; set; }
+    }
+
+    public async Task SaveLearningStateAsync(string key, string json)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        await using SqliteCommand cmd = connection.CreateCommand();
+        cmd.CommandText = @"INSERT INTO learning_state(key, json, updated_at) VALUES ($key, $json, $ts)
+                            ON CONFLICT(key) DO UPDATE SET json = $json, updated_at = $ts;";
+        cmd.Parameters.AddWithValue("$key", key);
+        cmd.Parameters.AddWithValue("$json", json);
+        cmd.Parameters.AddWithValue("$ts", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+    }
+
+    public async Task<string?> LoadLearningStateAsync(string key)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        await using SqliteCommand cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT json FROM learning_state WHERE key = $key LIMIT 1";
+        cmd.Parameters.AddWithValue("$key", key);
+
+        await using SqliteDataReader reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        if (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            return reader.GetString(0);
         }
 
         return null;

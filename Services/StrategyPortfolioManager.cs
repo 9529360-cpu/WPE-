@@ -15,11 +15,26 @@ public sealed class StrategyPortfolioManager
     private readonly object _lock = new();
     private readonly string _storagePath;
 
+    // 事件：当策略集合发生变化时触发（UI 可订阅以刷新）
+    public event Action? StrategiesChanged;
+
     public StrategyPortfolioManager(TradingAccountManager accountManager, string? storageDirectory = null)
     {
         _accountManager = accountManager;
         _storagePath = Path.Combine(storageDirectory ?? AppContext.BaseDirectory, "Data", "strategies.json");
         Directory.CreateDirectory(Path.GetDirectoryName(_storagePath)!);
+    }
+
+    private void OnStrategiesChanged()
+    {
+        try
+        {
+            StrategiesChanged?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning("[StrategyPortfolio] StrategiesChanged handler threw: {Message}", ex.Message);
+        }
     }
 
     /// <summary>
@@ -34,10 +49,20 @@ public sealed class StrategyPortfolioManager
                 throw new InvalidOperationException($"策略 {strategy.Name} 已存在");
             }
 
+            // 默认合约模式与审计补全
+            strategy.Market = strategy.Market == 0 ? MarketType.Futures : strategy.Market;
+            strategy.Audit ??= new StrategyAudit
+            {
+                Source = "AI",
+                ModelVersion = ServiceLocator.AIStrategyGenerator is not null ? "deepseek-chat" : "unknown",
+                CreatedUtc = DateTime.UtcNow
+            };
+
             _strategies[strategy.Id] = strategy;
             SaveToDisk();
         }
         LogService.Info("[StrategyPortfolio] 策略已添加: {Name} (权重: {Weight:P0})", strategy.Name, strategy.Weight);
+        OnStrategiesChanged();
     }
 
     /// <summary>
@@ -51,7 +76,9 @@ public sealed class StrategyPortfolioManager
             Type = type,
             Symbols = symbols?.Select(x => x.Trim().ToUpperInvariant()).Where(x => x.Length > 0).Distinct().ToList() ?? new List<string>(),
             Weight = weight <= 0 || weight > 1 ? 0.25 : weight,
-            Stage = StrategyStage.Idle
+            Stage = StrategyStage.Idle,
+            Market = MarketType.Futures,
+            Audit = new StrategyAudit { Source = "Manual", ModelVersion = string.Empty, CreatedUtc = DateTime.UtcNow }
         };
         AddStrategy(s);
         return s;
@@ -70,15 +97,17 @@ public sealed class StrategyPortfolioManager
                 {
                     StopStrategy(strategyId);
                 }
+                SaveToDisk();
                 LogService.Info("[StrategyPortfolio] 策略已移除: {Name}", strategy.Name);
             }
         }
+        OnStrategiesChanged();
     }
 
     /// <summary>
     /// 启动策略
     /// </summary>
-    public async Task StartStrategyAsync(string strategyId, StrategyStage stage = StrategyStage.LiveRunning)
+    public async Task StartStrategyAsync(string strategyId, StrategyStage stage = StrategyStage.LiveRunning, Models.AccountType? runAs = null)
     {
         lock (_lock)
         {
@@ -96,9 +125,29 @@ public sealed class StrategyPortfolioManager
             strategy.StartTime = DateTime.UtcNow;
             strategy.Stage = stage;
         }
+
         SaveToDisk();
+
+        // Determine which account to run under: explicit override (runAs) or strategy.AccountType
+        var effectiveAccount = runAs ?? _strategies[strategyId].AccountType;
+
+        // Try to start AutoTrader for this strategy (non-blocking)
+        try
+        {
+            var symbols = _strategies[strategyId].Symbols?.ToArray() ?? Array.Empty<string>();
+            var acctType = effectiveAccount;
+            // Start the global AutoTradingController with these symbols
+            _ = ServiceLocator.AutoTrader.StartAsync(symbols, acctType, enableScalping: false);
+            LogService.Info("[StrategyPortfolio] 请求启动 AutoTrader for strategy {Name} (Acct={Acct})", _strategies[strategyId].Name, acctType);
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning("[StrategyPortfolio] 启动 AutoTrader 失败: {Message}", ex.Message);
+        }
+
         await Task.CompletedTask;
         LogService.Info("[StrategyPortfolio] 策略已启动: {Name}", _strategies[strategyId].Name);
+        OnStrategiesChanged();
     }
 
     /// <summary>
@@ -117,6 +166,7 @@ public sealed class StrategyPortfolioManager
                 LogService.Info("[StrategyPortfolio] 策略已停止: {Name}", strategy.Name);
             }
         }
+        OnStrategiesChanged();
     }
 
     /// <summary>
@@ -309,6 +359,8 @@ public sealed class StrategyPortfolioManager
         {
             var json = JsonSerializer.Serialize(_strategies.Values, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(_storagePath, json);
+            // 在每次成功持久化后通知订阅者
+            OnStrategiesChanged();
         }
         catch (Exception ex)
         {
@@ -335,9 +387,16 @@ public sealed class StrategyPortfolioManager
                 _strategies.Clear();
                 foreach (var s in list)
                 {
+                    // Backfill audit & force Futures as default market
+                    s.Audit ??= new StrategyAudit { Source = string.IsNullOrEmpty(s.Description) ? "AI" : "Manual", ModelVersion = string.Empty, CreatedUtc = s.StartTime ?? DateTime.UtcNow };
+                    if (s.Market == 0)
+                    {
+                        s.Market = MarketType.Futures;
+                    }
                     _strategies[s.Id] = s;
                 }
             }
+            OnStrategiesChanged();
         }
         catch (Exception ex)
         {
@@ -443,6 +502,25 @@ public enum StrategyStage
 }
 
 /// <summary>
+/// 市场类型（现货/合约）
+/// </summary>
+public enum MarketType
+{
+    Spot = 0,
+    Futures = 1
+}
+
+/// <summary>
+/// 审计元数据：用于记录策略来源、模型版本与时间戳
+/// </summary>
+public record StrategyAudit
+{
+    public string Source { get; init; } = string.Empty; // AI / Manual / Import
+    public string ModelVersion { get; init; } = string.Empty; // e.g., deepseek-chat@2024-xx
+    public DateTime CreatedUtc { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>
 /// 策略实例
 /// </summary>
 public class StrategyInstance
@@ -455,6 +533,9 @@ public class StrategyInstance
     public bool IsRunning { get; set; }
     public DateTime? StartTime { get; set; }
     public DateTime? StopTime { get; set; }
+
+    // 市场类型：默认合约
+    public MarketType Market { get; set; } = MarketType.Futures;
 
     // 账户分区
     public AccountType AccountType { get; set; } = AccountType.Simulated;
@@ -483,6 +564,9 @@ public class StrategyInstance
         StartTime.HasValue ? (StopTime ?? DateTime.UtcNow) - StartTime.Value : TimeSpan.Zero;
 
     public double Volatility { get; set; } // 年化波动率 (0-1)
+
+    // 审计元数据
+    public StrategyAudit? Audit { get; set; }
 }
 
 public class PortfolioStats
