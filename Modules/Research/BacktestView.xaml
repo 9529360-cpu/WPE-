@@ -37,7 +37,9 @@
             <Button Content="运行回测" Width="120" Height="32" Click="RunBacktest_Click"/>
         </StackPanel>
 
-        <sp:WpfPlot x:Name="EquityPlot" Grid.Row="2" Margin="0,0,0,12"/>
+        <Border x:Name="EquityPlot" Grid.Row="2" Margin="0,0,0,12" Background="#F3F4F6">
+            <TextBlock Text="📊 ScottPlot 回测曲线占位" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#6B7280"/>
+        </Border>
 
         <TextBlock x:Name="ResultText" Grid.Row="3" TextWrapping="Wrap" Foreground="#334155"/>
     </Grid>

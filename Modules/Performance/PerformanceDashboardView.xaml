@@ -72,7 +72,9 @@
                             <RowDefinition Height="400"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="净值曲线" FontSize="15" FontWeight="Bold" Foreground="#111827" Margin="0,0,0,12"/>
-                        <ScottPlot:WpfPlot x:Name="EquityPlot" Grid.Row="1" Background="White"/>
+                        <Border x:Name="EquityPlot" Grid.Row="1" Background="#F3F4F6">
+                            <TextBlock Text="📊 ScottPlot 净值曲线占位" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#6B7280"/>
+                        </Border>
                     </Grid>
                 </Border>
 
