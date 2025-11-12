@@ -10,7 +10,6 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using ScottPlot;
-using ScottPlot.Plottables;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 using 币安量化机器人.Modules;
@@ -275,12 +274,12 @@ public partial class RealtimeView : UserControl, IModuleLifecycle
         double[] xs = Enumerable.Range(0, history.Length).Select(i => (double)i).ToArray();
         double[] ys = history;
 
-        Scatter scatter = plt.Add.Scatter(xs, ys);
+        var scatter = plt.AddScatter(xs, ys);
         scatter.LineWidth = 2;
 
         plt.Title($"{quote.Symbol} 最新 {history.Length} 笔 Tick");
-        plt.Axes.Left.Label.Text = "价格";
-        plt.Axes.Bottom.Label.Text = "采样序号";
+        plt.YLabel("价格");
+        plt.XLabel("采样序号");
 
         PricePlot.Refresh();
     }

@@ -110,37 +110,37 @@ public partial class PerformanceDashboardView : UserControl, IModuleLifecycle
             double[] positions = report.EquityCurve.Select(p => p.PositionValue).ToArray();
 
             // 绘制净值曲线 (主线)
-            Scatter netValueLine = plt.Add.Scatter(dates, netValues);
+            var netValueLine = plt.AddScatter(dates, netValues);
             netValueLine.LineWidth = 3;
-            netValueLine.Color = ScottPlot.Color.FromHex("#3B82F6");
-            netValueLine.LegendText = "净值";
+            netValueLine.Color = System.Drawing.ColorTranslator.FromHtml("#3B82F6");
+            netValueLine.Label = "净值";
             netValueLine.MarkerSize = 0;
 
             // 绘制余额曲线
-            Scatter balanceLine = plt.Add.Scatter(dates, balances);
+            var balanceLine = plt.AddScatter(dates, balances);
             balanceLine.LineWidth = 2;
-            balanceLine.Color = ScottPlot.Color.FromHex("#10B981");
-            balanceLine.LegendText = "可用余额";
+            balanceLine.Color = System.Drawing.ColorTranslator.FromHtml("#10B981");
+            balanceLine.Label = "可用余额";
             balanceLine.MarkerSize = 0;
-            balanceLine.LinePattern = LinePattern.Dotted;
+            balanceLine.LineStyle = ScottPlot.LineStyle.Dot;
 
             // 绘制持仓价值
-            Scatter positionLine = plt.Add.Scatter(dates, positions);
+            var positionLine = plt.AddScatter(dates, positions);
             positionLine.LineWidth = 2;
-            positionLine.Color = ScottPlot.Color.FromHex("#F59E0B");
-            positionLine.LegendText = "持仓价值";
+            positionLine.Color = System.Drawing.ColorTranslator.FromHtml("#F59E0B");
+            positionLine.Label = "持仓价值";
             positionLine.MarkerSize = 0;
-            positionLine.LinePattern = LinePattern.Dashed;
+            positionLine.LineStyle = ScottPlot.LineStyle.Dash;
 
             // 图表设置
             plt.Title("账户净值曲线");
-            plt.Axes.Left.Label.Text = "净值 (USDT)";
-            plt.Axes.Bottom.Label.Text = "日期";
-            plt.Axes.DateTimeTicksBottom();
-            plt.Legend.IsVisible = true;
-            // ScottPlot v5: use Alignment property
-            plt.Legend.Alignment = Alignment.UpperLeft;
-            plt.Grid.MajorLineColor = ScottPlot.Color.FromHex("#E5E7EB");
+            plt.YLabel("净值 (USDT)");
+            plt.XLabel("日期");
+            // DateTime ticks helper in v5
+            plt.SetAxisLimits(xMin: dates.FirstOrDefault(), xMax: dates.LastOrDefault());
+
+            plt.Legend(true, ScottPlot.Alignment.UpperLeft);
+            plt.Grid(true);
 
             EquityPlot.Refresh();
         }

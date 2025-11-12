@@ -1,17 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using ScottPlot;
-using ScottPlot.Plottables;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
-using 币安量化机器人.Modules;
 
 namespace 币安量化机器人.Modules.Market;
 
@@ -22,6 +18,7 @@ public partial class FundingView : UserControl, IModuleLifecycle
     private readonly DataCacheService _cache = ServiceLocator.Cache;
     private ICollectionView? _view;
     private bool _initialized;
+    private readonly List<FundingRateModel> _rates = new();
 
     public FundingView()
     {
@@ -31,7 +28,10 @@ public partial class FundingView : UserControl, IModuleLifecycle
 
     public async Task StartAsync()
     {
-        if (_initialized) return;
+        if (_initialized)
+        {
+            return;
+        }
         _initialized = true;
         await LoadDataAsync();
     }
@@ -149,54 +149,48 @@ public partial class FundingView : UserControl, IModuleLifecycle
         if (history.Length == 0)
         {
             plt.Title("暂无历史样本");
-            FundingPlot.Refresh();
+            FundingPlot.Render();
             return;
         }
 
         double[] xs = Enumerable.Range(0, history.Length).Select(i => (double)i).ToArray();
         double[] ys = history.Select(h => h.FundingRate).ToArray();
 
-        Scatter scatter = plt.Add.Scatter(xs, ys);
+        var scatter = plt.AddScatter(xs, ys);
         scatter.LineWidth = 2;
         scatter.MarkerSize = 4;
-        scatter.MarkerShape = MarkerShape.FilledCircle;
+        scatter.MarkerShape = ScottPlot.MarkerShape.filledCircle;
 
         plt.Title($"{snapshot.Pair} 资金率走势");
-        plt.Axes.Left.Label.Text = "资金率";
-        plt.Axes.Bottom.Label.Text = "样本序号";
+        plt.YLabel("资金率");
+        plt.XLabel("样本序号");
 
+        FundingPlot.Render();
+    }
+
+    private void RenderFundingPlot(IEnumerable<double> xs, IEnumerable<double> ys)
+    {
+        Plot plt = FundingPlot.Plot;
+        plt.Clear();
+        var scatter = plt.AddScatter(xs.ToArray(), ys.ToArray());
+        // v5: set marker shape via MarkerShape enum from ScottPlot.
+        scatter.MarkerShape = ScottPlot.MarkerShape.filledCircle;
+        plt.YLabel("资金率");
+        plt.XLabel("样本序号");
         FundingPlot.Refresh();
     }
 
-    private async void Initialize()
+    private void LoadRates(IEnumerable<FundingRateModel> rates)
     {
-        if (_initialized)
+        _rates.Clear();
+        foreach (var r in rates)
         {
-            return;
+            _rates.Add(r);
         }
-        _initialized = true;
 
-        try
-        {
-            IReadOnlyList<FundingRateSnapshot> rates = await _api.GetFundingRatesAsync(limit: 50);
+        if (_rates.Count > 0)
+            PairGrid.SelectedIndex = 0;
 
-            _rates.Clear();
-            foreach (FundingRateSnapshot? r in rates)
-            {
-                _rates.Add(r);
-            }
-
-            if (_rates.Count > 0)
-            {
-                PairGrid.SelectedIndex = 0;
-            }
-
-            StatusText.Text = $"状态：已加载 {_rates.Count} 个合约资金费率";
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = "状态：加载失败";
-            MessageBox.Show(ex.Message, "资金费率", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
+        StatusText.Text = $"状态：已加载 {_rates.Count} 个合约资金费率";
     }
 }

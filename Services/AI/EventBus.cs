@@ -79,7 +79,10 @@ public class EventBus : IDisposable
 
         public void Dispose()
         {
-            if (_disposed) return;
+            if (_disposed)
+            {
+                return;
+            }
             _disposed = true;
             _bus.Unsubscribe(_eventType, _wrapper);
         }

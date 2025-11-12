@@ -34,7 +34,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <None Update="Data\ai\lstm_model.json">
+      <None Update="Data\\ai\\lstm_model.json">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
     </ItemGroup>
