@@ -70,7 +70,7 @@
   任务关联: `A3, A4`
   文件路径: `Core/Events.cs`, `Services/OrderExecutionService.cs`, `Persistence/IRepository.cs`, `Persistence/LiteDbRepository.cs`
   类型: `新增/修改`
-  目的: `为 OrderExecutionService 增加 IRepository 持久化支持并实现 LiteDB 仓库，开始实现未完成订单恢复逻辑。`
-  状态: `InProgress`
-  提交: `branch: upgrade-to-NET10, commit: <待推送>`
+  目的: `为 OrderExecutionService 增加 IRepository 持久化支持并实现 LiteDB 仓库，开始实现未完成订单恢复与后台处理逻辑。`
+  状态: `Done`
+  提交: `branch: upgrade-to-NET10, commit: 8f3f164 (本地提交)`
   备注: `LiteDB 作为轻量嵌入式存储；后续需完善持久化数据结构与事务保证。`
