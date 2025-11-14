@@ -22,7 +22,7 @@
   类型: `新增`
   目的: `抽象行情订阅与重连逻辑，供 Strategy 和 UI 消费`
   状态: `Done`
-  提交: `branch: upgrade-to-NET10, commit: 5ef8f8a`
+  提交: `branch: upgrade-to-NET10, commit: a1b5c6e`
   备注: `创建接口与空实现骨架，供后续填充实现。`
 
 - ID: `CHG-20251114-02`
@@ -32,7 +32,7 @@
   类型: `新增`
   目的: `下单与撤单服务骨架，供 UI 测试与后续实现幂等/重试/持久化逻辑`
   状态: `Done`
-  提交: `branch: upgrade-to-NET10, commit: 5ef8f8a`
+  提交: `branch: upgrade-to-NET10, commit: a1b5c6e`
   备注: `当前为内存实现，后续需实现持久化与交易所适配。`
 
 - ID: `CHG-20251114-03`
@@ -42,5 +42,15 @@
   类型: `新增`
   目的: `添加 UI 与 ViewModel 骨架以便与服务联动测试`
   状态: `Done`
-  提交: `branch: upgrade-to-NET10, commit: 5ef8f8a`
-  备注: `UI 控件为占位，后续需要绑定命令与数据源。
+  提交: `branch: upgrade-to-NET10, commit: a1b5c6e`
+  备注: `UI 控件为占位，后续需要绑定命令与数据源。`
+
+- ID: `CHG-20251114-04`
+  日期: `2025-11-14`
+  任务关联: `A2`
+  文件路径: `Core/IEventBus.cs`, `Services/EventBus.cs`, `Core/Events.cs`, `Services/MarketDataService.cs`
+  类型: `新增`
+  目的: `实现进程内事件总线，MarketDataService 将原始行情发布到事件总线以供下游处理。`
+  状态: `Done`
+  提交: `branch: upgrade-to-NET10, commit: a1b5c6e`
+  备注: `事件总线为轻量实现，不保证跨进程持久化或高级路由。`

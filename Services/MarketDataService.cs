@@ -9,7 +9,7 @@ namespace 币安量化机器人.Services
 {
     /// <summary>
     /// 简单的行情订阅服务骨架。提供 WebSocket 连接、接收循环与自动重连。
-    /// 目前为本地模拟/占位实现；后续可替换为真实交易所地址与订阅逻辑。
+    /// 发布解析后的消息到 IEventBus，供策略与下单服务消费。
     /// </summary>
     public class MarketDataService : IMarketDataService
     {
@@ -20,14 +20,16 @@ namespace 币安量化机器人.Services
         private readonly Uri _endpoint;
         private readonly int _reconnectDelayMs = 3000;
         private bool _running;
+        private readonly IEventBus _eventBus;
 
-        public MarketDataService() : this(new Uri("wss://stream.binance.com:9443/ws/!ticker@arr"))
+        public MarketDataService(IEventBus eventBus) : this(new Uri("wss://stream.binance.com:9443/ws/!ticker@arr"), eventBus)
         {
         }
 
-        public MarketDataService(Uri endpoint)
+        public MarketDataService(Uri endpoint, IEventBus eventBus)
         {
             _endpoint = endpoint;
+            _eventBus = eventBus;
         }
 
         public bool IsConnected => _ws != null && _ws.State == WebSocketState.Open;
@@ -107,6 +109,9 @@ namespace 币安量化机器人.Services
                         try
                         {
                             RawMessageReceived?.Invoke(message);
+
+                            // 发布到事件总线，供其它服务解析与处理
+                            _eventBus.Publish(new MarketDataRawMessage { Raw = message, ReceivedAt = DateTime.UtcNow });
                         }
                         catch
                         {
