@@ -144,3 +144,13 @@
   状态: `Done`
   提交: `local`
   备注: `无`
+
+- ID: `CHG-20251114-14`
+  日期: `2025-11-14`
+  任务关联: `U7`
+  文件路径: `MainWindow.xaml.cs`
+  类型: `修改`
+  目的: `将导航项选择与视图加载集成，支持 Strategy/Orders/Observability/Risk/Backtest 模块`
+  状态: `Done`
+  提交: `local`
+  备注: `无`
