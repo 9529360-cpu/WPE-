@@ -125,5 +125,22 @@
   提交: `local`
   备注: `无`
 
-- CHG-20251114-12 | 2025-11-14 | 任务: U6 | 新增: `Services/MockExchange.cs`, `Modules/Backtest/BacktestView.xaml`, `Modules/Backtest/BacktestView.xaml.cs` | 状态: Done | 提交: local
-  说明: 添加 MockExchange 用于合成历史行情，并实现基础回测视图以演示回放与结果汇总。
+- ID: `CHG-20251114-12`
+  日期: `2025-11-14`
+  任务关联: `U6`
+  文件路径: `Services/MockExchange.cs`, `Modules/Backtest/BacktestView.xaml`, `Modules/Backtest/BacktestView.xaml.cs`
+  类型: `新增`
+  目的: `添加 MockExchange 用于合成历史行情，并实现基础回测视图以演示回放与结果汇总。`
+  状态: `Done`
+  提交: `local`
+  备注: `无`
+
+- ID: `CHG-20251114-13`
+  日期: `2025-11-14`
+  任务关联: `U8`
+  文件路径: `Themes/Controls.xaml`, `Themes/Colors.xaml`, `Modules/Strategy/StrategyManagerView.xaml`
+  类型: `新增`
+  目的: `添加基础控件样式与主题资源，并在 StrategyManagerView 中应用样式。`
+  状态: `Done`
+  提交: `local`
+  备注: `无`

@@ -9,14 +9,23 @@
         <StackPanel>
             <TextBlock Text="策略管理" FontWeight="Bold" FontSize="16"/>
             <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                <Button Content="加载策略" Width="90" Margin="0,0,8,0"/>
-                <Button Content="开始" Width="70" Margin="0,0,8,0"/>
-                <Button Content="暂停" Width="70" Margin="0,0,8,0"/>
-                <Button Content="停止" Width="70" Margin="0,0,8,0"/>
-                <Button Content="回测" Width="90"/>
+                <Button Content="加载策略" Width="90" Margin="0,0,8,0" Command="{Binding LoadStrategyCommand}" Style="{StaticResource PrimaryButton}"/>
+                <Button Content="开始所有" Width="90" Margin="0,0,8,0" Command="{Binding StartAllCommand}" Style="{StaticResource PrimaryButton}"/>
+                <Button Content="停止所有" Width="90" Margin="0,0,8,0" Command="{Binding StopAllCommand}" Style="{StaticResource SecondaryButton}"/>
+                <Button Content="回测" Width="90" Command="{Binding BacktestCommand}" Style="{StaticResource SecondaryButton}"/>
             </StackPanel>
+
             <Border Background="{StaticResource CardBackgroundBrush}" CornerRadius="6" Padding="10" Margin="0,12,0,0">
-                <TextBlock Text="策略列表（占位）" />
+                <ListBox ItemsSource="{Binding Strategies}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Name}" Width="200"/>
+                                <TextBlock Text="{Binding Status}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
             </Border>
         </StackPanel>
     </Grid>
