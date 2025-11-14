@@ -2,22 +2,38 @@ using System;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using 币安量化机器人.Core;
+using 币安量化机器人.Persistence;
 
 namespace 币安量化机器人.Services
 {
     /// <summary>
     /// 下单服务：实现幂等ID处理、简单重试机制，并订阅 OrderRequestEvent。
-    /// 当前为进程内实现，后续应增加持久化与真实交易所适配。
+    /// 增加对 IRepository 的持久化支持，将未完成订单写入仓库。
     /// </summary>
     public class OrderExecutionService : IOrderExecutionService
     {
         private readonly ConcurrentDictionary<string, object> _orders = new ConcurrentDictionary<string, object>();
         private readonly IEventBus _eventBus;
+        private readonly IRepository _repository;
 
-        public OrderExecutionService(IEventBus eventBus)
+        public OrderExecutionService(IEventBus eventBus, IRepository repository)
         {
             _eventBus = eventBus;
+            _repository = repository;
             _eventBus.Subscribe<OrderRequestEvent>(async req => await HandleOrderRequestAsync(req));
+        }
+
+        public async Task InitializeAsync()
+        {
+            await _repository.InitializeAsync();
+
+            // 恢复未完成订单
+            var pending = await _repository.GetPendingOrdersAsync();
+            foreach (var p in pending)
+            {
+                _orders[p.OrderId] = p.Payload;
+                // TODO: 将恢复的订单进入处理队列
+            }
         }
 
         public Task<string> PlaceOrderAsync(object order)
@@ -25,6 +41,8 @@ namespace 币安量化机器人.Services
             // 生成占位订单ID
             var id = Guid.NewGuid().ToString("N");
             _orders[id] = order;
+            // 持久化未完成订单
+            _repository.SavePendingOrderAsync(id, order.ToString());
             // 发布 OrderPlacedEvent
             _eventBus.Publish(new OrderPlacedEvent { OrderId = id });
             return Task.FromResult(id);
@@ -33,6 +51,7 @@ namespace 币安量化机器人.Services
         public Task CancelOrderAsync(string orderId)
         {
             _orders.TryRemove(orderId, out _);
+            _repository.RemovePendingOrderAsync(orderId);
             _eventBus.Publish(new OrderCancelledEvent { OrderId = orderId });
             return Task.CompletedTask;
         }
@@ -42,11 +61,18 @@ namespace 币安量化机器人.Services
             // 幂等：如果 ClientOrderId 已存在则忽略或返回已有订单ID
             if (!string.IsNullOrEmpty(req.ClientOrderId))
             {
-                foreach (var kvp in _orders)
+                if (_orders.ContainsKey(req.ClientOrderId))
                 {
-                    if (kvp.Key == req.ClientOrderId)
+                    _eventBus.Publish(new OrderPlacedEvent { OrderId = req.ClientOrderId, Symbol = req.Symbol, Quantity = req.Quantity });
+                    return;
+                }
+
+                // 检查持久化存储
+                var pending = await _repository.GetPendingOrdersAsync();
+                foreach (var p in pending)
+                {
+                    if (p.OrderId == req.ClientOrderId)
                     {
-                        // 已存在的幂等ID，发布已下单事件
                         _eventBus.Publish(new OrderPlacedEvent { OrderId = req.ClientOrderId, Symbol = req.Symbol, Quantity = req.Quantity });
                         return;
                     }

@@ -208,3 +208,106 @@ This section captures the project's folder layout, important files and the high-
 2. 确认后我会进行 git 提交（并推送到 origin），提交信息格式：`chore(upgrade-plan): CHG-20251114-0X <描述>`。
 
 > 说明：所有变更记录与任务状态均以中文写入计划文件与变更日志，便于你跟踪。
+
+---
+
+# 详细任务清单（可执行子任务）
+
+下面为每个高层任务拆分的细化子任务、验收标准与预计工作量。每次完成子任务时，负责人应在 `.github/upgrades/change-log.md` 中添加对应 `CHG-` 条目并在本文件中更新状态。
+
+- A1: 引入核心服务接口与 DI（优先级：高）
+  - 子任务 A1.1: 定义接口 `IMarketDataService`, `IOrderExecutionService`, `IPositionService`（验收：接口文件存在并有 XML 注释；预计：0.5d）
+  - 子任务 A1.2: 在 `Core/` 放置接口定义，`Services/` 放置默认实现骨架（验收：对应 `.cs` 文件存在并能编译；预计：1d）
+  - 子任务 A1.3: 在 `App.xaml.cs` 中加入 `IServiceCollection` 注册入口，支持以 DI 注入 ViewModel（验收：应用可启动且通过依赖注入解析 `MainWindowViewModel`；预计：0.5d）
+  - 验收标准：所有服务接口和最小实现可注入、主界面通过构造函数接收服务。
+
+- A2: 事件总线 / 内存队列（优先级：高）
+  - 子任务 A2.1: 实现 `IEventBus` 与 `EventBus`（已完成）
+  - 子任务 A2.2: 将 MarketDataService 输出发布为 `MarketDataRawMessage`（已完成）
+  - 子任务 A2.3: 在关键服务中订阅事件（例如 OrderExecutionService 可订阅策略生成的下单事件）（验收：订阅回调能被触发；预计：0.5d）
+  - 验收标准：事件发布-订阅路径测试覆盖，且不会抛出未处理异常。
+
+- A3: 下单执行健壮性（优先级：高）
+  - 子任务 A3.1: 本地内存队列与占位实现（已完成）
+  - 子任务 A3.2: 添加幂等 ID 处理与简单重试策略（预计：1d）
+  - 子任务 A3.3: 与 EventBus 集成：当收到策略下单事件，队列入列并异步下单（预计：0.5d）
+  - 验收标准：下单请求在触发后能产生 OrderPlacedEvent，并能在内存队列中查询到状态；重试逻辑在模拟失败时生效。
+
+- A4: 持久化与重启恢复（优先级：高）
+  - 子任务 A4.1: 选择轻量 DB（SQLite 或 LiteDB）并添加仓库 `IRepository` 抽象（已完成：选择 LiteDB 并添加 `IRepository` 接口与 `LiteDbRepository` 实现；预计：0.5d）
+  - 子任务 A4.2: 实现未完成订单持久化（入库/出库）并在服务启动时恢复队列（进行中）
+  - 子任务 A4.3: 在仓库中保存关键持仓快照与事件日志（待做）
+  - 验收标准：服务重启后能从 DB 恢复未完成订单并继续处理；关键事件有持久化记录。
+
+- A5: 风控服务（优先级：高）
+  - 子任务 A5.1: 定义 `RiskManager` 接口与基本规则（最大持仓、单笔限额、日损阈值）（预计：0.5d）
+  - 子任务 A5.2: 在 OrderExecutionService 下单前执行风控检查（预计：0.5d）
+  - 验收标准：不满足规则的下单请求被拒绝并产生日志/告警。
+
+- A6: 策略宿主与插件（优先级：中）
+  - 子任务 A6.1: 定义 `IStrategy` 接口（Init, OnMarketData, OnOrderUpdate, Dispose）（预计：0.5d）
+  - 子任务 A6.2: 实现 `StrategyHost` 能以回调方式加载策略并隔离执行（预计：1.5d）
+  - 验收标准：一个示例策略能接收 MarketDataRawMessage 并通过 EventBus 发起下单事件。
+
+- A7: 可观测性（优先级：中）
+  - 子任务 A7.1: 集成基础日志缓冲与导出（预计：0.5d）
+  - 子任务 A7.2: 将关键指标（消息延迟、下单成功率）暴露到 ObservabilityView（预计：1d）
+  - 验收标准：Observability 面板显示实时日志与至少两个关键指标。
+
+
+UI 任务（按优先级细化）：
+
+- U1: 策略管理 UI（优先级：高）
+  - U1.1: 创建 StrategyManagerView 与 ViewModel（已完成骨架）
+  - U1.2: 增加命令绑定（Load / Start / Pause / Stop / Backtest）（预计：0.5d）
+  - U1.3: 在 StrategyManagerView 中显示策略运行状态与日志（预计：0.5d）
+  - 验收标准：操作按钮能调用 StrategyHost 的接口，UI 能显示策略状态。
+
+- U2: 委托执行面板（优先级：高）
+  - U2.1: 将 OrdersGrid 绑定到 `OrderExecutionViewModel.Orders`（预计：0.5d）
+  - U2.2: 撤单/修改按钮调用服务接口并弹出确认（预计：0.5d）
+  - U2.3: 实时刷新订单状态（通过 EventBus 订阅 OrderPlacedEvent / OrderCancelledEvent）（预计：0.5d）
+  - 验收标准：界面能实时展示下单/撤单结果并能触发撤单操作。
+
+- U3: 行情连接状态（优先级：高）
+  - U3.1: 在主窗口或状态栏增加小型状态块，显示 `IsConnected`, `LastTick`（预计：0.25d）
+  - U3.2: 订阅 MarketDataRawMessage 并更新时间戳（预计：0.25d）
+  - 验收标准：连接断开/重连时状态可见变化，最近消息时间更新。
+
+- U4: 可观测性 / 日志面板（优先级：中）
+  - U4.1: 创建 ObservabilityView 与 ViewModel（预计：0.5d）
+  - U4.2: 支持导出日志到文件（预计：0.25d）
+  - 验收标准：能在 UI 导出最近日志文件并显示关键错误计数。
+
+- U5: 风控界面（优先级：高）
+  - U5.1: 创建 RiskManagerView 并支持设置阈值（预计：0.5d）
+  - U5.2: 显示当前违反规则的列表并允许人工确认（预计：0.5d）
+  - 验收标准：设置生效且违反规则时 UI 显示告警。
+
+- U6: 回测 / 重放界面（优先级：中）
+  - U6.1: 创建 BacktestView 基本布局（预计：0.5d）
+  - U6.2: 使用 MockExchange 运行回测并显示简要结果（预计：1d）
+  - 验收标准：能够加载历史数据并生成回测摘要。
+
+- U7: 导航更新（优先级：高）
+  - U7.1: 将新模块在 `NavItems` 中注册（已完成）
+  - U7.2: 点击导航能切换到相应模块视图（预计：0.25d）
+  - 验收标准：导航项能正常导航到对应视图。
+
+- U8: 控件模版与主题（优先级：中）
+  - U8.1: 在 `Themes/Controls.xaml` 中增加标准按钮风格与折叠动画（预计：0.5d）
+  - U8.2: 将新控件使用主题资源（预计：0.25d）
+  - 验收标准：新控件使用统一风格，折叠/展开动画平滑。
+
+
+注意事项：
+- 每完成一个子任务，必须：
+  1) 在 `.github/upgrades/change-log.md` 中追加 CHG 条目（中文），包含文件列表与提交信息；
+  2) 在本 `dotnet-upgrade-plan.md` 中更新对应子任务的状态为 `InProgress` 或 `Done`；
+  3) 提交代码至分支 `upgrade-to-NET10`，commit 信息遵循 `chore(upgrade-plan): CHG-<日期>-<编号> <简短说明>`。
+
+- 若某子任务需要引入新 NuGet 包，先在本计划中列出包名与用途，并征得你确认后再添加。
+
+---
+
+已将以上细化任务追加到计划文件中，并保持原有的跟踪清单与变更日志流程。接下来我将按你选择的优先级顺序逐项实现。请确认并指定第一个要我实现的子任务（例如：`U2.1` 或 `A4.1`）。

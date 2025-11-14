@@ -22,7 +22,7 @@
   类型: `新增`
   目的: `抽象行情订阅与重连逻辑，供 Strategy 和 UI 消费`
   状态: `Done`
-  提交: `branch: upgrade-to-NET10, commit: a1b5c6e`
+  提交: `branch: upgrade-to-NET10, commit: 2afc1d1`
   备注: `创建接口与空实现骨架，供后续填充实现。`
 
 - ID: `CHG-20251114-02`
@@ -32,7 +32,7 @@
   类型: `新增`
   目的: `下单与撤单服务骨架，供 UI 测试与后续实现幂等/重试/持久化逻辑`
   状态: `Done`
-  提交: `branch: upgrade-to-NET10, commit: a1b5c6e`
+  提交: `branch: upgrade-to-NET10, commit: 2afc1d1`
   备注: `当前为内存实现，后续需实现持久化与交易所适配。`
 
 - ID: `CHG-20251114-03`
@@ -42,7 +42,7 @@
   类型: `新增`
   目的: `添加 UI 与 ViewModel 骨架以便与服务联动测试`
   状态: `Done`
-  提交: `branch: upgrade-to-NET10, commit: a1b5c6e`
+  提交: `branch: upgrade-to-NET10, commit: 2afc1d1`
   备注: `UI 控件为占位，后续需要绑定命令与数据源。`
 
 - ID: `CHG-20251114-04`
@@ -50,7 +50,7 @@
   任务关联: `A2`
   文件路径: `Core/IEventBus.cs`, `Services/EventBus.cs`, `Core/Events.cs`, `Services/MarketDataService.cs`
   类型: `新增`
-  目的: `实现进程内事件总线，MarketDataService 将原始行情发布到事件总线以供下游处理。`
+  目的: `实现进程內事件总线，MarketDataService 将原始行情发布到事件总线以供下游处理。`
   状态: `Done`
   提交: `branch: upgrade-to-NET10, commit: 2afc1d1`
   备注: `事件总线为轻量实现，不保证跨进程持久化或高级路由。`
@@ -62,15 +62,15 @@
   类型: `新增`
   目的: `实现委托面板的 ViewModel 与绑定，支持撤单命令。`
   状态: `Done`
-  提交: `branch: upgrade-to-NET10, commit: a1b5c6e`
+  提交: `branch: upgrade-to-NET10, commit: 3a47aa3`
   备注: `OrdersGrid 绑定至 OrderExecutionViewModel，撤单按钮触发命令并更新状态。`
 
 - ID: `CHG-20251114-06`
   日期: `2025-11-14`
-  任务关联: `A3`
-  文件路径: `Core/Events.cs`, `Services/OrderExecutionService.cs`
-  类型: `修改`
-  目的: `添加 OrderRequestEvent 支持并实现 OrderExecutionService 对该事件的订阅，包含幂等ID处理和简单重试逻辑。`
+  任务关联: `A3, A4`
+  文件路径: `Core/Events.cs`, `Services/OrderExecutionService.cs`, `Persistence/IRepository.cs`, `Persistence/LiteDbRepository.cs`
+  类型: `新增/修改`
+  目的: `为 OrderExecutionService 增加 IRepository 持久化支持并实现 LiteDB 仓库，开始实现未完成订单恢复逻辑。`
   状态: `InProgress`
   提交: `branch: upgrade-to-NET10, commit: <待推送>`
-  备注: `当前为内存实现，后续需实现持久化映射与更稳健的重试策略。`
+  备注: `LiteDB 作为轻量嵌入式存储；后续需完善持久化数据结构与事务保证。`
