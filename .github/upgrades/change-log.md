@@ -64,3 +64,13 @@
   状态: `Done`
   提交: `branch: upgrade-to-NET10, commit: a1b5c6e`
   备注: `OrdersGrid 绑定至 OrderExecutionViewModel，撤单按钮触发命令并更新状态。`
+
+- ID: `CHG-20251114-06`
+  日期: `2025-11-14`
+  任务关联: `A3`
+  文件路径: `Core/Events.cs`, `Services/OrderExecutionService.cs`
+  类型: `修改`
+  目的: `添加 OrderRequestEvent 支持并实现 OrderExecutionService 对该事件的订阅，包含幂等ID处理和简单重试逻辑。`
+  状态: `InProgress`
+  提交: `branch: upgrade-to-NET10, commit: <待推送>`
+  备注: `当前为内存实现，后续需实现持久化映射与更稳健的重试策略。`
