@@ -412,25 +412,35 @@ namespace 币安量化机器人
             switch (tag)
             {
                 case "Dashboard":
-                    MainContent.Content = new Modules.Dashboard.UnifiedDashboardView();
+                    MainContentHost.Children.Clear();
+                    MainContentHost.Children.Add(new Modules.Dashboard.UnifiedDashboardView());
                     break;
                 case "Strategy":
-                    MainContent.Content = new Modules.Strategy.StrategyManagerView();
+                    MainContentHost.Children.Clear();
+                    MainContentHost.Children.Add(new Modules.Strategy.StrategyManagerView());
                     break;
                 case "Orders":
-                    MainContent.Content = new Controls.OrderExecutionControl();
+                    MainContentHost.Children.Clear();
+                    MainContentHost.Children.Add(new Controls.OrderExecutionControl());
+                    break;
+                case "Alerts":
+                    MainContentHost.Children.Clear();
+                    MainContentHost.Children.Add(new Modules.Alert.AlertCenterView());
                     break;
                 case "Observability":
-                    MainContent.Content = new Modules.Observability.ObservabilityView();
+                    MainContentHost.Children.Clear();
+                    MainContentHost.Children.Add(new Modules.Observability.ObservabilityView());
                     break;
                 case "Risk":
-                    MainContent.Content = new Modules.Risk.RiskManagerView();
+                    MainContentHost.Children.Clear();
+                    MainContentHost.Children.Add(new Modules.Risk.RiskManagerView());
                     break;
                 case "Backtest":
-                    MainContent.Content = new Modules.Backtest.BacktestView();
+                    MainContentHost.Children.Clear();
+                    MainContentHost.Children.Add(new Modules.Backtest.BacktestView());
                     break;
                 default:
-                    MainContent.Content = null;
+                    MainContentHost.Children.Clear();
                     break;
             }
         }

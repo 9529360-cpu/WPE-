@@ -13,6 +13,7 @@ namespace 币安量化机器人.ViewModels
             new NavMenuItem { Title = "仪表盘", Tag = "Dashboard" },
             new NavMenuItem { Title = "策略", Tag = "Strategy" },
             new NavMenuItem { Title = "委托", Tag = "Orders" },
+            new NavMenuItem { Title = "告警", Tag = "Alerts" },
             new NavMenuItem { Title = "监控", Tag = "Observability" },
             new NavMenuItem { Title = "风控", Tag = "Risk" },
             new NavMenuItem { Title = "回测", Tag = "Backtest" }
