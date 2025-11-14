@@ -31,6 +31,7 @@ public sealed class BinanceStreamClient : IAsyncDisposable
     private CancellationTokenSource? _cts;
     private IReadOnlyList<string> _currentSymbols = Array.Empty<string>();
     private bool _disposed;
+    private Task? _receiveTask;
 
     /// <summary>
     /// 接收到MiniTicker更新时触发
@@ -62,7 +63,24 @@ public sealed class BinanceStreamClient : IAsyncDisposable
         _currentSymbols = requestedSymbols;
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         ConnectionStatusChanged?.Invoke("正在连接 Binance 行情流...");
-        _ = Task.Run(() => ReceiveLoopAsync(_cts.Token), _cts.Token);
+
+        // Start receive loop task and attach continuation to surface/log any unhandled exceptions
+        _receiveTask = Task.Run(() => ReceiveLoopAsync(_cts.Token), _cts.Token);
+        _receiveTask.ContinueWith(t =>
+        {
+            try
+            {
+                if (t.Exception != null)
+                {
+                    LogService.Error(t.Exception.Flatten(), "[BinanceStreamClient] ReceiveLoopAsync failed");
+                }
+            }
+            catch (Exception ex)
+            {
+                // swallow logging failures
+                try { LogService.Error(ex, "[BinanceStreamClient] Failed while logging ReceiveLoop exception"); } catch { }
+            }
+        }, TaskContinuationOptions.OnlyOnFaulted);
     }
 
     private async Task ReceiveLoopAsync(CancellationToken cancellationToken)
@@ -253,7 +271,14 @@ public sealed class BinanceStreamClient : IAsyncDisposable
         }
         finally
         {
-            _socket.Dispose();
+            try
+            {
+                _socket?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                try { LogService.Warning("[BinanceStreamClient] Dispose socket failed: {0}", ex.Message); } catch { }
+            }
             _socket = null;
         }
     }
