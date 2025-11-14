@@ -104,3 +104,13 @@
   状态: `Done`
   提交: `local`
   备注: `无`
+
+- ID: `CHG-20251114-10`
+  日期: `2025-11-14`
+  任务关联: `U5`
+  文件路径: `Modules/Risk/RiskManagerView.xaml`, `Modules/Risk/RiskManagerView.xaml.cs`, `ViewModels/RiskManagerViewModel.cs`
+  类型: `新增`
+  目的: `添加风控界面与 ViewModel，用于显示与配置风控规则（示例）。`
+  状态: `Done`
+  提交: `local`
+  备注: `无`
