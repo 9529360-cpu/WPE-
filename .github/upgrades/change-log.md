@@ -84,3 +84,13 @@
   状态: `Done`
   提交: `branch: upgrade-to-NET10, commit: <待推送>`
   备注: `风控规则当前为内存配置，后续需持久化并添加告警/审计。`
+
+- ID: `CHG-20251114-08`
+  日期: `2025-11-14`
+  任务关联: `A6`
+  文件路径: `Core/IStrategy.cs`, `Services/StrategyHost.cs`, `Services/ExampleStrategy.cs`
+  类型: `新增`
+  目的: `添加策略接口、宿主与示例策略；StrategyHost 订阅市场与订单事件并广播到已加载策略。
+  状态: `Done`
+  提交: `local`
+  备注: `无`
