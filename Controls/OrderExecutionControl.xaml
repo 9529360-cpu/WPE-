@@ -3,12 +3,16 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:vm="clr-namespace:币安量化机器人.ViewModels"
              mc:Ignorable="d"
              d:DesignHeight="200" d:DesignWidth="400">
+    <UserControl.Resources>
+        <vm:OrderExecutionViewModel x:Key="OrderVM" />
+    </UserControl.Resources>
     <Grid Margin="8">
         <StackPanel>
             <TextBlock Text="委托执行" FontWeight="Bold" FontSize="14"/>
-            <DataGrid x:Name="OrdersGrid" AutoGenerateColumns="False" Height="120" Margin="0,8,0,0">
+            <DataGrid x:Name="OrdersGrid" AutoGenerateColumns="False" Height="120" Margin="0,8,0,0" ItemsSource="{Binding Orders, Source={StaticResource OrderVM}}">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="订单ID" Binding="{Binding Id}" Width="*"/>
                     <DataGridTextColumn Header="交易对" Binding="{Binding Symbol}" Width="80"/>
@@ -19,7 +23,7 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
-                                    <Button Content="撤单" Margin="0,0,6,0"/>
+                                    <Button Content="撤单" Margin="0,0,6,0" Command="{Binding DataContext.CancelOrderCommand, Source={StaticResource OrderVM}}" CommandParameter="{Binding Id}"/>
                                     <Button Content="修改"/>
                                 </StackPanel>
                             </DataTemplate>

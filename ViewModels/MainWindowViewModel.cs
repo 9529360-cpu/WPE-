@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
-using System.Windows.Input;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
+using System;
 
 namespace 币安量化机器人.ViewModels
 {
@@ -19,9 +19,19 @@ namespace 币安量化机器人.ViewModels
 
         private readonly IMarketDataService _marketDataService;
 
-        public MainWindowViewModel(IMarketDataService marketDataService)
+        public string MarketStatus { get; private set; }
+        public DateTime LastTick { get; private set; }
+
+        public MainWindowViewModel(IMarketDataService marketDataService, Services.IEventBus eventBus)
         {
             _marketDataService = marketDataService;
+            eventBus.Subscribe<Core.MarketDataRawMessage>(m =>
+            {
+                LastTick = m.ReceivedAt.ToLocalTime();
+                MarketStatus = _marketDataService.IsConnected ? "已连接" : "已断开";
+                RaisePropertyChanged(nameof(LastTick));
+                RaisePropertyChanged(nameof(MarketStatus));
+            });
         }
     }
 }

@@ -52,5 +52,15 @@
   类型: `新增`
   目的: `实现进程内事件总线，MarketDataService 将原始行情发布到事件总线以供下游处理。`
   状态: `Done`
-  提交: `branch: upgrade-to-NET10, commit: a1b5c6e`
+  提交: `branch: upgrade-to-NET10, commit: 2afc1d1`
   备注: `事件总线为轻量实现，不保证跨进程持久化或高级路由。`
+
+- ID: `CHG-20251114-05`
+  日期: `2025-11-14`
+  任务关联: `U2`
+  文件路径: `Models/Order.cs`, `ViewModels/OrderExecutionViewModel.cs`, `Controls/OrderExecutionControl.xaml`, `Controls/OrderExecutionControl.xaml.cs`, `ViewModels/RelayCommand.cs`
+  类型: `新增`
+  目的: `实现委托面板的 ViewModel 与绑定，支持撤单命令。`
+  状态: `Done`
+  提交: `branch: upgrade-to-NET10, commit: a1b5c6e`
+  备注: `OrdersGrid 绑定至 OrderExecutionViewModel，撤单按钮触发命令并更新状态。`
