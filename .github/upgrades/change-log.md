@@ -114,3 +114,13 @@
   状态: `Done`
   提交: `local`
   备注: `无`
+
+- ID: `CHG-20251114-11`
+  日期: `2025-11-14`
+  任务关联: `U1`
+  文件路径: `ViewModels/StrategyManagerViewModel.cs`
+  类型: `修改`
+  目的: `确保 StrategyManagerViewModel 包含 Load/Start/Stop/Backtest 命令与示例策略项`
+  状态: `Done`
+  提交: `local`
+  备注: `无`
