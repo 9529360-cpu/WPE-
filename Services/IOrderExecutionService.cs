@@ -6,5 +6,6 @@ namespace 币安量化机器人.Services
     {
         Task<string> PlaceOrderAsync(object order);
         Task CancelOrderAsync(string orderId);
+        Task InitializeAsync();
     }
 }

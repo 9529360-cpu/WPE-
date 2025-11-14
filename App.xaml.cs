@@ -12,12 +12,16 @@ using 币安量化机器人.Services.AI;
 using 币安量化机器人.Services.Observability;
 using 币安量化机器人.Services.Resilience;
 using 币安量化机器人.Services.Performance;
+using 币安量化机器人.Core;
+using 币安量化机器人.Persistence;
 
 namespace 币安量化机器人
 {
     public partial class App : System.Windows.Application
     {
         private IHost? _host;
+
+        public static IServiceProvider ServiceProvider { get; private set; }
 
         protected override async void OnStartup(StartupEventArgs e)
         {
@@ -128,6 +132,19 @@ namespace 币安量化机器人
 
                     // 注册主窗口（其他窗口按需延迟解析）
                     services.AddSingleton<MainWindow>();
+
+                    // 注册核心服务
+                    services.AddSingleton<IEventBus, EventBus>();
+                    services.AddSingleton<IMarketDataService, MarketDataService>();
+                    services.AddSingleton<IOrderExecutionService, OrderExecutionService>();
+                    services.AddSingleton<IRepository, LiteDbRepository>();
+                    services.AddSingleton<IRiskManager, RiskManager>();
+                    services.AddSingleton<StrategyHost>();
+
+                    // ViewModels
+                    services.AddSingleton<MainWindowViewModel>();
+                    services.AddSingleton<StrategyManagerViewModel>();
+                    services.AddSingleton<OrderExecutionViewModel>();
                 })
                 .Build();
 
