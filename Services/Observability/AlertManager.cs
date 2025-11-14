@@ -12,6 +12,11 @@ namespace 币安量化机器人.Services.Observability;
 /// </summary>
 public class AlertManager
 {
+    // Event for real-time UI subscription
+    public event Action<AlertEvent>? AlertRaised;
+    // Event when an automatic protection action was taken for an alert
+    public event Action<AlertEvent, string>? AlertActionTaken;
+
     private readonly List<AlertRule> _rules;
     private readonly ConcurrentQueue<AlertEvent> _alerts;
     private readonly List<IAlertNotifier> _notifiers;
@@ -63,8 +68,88 @@ public class AlertManager
             _alerts.TryDequeue(out _);
         }
 
-        // 发送通知
-        await NotifyAsync(alertEvent);
+        // Fire in-process event for UI subscribers (non-blocking)
+        try
+        {
+            AlertRaised?.Invoke(alertEvent);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "AlertRaised handler failed");
+        }
+
+        try
+        {
+            LogService.Info("[AlertManager] Triggered alert: {Severity} - {Message}", alertEvent.Severity, alertEvent.Message);
+            await NotifyAsync(alertEvent).ConfigureAwait(false);
+
+            // 尝试持久化告警（若 DataCacheService 支持）
+            try
+            {
+                var cache = ServiceLocator.Cache;
+                if (cache != null)
+                {
+                    await cache.SaveAlertAsync(alertEvent.RuleName, alertEvent.Severity.ToString(), alertEvent.Message, alertEvent.Timestamp).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "Alert persistence failed");
+            }
+            // If critical alert, perform automatic protection actions
+            if (alertEvent.Severity == AlertSeverity.Critical)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        // Stop automated trading to prevent further damage
+                        try
+                        {
+                            await ServiceLocator.AutoTrader.StopAsync().ConfigureAwait(false);
+                            LogService.Info("AutoTrader stopped due to critical alert: {AlertId}", alertEvent.Id);
+                        }
+                        catch (Exception ex)
+                        {
+                            LogService.Error(ex, "Failed to stop AutoTrader for critical alert");
+                        }
+
+                        // persist an action note to alerts table (append to message)
+                        try
+                        {
+                            var cache = ServiceLocator.Cache;
+                            if (cache != null)
+                            {
+                                string actionNote = $"AUTO_PROTECT: AutoTrader stopped at {DateTime.UtcNow:O}";
+                                await cache.SaveAlertAsync($"Action:{alertEvent.RuleName}", alertEvent.Severity.ToString(), actionNote, DateTime.UtcNow).ConfigureAwait(false);
+                            }
+                            }
+                            catch (Exception ex)
+                            {
+                                LogService.Error(ex, "Failed to persist auto-protect action");
+                            }
+
+                            // notify subscribers that action was taken
+                            try
+                            {
+                                AlertActionTaken?.Invoke(alertEvent, "AutoTraderStopped");
+                            }
+                            catch (Exception ex)
+                            {
+                                LogService.Error(ex, "AlertActionTaken handler failed");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            LogService.Error(ex, "Automatic protection execution failed");
+                        }
+                    });
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "NotifyAsync failed");
+        }
     }
 
     /// <summary>

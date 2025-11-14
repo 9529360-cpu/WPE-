@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Serilog;
 using Serilog.Events;
+using 币安量化机器人.Services.Runtime;
 
 namespace 币安量化机器人.Services;
 
@@ -75,6 +76,7 @@ public static class LogService
     public static void Debug(string messageTemplate, params object[] propertyValues)
     {
         Log.Debug(messageTemplate, propertyValues);
+        try { InMemoryLogBuffer.Append($"DEBUG: {string.Format(messageTemplate, propertyValues)}"); } catch { }
     }
 
     /// <summary>
@@ -83,6 +85,7 @@ public static class LogService
     public static void Info(string messageTemplate, params object[] propertyValues)
     {
         Log.Information(messageTemplate, propertyValues);
+        try { InMemoryLogBuffer.Append($"INFO: {string.Format(messageTemplate, propertyValues)}"); } catch { }
     }
 
     /// <summary>
@@ -91,6 +94,7 @@ public static class LogService
     public static void Warning(string messageTemplate, params object[] propertyValues)
     {
         Log.Warning(messageTemplate, propertyValues);
+        try { InMemoryLogBuffer.Append($"WARN: {string.Format(messageTemplate, propertyValues)}"); } catch { }
     }
 
     /// <summary>
@@ -99,6 +103,7 @@ public static class LogService
     public static void Error(string messageTemplate, params object[] propertyValues)
     {
         Log.Error(messageTemplate, propertyValues);
+        try { InMemoryLogBuffer.Append($"ERROR: {string.Format(messageTemplate, propertyValues)}"); } catch { }
     }
 
     /// <summary>
@@ -107,6 +112,7 @@ public static class LogService
     public static void Error(Exception exception, string messageTemplate, params object[] propertyValues)
     {
         Log.Error(exception, messageTemplate, propertyValues);
+        try { InMemoryLogBuffer.Append($"ERROR: {exception.Message} - {string.Format(messageTemplate, propertyValues)}"); } catch { }
     }
 
     /// <summary>
@@ -115,6 +121,7 @@ public static class LogService
     public static void Fatal(string messageTemplate, params object[] propertyValues)
     {
         Log.Fatal(messageTemplate, propertyValues);
+        try { InMemoryLogBuffer.Append($"FATAL: {string.Format(messageTemplate, propertyValues)}"); } catch { }
     }
 
     /// <summary>
@@ -123,6 +130,7 @@ public static class LogService
     public static void Fatal(Exception exception, string messageTemplate, params object[] propertyValues)
     {
         Log.Fatal(exception, messageTemplate, propertyValues);
+        try { InMemoryLogBuffer.Append($"FATAL: {exception.Message} - {string.Format(messageTemplate, propertyValues)}"); } catch { }
     }
 
     /// <summary>

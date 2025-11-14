@@ -16,26 +16,13 @@ using 币安量化机器人.Models;
 using 币安量化机器人.Models.Configuration;
 using 币安量化机器人.Monitoring;
 using 币安量化机器人.Services.AI;
+using 币安量化机器人.Services.Resilience;
 
 namespace 币安量化机器人.Services;
 
 /// <summary>
 /// 服务定位器 - 提供全局单例访问
 /// </summary>
-/// <remarks>
-/// 管理系统所有核心服务的生命周期和依赖关系。
-/// 
-/// 设计原则:
-/// - 延迟初始化: 使用Lazy&lt;T&gt;确保服务按需创建
-/// - 线程安全: 所有服务初始化都是线程安全的
-/// - 配置优先: 优先从appsettings.json加载配置
-/// - 容错设计: 配置加载失败时使用默认值
-/// 
-/// 未来改进:
-/// - 考虑迁移到依赖注入容器(如Microsoft.Extensions.DependencyInjection)
-/// - 添加服务健康检查机制
-/// - 实现配置热重载
-/// </remarks>
 public static class ServiceLocator
 {
     static ServiceLocator()
@@ -135,6 +122,36 @@ public static class ServiceLocator
         {
             LogService.Warning("[ServiceLocator] 初始化 LearningModule 失败: {0}", ex.Message);
         }
+
+        // Start a background health check to report initial health
+        try
+        {
+            var healthService = new Services.Health.HealthCheckService();
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var res = await healthService.RunAsync();
+                    LogService.Info("[HealthCheck] 系统健康: {Healthy} (Config={Config} Api={Api} Cache={Cache})", res.IsHealthy, res.ConfigOk, res.ApiOk, res.CacheOk);
+                    if (res.Notes.Length > 0)
+                    {
+                        foreach (var n in res.Notes)
+                        {
+                            LogService.Info("[HealthCheck] Note: {0}", n);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogService.Warning("Health check task failed: {Message}", ex.Message);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning("无法启动健康检查服务: {0}", ex.Message);
+        }
+
     }
 
     private static readonly Lazy<SystemReadyService> SystemReadyFactory = new(() => new SystemReadyService());
@@ -200,9 +217,13 @@ public static class ServiceLocator
         return cache;
     });
 
+    // 新增 ResilienceService 工厂
+    private static readonly Lazy<ResilienceService> ResilienceFactory = new(() => new ResilienceService());
+    public static ResilienceService GetResilienceService() => ResilienceFactory.Value;
+
     private static readonly Lazy<BinanceApiClient> ApiFactory = new(() =>
     {
-        var client = new BinanceApiClient();
+        var client = new BinanceApiClient(GetResilienceService());
 
         // 🔧 从配置文件或环境变量加载 Binance API 凭证
         try
@@ -265,10 +286,19 @@ public static class ServiceLocator
     private static readonly Lazy<WalkForwardOptimizer> WalkForwardFactory = new(() => new WalkForwardOptimizer(OptimizerFactory.Value, EnhancedBacktestFactory.Value));
     private static readonly Lazy<OrderHistoryService> OrderHistoryFactory = new(() => new OrderHistoryService(CacheFactory.Value));
     private static readonly Lazy<PerformanceTrackingService> PerformanceTrackingFactory = new(() => new PerformanceTrackingService(CacheFactory.Value));
+    private static readonly Lazy<Services.Observability.ObservabilityService> ObservabilityFactory = new(() => new Services.Observability.ObservabilityService());
+
     private static readonly Lazy<StrategyPortfolioManager> StrategyPortfolioManagerFactory = new(() =>
     {
         var mgr = new StrategyPortfolioManager(new TradingAccountManager(CacheFactory.Value), AppContext.BaseDirectory);
-        mgr.LoadFromDisk();
+        try
+        {
+            mgr.LoadFromDisk();
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex.Message, "加载策略组合管理器失败");
+        }
         return mgr;
     });
 
@@ -317,6 +347,7 @@ public static class ServiceLocator
     public static BacktestConfig BacktestConfig => BacktestConfigFactory.Value;
 
     public static DataCacheService Cache => CacheFactory.Value;
+    public static Services.Observability.ObservabilityService Observability => ObservabilityFactory.Value;
     public static BinanceApiClient Api => ApiFactory.Value;
     public static AiForecastService Ai => AiFactory.Value;
     public static RiskEngine Risk => RiskFactory.Value;
@@ -389,14 +420,15 @@ public static class ServiceLocator
 
             // 🆕 仅在配置启用时创建 DeepSeek agent
             bool aiEnabled = ConfigurationService.GetAIConfig().EnableAITrading;
-            DeepSeekTradingAgent? aiAgent = null;
+            ITradingAgent? agent = null;
             if (aiEnabled && !string.IsNullOrWhiteSpace(deepSeekApiKey))
             {
-                aiAgent = new DeepSeekTradingAgent(deepSeekApiKey);
+                agent = new DeepSeekTradingAgent(deepSeekApiKey);
             }
             else
             {
-                LogService.Info("[ServiceLocator] DeepSeek AI 已禁用或未配置，AI代理不创建");
+                agent = new LocalAIAgentAdapter(ConfigurationService.GetAIConfig().Temperature);
+                LogService.Info("[ServiceLocator] 使用本地 AI 适配器 (LocalAIAgentAdapter)");
             }
 
             var riskManager = new AIRiskManager();
@@ -406,7 +438,7 @@ public static class ServiceLocator
             var tradingAutomation = new AITradingAutomation(
                 Stream,
                 dataProcessor,
-                aiAgent ?? new DeepSeekTradingAgent(""), // safe fallback with empty key will throw if used
+                agent,
                 executionEngine,
                 accountManager,
                 positionManager

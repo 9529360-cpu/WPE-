@@ -36,7 +36,7 @@ public partial class WfoOptimizer : UserControl
                 return;
             }
 
-            StatusText.Text = "📊 状态: 正在优化参数...";
+            StatusText.Text = "状态: 正在优化参数...";
 
             // 参数空间
             int fastMin = int.Parse(FastMaMinInput.Text);
@@ -112,7 +112,7 @@ public partial class WfoOptimizer : UserControl
                 BestSharpeText.Text = best.SharpeRatio.ToString("F2");
             }
 
-            StatusText.Text = "📊 状态: 优化完成";
+            StatusText.Text = "状态: 优化完成";
         }
         catch (Exception ex)
         {
@@ -123,7 +123,7 @@ public partial class WfoOptimizer : UserControl
                 MessageBoxImage.Error
             );
 
-            StatusText.Text = "📊 状态: 优化失败";
+            StatusText.Text = "状态: 优化失败";
         }
     }
 

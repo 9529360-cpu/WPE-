@@ -11,13 +11,6 @@ namespace 币安量化机器人.Services;
 
 /// <summary>
 /// 并行多币种监测 + 串行单订单执行器
-/// 
-/// 核心逻辑：
-/// 1. 并行监测 N 个交易对（默认10个热门币种）
-/// 2. AI 生成信号后推送到执行队列
-/// 3. 单线程执行器：一次只持有1个订单，完成后再处理下一个
-/// 4. 高频剥头皮策略：小额盈利（净收益 > 手续费+滑点）即可平仓
-/// 5. 风控：止损、冷却时间、日亏损限制
 /// </summary>
 public sealed class ParallelScalpingController
 {
@@ -37,6 +30,7 @@ public sealed class ParallelScalpingController
 
     private Position? _currentPosition;
     private readonly object _positionLock = new();
+    private readonly object _stateLock = new();
 
     private bool _isRunning;
 
@@ -65,7 +59,6 @@ public sealed class ParallelScalpingController
         _riskManager = new AIRiskManager();
         _accountManager = new TradingAccountManager(_cache);
 
-        // 创建信号队列（无界，但会限流）
         _signalQueue = Channel.CreateUnbounded<ScalpingSignal>(new UnboundedChannelOptions
         {
             SingleReader = true,
@@ -78,34 +71,49 @@ public sealed class ParallelScalpingController
     /// </summary>
     public async Task StartAsync(AccountType accountType = AccountType.Simulated)
     {
-        if (_isRunning)
+        lock (_stateLock)
         {
-            return;
+            if (_isRunning)
+            {
+                LogService.Warning("ParallelScalpingController: StartAsync called while already running");
+                return;
+            }
+            _isRunning = true;
+            _cts = new CancellationTokenSource();
         }
 
-        // 验证 API 配置
-        ValidateApiConfig();
-
-        // 初始化账户
-        _accountManager.SwitchAccount(accountType);
-        if (_accountManager.ActiveAccount == null)
+        try
         {
-            _accountManager.CreateSimulatedAccount("高频剥头皮账户", 10_000m);
-            _accountManager.SwitchAccount(AccountType.Simulated);
+            // 验证 API 配置
+            ValidateApiConfig();
+
+            // 初始化账户
+            _accountManager.SwitchAccount(accountType);
+            if (_accountManager.ActiveAccount == null)
+            {
+                _accountManager.CreateSimulatedAccount("高频剥头皮账户", 10_000m);
+                _accountManager.SwitchAccount(AccountType.Simulated);
+            }
+
+            var token = _cts.Token;
+
+            // 启动监测任务（并行）
+            _monitorTask = Task.Run(() => MonitorAllSymbolsAsync(token), token);
+
+            // 启动执行任务（串行）
+            _executorTask = Task.Run(() => ExecuteSerialOrdersAsync(token), token);
+
+            LogService.Info("[ParallelScalping] 高频剥头皮交易已启动");
+            LogService.Info($"[ParallelScalping] 监测币种: {string.Join(", ", _hotSymbols)}");
+            LogService.Info($"[ParallelScalping] 最小净收益: {_minNetProfitUsdt} USDT");
         }
-
-        _cts = new CancellationTokenSource();
-        _isRunning = true;
-
-        // 启动监测任务（并行）
-        _monitorTask = Task.Run(() => MonitorAllSymbolsAsync(_cts.Token), _cts.Token);
-
-        // 启动执行任务（串行）
-        _executorTask = Task.Run(() => ExecuteSerialOrdersAsync(_cts.Token), _cts.Token);
-
-        LogService.Info("[ParallelScalping] 高频剥头皮交易已启动");
-        LogService.Info($"[ParallelScalping] 监测币种: {string.Join(", ", _hotSymbols)}");
-        LogService.Info($"[ParallelScalping] 最小净收益: {_minNetProfitUsdt} USDT");
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "ParallelScalpingController.StartAsync 失败");
+            // cleanup if failed
+            await StopInternalAsync().ConfigureAwait(false);
+            throw;
+        }
 
         await Task.CompletedTask;
     }
@@ -115,36 +123,69 @@ public sealed class ParallelScalpingController
     /// </summary>
     public async Task StopAsync()
     {
-        if (!_isRunning)
+        await StopInternalAsync().ConfigureAwait(false);
+    }
+
+    private async Task StopInternalAsync()
+    {
+        lock (_stateLock)
         {
-            return;
+            if (!_isRunning)
+            {
+                return;
+            }
+            _isRunning = false;
+            _cts?.Cancel();
         }
 
-        _isRunning = false;
-        _cts?.Cancel();
-
-        // 平掉当前持仓
+        // 平掉当前持仓（等待完成）
+        Position? toClose = null;
         lock (_positionLock)
         {
-            if (_currentPosition != null)
+            toClose = _currentPosition;
+        }
+        if (toClose != null)
+        {
+            try
             {
                 LogService.Warning("[ParallelScalping] 停止交易，强制平仓当前持仓");
-                _ = ForceClosePositionAsync(_currentPosition);
+                await ForceClosePositionAsync(toClose).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "ForceClosePositionAsync 失败");
             }
         }
 
-        // 等待任务完成
+        // 等待任务完成 (带超时)
+        var waitTasks = new List<Task>();
         if (_monitorTask != null)
         {
-            await _monitorTask;
+            waitTasks.Add(_monitorTask);
         }
         if (_executorTask != null)
         {
-            await _executorTask;
+            waitTasks.Add(_executorTask);
         }
 
-        _cts?.Dispose();
-        _cts = null;
+        if (waitTasks.Count > 0)
+        {
+            try
+            {
+                await Task.WhenAny(Task.WhenAll(waitTasks), Task.Delay(TimeSpan.FromSeconds(10))).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "等待监控/执行任务完成时发生异常");
+            }
+        }
+
+        try
+        {
+            _cts?.Dispose();
+            _cts = null;
+        }
+        catch { }
 
         LogService.Info("[ParallelScalping] 高频剥头皮交易已停止");
     }
@@ -158,7 +199,7 @@ public sealed class ParallelScalpingController
 
         try
         {
-            await Task.WhenAll(tasks);
+            await Task.WhenAll(tasks).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -188,15 +229,26 @@ public sealed class ParallelScalpingController
                 // 检查冷却时间
                 if (!CanTradeSymbol(symbol))
                 {
-                    await Task.Delay(_monitorInterval, ct);
+                    await Task.Delay(_monitorInterval, ct).ConfigureAwait(false);
                     continue;
                 }
 
                 // 获取市场数据
-                MarketDataSnapshot marketData = await dataProcessor.CollectMarketDataAsync(symbol, ct);
+                MarketDataSnapshot marketData = await dataProcessor.CollectMarketDataAsync(symbol, ct).ConfigureAwait(false);
+                if (marketData == null)
+                {
+                    LogService.Warning($"[ParallelScalping] 未能获取市场数据: {symbol}");
+                    await Task.Delay(_monitorInterval, ct).ConfigureAwait(false);
+                    continue;
+                }
 
                 // AI 分析
-                AITradingSignal aiSignal = await aiAgent.AnalyzeMarketSituationAsync(marketData, ct);
+                AITradingSignal aiSignal = await aiAgent.AnalyzeMarketSituationAsync(marketData, ct).ConfigureAwait(false);
+                if (aiSignal == null)
+                {
+                    await Task.Delay(_monitorInterval, ct).ConfigureAwait(false);
+                    continue;
+                }
 
                 // 验证信号
                 if (aiSignal.Confidence >= _minConfidence && aiSignal.Action != SignalAction.Hold)
@@ -210,13 +262,21 @@ public sealed class ParallelScalpingController
                         Timestamp = DateTime.UtcNow
                     };
 
-                    // 推送到信号队列
-                    await _signalQueue.Writer.WriteAsync(scalpingSignal, ct);
+                    try
+                    {
+                        // 推送到信号队列
+                        await _signalQueue.Writer.WriteAsync(scalpingSignal, ct).ConfigureAwait(false);
 
-                    LogService.Info($"[ParallelScalping] 生成信号: {symbol} {aiSignal.Action} (信心度: {aiSignal.Confidence:P0})");
+                        LogService.Info($"[ParallelScalping] 生成信号: {symbol} {aiSignal.Action} (信心度: {aiSignal.Confidence:P0})");
+                    }
+                    catch (ChannelClosedException)
+                    {
+                        LogService.Warning("[ParallelScalping] 信号队列已关闭，停止写入");
+                        break;
+                    }
                 }
 
-                await Task.Delay(_monitorInterval, ct);
+                await Task.Delay(_monitorInterval, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -226,18 +286,23 @@ public sealed class ParallelScalpingController
             {
                 LogService.Error(ex, $"[ParallelScalping] 监测 {symbol} 异常");
 
-                // 记录失败次数
-                _symbolFailures[symbol] = _symbolFailures.GetValueOrDefault(symbol, 0) + 1;
+                lock (_stateLock)
+                {
+                    _symbolFailures[symbol] = _symbolFailures.GetValueOrDefault(symbol, 0) + 1;
+                }
 
                 // 如果连续失败3次，暂停该交易对10分钟
                 if (_symbolFailures[symbol] >= 3)
                 {
-                    _lastTradeTime[symbol] = DateTime.UtcNow.AddMinutes(10);
-                    _symbolFailures[symbol] = 0;
+                    lock (_stateLock)
+                    {
+                        _lastTradeTime[symbol] = DateTime.UtcNow.AddMinutes(10);
+                        _symbolFailures[symbol] = 0;
+                    }
                     LogService.Warning($"[ParallelScalping] {symbol} 连续失败，暂停10分钟");
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(30), ct);
+                await Task.Delay(TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
             }
         }
 
@@ -284,12 +349,12 @@ public sealed class ParallelScalpingController
                 if (!CheckDailyLossLimit(account))
                 {
                     LogService.Warning("[ParallelScalping] 触发日亏损限制，停止交易");
-                    await StopAsync();
+                    await StopAsync().ConfigureAwait(false);
                     break;
                 }
 
                 // 执行开仓
-                await ExecuteOpenPositionAsync(signal, account, ct);
+                await ExecuteOpenPositionAsync(signal, account, ct).ConfigureAwait(false);
 
             }
             catch (OperationCanceledException)
@@ -312,9 +377,21 @@ public sealed class ParallelScalpingController
     {
         try
         {
+            // 获取当前价格
+            decimal entryPrice = await GetCurrentPriceAsync(signal.Symbol).ConfigureAwait(false);
+            if (entryPrice <= 0)
+            {
+                LogService.Warning($"[ParallelScalping] 无效价格，跳过开仓: {signal.Symbol}");
+                return;
+            }
+
             // 计算仓位大小（固定 50 USDT 名义本金）
-            decimal entryPrice = await GetCurrentPriceAsync(signal.Symbol);
             decimal quantity = CalculateQuantity(signal.Symbol, 50m, entryPrice);
+            if (quantity <= 0)
+            {
+                LogService.Warning($"[ParallelScalping] 计算到无效数量，跳过开仓: {signal.Symbol}");
+                return;
+            }
 
             LogService.Info($"[ParallelScalping] 开仓: {signal.Symbol} {signal.Action} 数量: {quantity} 价格: {entryPrice}");
 
@@ -342,11 +419,14 @@ public sealed class ParallelScalpingController
                 _currentPosition = position;
             }
 
-            // 记录交易时间
-            _lastTradeTime[signal.Symbol] = DateTime.UtcNow;
+            lock (_stateLock)
+            {
+                // 记录交易时间
+                _lastTradeTime[signal.Symbol] = DateTime.UtcNow;
+            }
 
             // 监控持仓直到平仓
-            await MonitorPositionUntilCloseAsync(position, ct);
+            await MonitorPositionUntilCloseAsync(position, ct).ConfigureAwait(false);
 
         }
         catch (Exception ex)
@@ -370,7 +450,7 @@ public sealed class ParallelScalpingController
             try
             {
                 // 获取当前价格
-                decimal currentPrice = await GetCurrentPriceAsync(position.Symbol);
+                decimal currentPrice = await GetCurrentPriceAsync(position.Symbol).ConfigureAwait(false);
                 position.CurrentPrice = (double)currentPrice;
 
                 // 计算盈亏（净收益 = 价差 - 入场成本 - 出场成本）
@@ -391,7 +471,7 @@ public sealed class ParallelScalpingController
                 if (netProfit >= _minNetProfitUsdt)
                 {
                     LogService.Info($"[ParallelScalping] 触发止盈: {position.Symbol} 净收益: {netProfit:F4} USDT");
-                    await ClosePositionAsync(position, "止盈");
+                    await ClosePositionAsync(position, "止盈").ConfigureAwait(false);
                     break;
                 }
 
@@ -399,7 +479,7 @@ public sealed class ParallelScalpingController
                 if (netProfit <= -1.0)
                 {
                     LogService.Warning($"[ParallelScalping] 触发止损: {position.Symbol} 净亏损: {netProfit:F4} USDT");
-                    await ClosePositionAsync(position, "止损");
+                    await ClosePositionAsync(position, "止损").ConfigureAwait(false);
                     break;
                 }
 
@@ -407,21 +487,21 @@ public sealed class ParallelScalpingController
                 if (DateTime.UtcNow - startTime >= maxHoldTime)
                 {
                     LogService.Warning($"[ParallelScalping] 持仓超时: {position.Symbol} 强制平仓");
-                    await ClosePositionAsync(position, "超时");
+                    await ClosePositionAsync(position, "超时").ConfigureAwait(false);
                     break;
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(1), ct); // 高频检查（1秒1次）
+                await Task.Delay(TimeSpan.FromSeconds(1), ct).ConfigureAwait(false); // 高频检查（1秒1次）
             }
             catch (OperationCanceledException)
             {
-                await ClosePositionAsync(position, "系统停止");
+                await ClosePositionAsync(position, "系统停止").ConfigureAwait(false);
                 break;
             }
             catch (Exception ex)
             {
                 LogService.Error(ex, $"[ParallelScalping] 监控持仓异常: {position.Symbol}");
-                await Task.Delay(TimeSpan.FromSeconds(5), ct);
+                await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
             }
         }
     }
@@ -458,7 +538,7 @@ public sealed class ParallelScalpingController
                 _currentPosition = null;
             }
 
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -471,7 +551,7 @@ public sealed class ParallelScalpingController
     /// </summary>
     private async Task ForceClosePositionAsync(Position position)
     {
-        await ClosePositionAsync(position, "强制平仓");
+        await ClosePositionAsync(position, "强制平仓").ConfigureAwait(false);
     }
 
     /// <summary>
@@ -479,11 +559,14 @@ public sealed class ParallelScalpingController
     /// </summary>
     private bool CanTradeSymbol(string symbol)
     {
-        if (_lastTradeTime.TryGetValue(symbol, out DateTime lastTime))
+        lock (_stateLock)
         {
-            return DateTime.UtcNow - lastTime >= _symbolCooldown;
+            if (_lastTradeTime.TryGetValue(symbol, out DateTime lastTime))
+            {
+                return DateTime.UtcNow - lastTime >= _symbolCooldown;
+            }
+            return true;
         }
-        return true;
     }
 
     /// <summary>
@@ -502,7 +585,7 @@ public sealed class ParallelScalpingController
     {
         try
         {
-            var tickers = await _api.GetMiniTickersAsync(new[] { symbol });
+            var tickers = await _api.GetMiniTickersAsync(new[] { symbol }).ConfigureAwait(false);
             var ticker = tickers.FirstOrDefault();
             return ticker != null ? (decimal)ticker.LastPrice : 0m;
         }
@@ -518,6 +601,10 @@ public sealed class ParallelScalpingController
     /// </summary>
     private decimal CalculateQuantity(string symbol, decimal nominalValue, decimal price)
     {
+        if (price <= 0)
+        {
+            return 0m;
+        }
         // 固定名义本金（如 50 USDT）
         decimal rawQuantity = nominalValue / price;
 

@@ -33,8 +33,8 @@ public partial class PaperTradeView : UserControl, IModuleLifecycle
 
         _accountManager = new TradingAccountManager(cacheService);
 
-        // 创建模拟账户
-        _accountManager.CreateSimulatedAccount("模拟账户", 10000m);
+        // 创建模拟账户（使用系统默认初始资金）
+        _accountManager.CreateSimulatedAccount("模拟账户");
 
         // 初始化AI组件
         var dataProcessor = new MarketDataPreprocessor(apiClient, cacheService);
@@ -71,7 +71,7 @@ public partial class PaperTradeView : UserControl, IModuleLifecycle
         // 初始更新
         UpdateUI();
 
-        AddLog("✅ AI模拟交易中心已就绪（等待启动）");
+        AddLog("AI模拟交易中心已就绪（等待启动）");
     }
 
     /// <summary>
@@ -197,7 +197,7 @@ public partial class PaperTradeView : UserControl, IModuleLifecycle
                 return;
             }
 
-            AddLog($"🚀 启动AI自动交易: {string.Join(", ", symbols)}");
+            AddLog($"启动AI自动交易: {string.Join(", ", symbols)}");
 
             // 启动AI自动交易 (异步)
             _ = Task.Run(async () =>
@@ -210,14 +210,14 @@ public partial class PaperTradeView : UserControl, IModuleLifecycle
                 {
                     Dispatcher.Invoke(() =>
                     {
-                        AddLog($"❌ AI交易异常: {ex.Message}");
+                        AddLog($"AI交易异常: {ex.Message}");
                         StartAIButton.IsEnabled = true;
                         StopAIButton.IsEnabled = false;
                     });
                 }
             });
 
-            AddLog("✅ AI自动交易已启动");
+            AddLog("AI自动交易已启动");
         }
         catch (Exception ex)
         {
@@ -241,7 +241,7 @@ public partial class PaperTradeView : UserControl, IModuleLifecycle
             StartAIButton.IsEnabled = true;
             StopAIButton.IsEnabled = false;
 
-            AddLog("✅ AI自动交易已停止");
+            AddLog("AI自动交易已停止");
         }
         catch (Exception ex)
         {
@@ -255,7 +255,7 @@ public partial class PaperTradeView : UserControl, IModuleLifecycle
     private void RefreshPositions_Click(object sender, RoutedEventArgs e)
     {
         UpdateUI();
-        AddLog("🔄 持仓已刷新");
+        AddLog("持仓已刷新");
     }
 
     /// <summary>
@@ -276,11 +276,11 @@ public partial class PaperTradeView : UserControl, IModuleLifecycle
 
                 if (result == MessageBoxResult.Yes)
                 {
-                    AddLog($"📤 手动平仓: {position.Symbol} {position.Side} {position.Quantity:F4}");
+                    AddLog($"手动平仓: {position.Symbol} {position.Side} {position.Quantity:F4}");
 
                     await _positionManager.ClosePositionManuallyAsync(position);
 
-                    AddLog($"✅ 平仓成功: {position.Symbol}");
+                    AddLog($"平仓成功: {position.Symbol}");
                     UpdateUI();
                 }
             }

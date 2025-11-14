@@ -11,7 +11,7 @@ public class AITradingAutomation
 {
     private readonly BinanceStreamClient _streamClient;
     private readonly MarketDataPreprocessor _dataProcessor;
-    private readonly DeepSeekTradingAgent _aiAgent;
+    private readonly 币安量化机器人.Services.AI.ITradingAgent _aiAgent;
     private readonly AIOrderExecutionEngine _executionEngine;
     private readonly TradingAccountManager _accountManager;
     private readonly PositionManager _positionManager;
@@ -19,6 +19,8 @@ public class AITradingAutomation
 
     private bool _isRunning;
     private CancellationTokenSource? _cts;
+    private Task? _positionMonitorTask;
+    private readonly object _sync = new();
 
     // 由中央协调器注入
     private EventBus? _eventBus;
@@ -27,7 +29,7 @@ public class AITradingAutomation
     public AITradingAutomation(
         BinanceStreamClient streamClient,
         MarketDataPreprocessor dataProcessor,
-        DeepSeekTradingAgent aiAgent,
+        币安量化机器人.Services.AI.ITradingAgent aiAgent,
         AIOrderExecutionEngine executionEngine,
         TradingAccountManager accountManager,
         PositionManager positionManager)
@@ -53,13 +55,18 @@ public class AITradingAutomation
     /// <param name="accountType">账户类型 (模拟/真实)</param>
     public async Task StartAsync(string[] symbols, AccountType accountType = AccountType.Simulated)
     {
-        if (_isRunning)
+        lock (_sync)
         {
-            throw new InvalidOperationException("AI自动交易已在运行");
+            if (_isRunning)
+            {
+                LogService.Warning("AITradingAutomation.StartAsync called while already running");
+                return; // idempotent
+            }
+            _isRunning = true;
+            _cts = new CancellationTokenSource();
         }
 
-        _isRunning = true;
-        _cts = new CancellationTokenSource();
+        CancellationToken token = _cts.Token;
 
         // 切换到指定账户
         _accountManager.SwitchAccount(accountType);
@@ -67,23 +74,31 @@ public class AITradingAutomation
         string[] defaultSymbols = new[] { "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "ADAUSDT", "XRPUSDT" };
         var subscribeSymbols = (symbols == null || symbols.Length == 0) ? defaultSymbols : symbols;
 
-        LogService.Info("🤖 AI自动交易启动: 账户={Account}, 交易对={Symbols}",
-            accountType, string.Join(",", subscribeSymbols));
+        LogService.Info("AI自动交易启动: 账户={Account}, 交易对={Symbols}",
+            accountType, string.Join(',', subscribeSymbols));
 
         try
         {
-            // 启动仓位监控
-            _ = _positionManager.StartMonitoringAsync(_cts.Token);
+            // 启动仓位监控并记录任务以观察异常
+            _positionMonitorTask = _positionManager.StartMonitoringAsync(token);
+            _positionMonitorTask.ContinueWith(t =>
+            {
+                if (t.IsFaulted && t.Exception != null)
+                {
+                    LogService.Error(t.Exception.GetBaseException(), "Position monitor task failed");
+                }
+            }, TaskContinuationOptions.OnlyOnFaulted);
 
             // 订阅WebSocket行情 (MiniTicker)
             _streamClient.MiniTickerReceived += OnMiniTickerReceived;
-            await _streamClient.ConnectMiniTickerAsync(subscribeSymbols, _cts.Token);
+            await _streamClient.ConnectMiniTickerAsync(subscribeSymbols, token).ConfigureAwait(false);
 
             if (_eventBus != null)
             {
                 foreach (var s in subscribeSymbols)
                 {
-                    await _eventBus.PublishAsync(new MarketStreamSubscriptionRequestEvent
+                    // publish without blocking start
+                    _ = _eventBus.PublishAsync(new MarketStreamSubscriptionRequestEvent
                     {
                         Symbol = s,
                         SubscribeFundingRate = true,
@@ -93,25 +108,53 @@ public class AITradingAutomation
                 }
             }
 
-            LogService.Info("✅ WebSocket订阅完成,等待行情数据...");
+            LogService.Info("WebSocket订阅完成,等待行情数据...");
 
-            // 保持运行
-            await Task.Delay(Timeout.Infinite, _cts.Token);
+            // 保持运行直到取消
+            await Task.Delay(Timeout.Infinite, token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
-            LogService.Info("AI自动交易已停止");
+            LogService.Info("AI自动交易停止请求已被取消");
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "AI自动交易异常");
+            LogService.Error(ex, "AI自动交易异常启动或运行期间错误");
             throw;
         }
         finally
         {
-            _streamClient.MiniTickerReceived -= OnMiniTickerReceived;
-            _positionManager.StopMonitoring();
-            _isRunning = false;
+            try
+            {
+                _streamClient.MiniTickerReceived -= OnMiniTickerReceived;
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "解绑 MiniTickerReceived 事件时发生错误");
+            }
+
+            try
+            {
+                // 停止监控并等待完成（带超时）
+                _positionManager.StopMonitoring();
+                if (_positionMonitorTask != null)
+                {
+                    await Task.WhenAny(_positionMonitorTask, Task.Delay(TimeSpan.FromSeconds(5))).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "停止 PositionMonitor 时发生错误");
+            }
+
+            lock (_sync)
+            {
+                _isRunning = false;
+                _cts?.Dispose();
+                _cts = null;
+            }
+
+            LogService.Info("AI自动交易已退出运行循环");
         }
     }
 
@@ -120,10 +163,69 @@ public class AITradingAutomation
     /// </summary>
     public async Task StopAsync()
     {
-        _cts?.Cancel();
-        await _streamClient.StopAsync();
-        _isRunning = false;
-        LogService.Info("🛑 AI自动交易已停止");
+        lock (_sync)
+        {
+            if (!_isRunning)
+            {
+                LogService.Warning("AITradingAutomation.StopAsync called while not running");
+                return; // idempotent
+            }
+        }
+
+        try
+        {
+            _cts?.Cancel();
+
+            // 请求流客户端停止
+            try
+            {
+                await _streamClient.StopAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "停止流客户端时出错");
+            }
+
+            // 停止仓位监控
+            try
+            {
+                _positionManager.StopMonitoring();
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "停止仓位监控时出错");
+            }
+
+            // 等待监控任务优雅完成
+            if (_positionMonitorTask != null)
+            {
+                try
+                {
+                    await Task.WhenAny(_positionMonitorTask, Task.Delay(TimeSpan.FromSeconds(5))).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    LogService.Error(ex, "等待 position monitor 完成时出错");
+                }
+            }
+        }
+        finally
+        {
+            lock (_sync)
+            {
+                _isRunning = false;
+                _cts?.Dispose();
+                _cts = null;
+            }
+
+            try
+            {
+                _streamClient.MiniTickerReceived -= OnMiniTickerReceived;
+            }
+            catch { }
+
+            LogService.Info("AI自动交易已停止");
+        }
     }
 
     /// <summary>
@@ -134,6 +236,12 @@ public class AITradingAutomation
 
     private async void OnMiniTickerReceived(MiniTickerUpdate ticker)
     {
+        // 防止并发或取消触发
+        if (!_isRunning || _cts == null || _cts.IsCancellationRequested)
+        {
+            return;
+        }
+
         try
         {
             using var act = Services.Observability.TraceManager.StartActivity("AITradingAutomation.OnTicker", System.Diagnostics.ActivityKind.Consumer);
@@ -147,18 +255,46 @@ public class AITradingAutomation
 
             _lastAnalysisTime = DateTime.UtcNow;
 
-            LogService.Debug("📊 价格更新: {Symbol} {LastPrice}", ticker.Symbol, ticker.LastPrice);
+            LogService.Debug("价格更新: {Symbol} {LastPrice}", ticker.Symbol, ticker.LastPrice);
 
             // 1. 收集市场数据
-            MarketDataSnapshot marketData = await _dataProcessor.CollectMarketDataAsync(ticker.Symbol);
+            MarketDataSnapshot marketData = await _dataProcessor.CollectMarketDataAsync(ticker.Symbol).ConfigureAwait(false);
+
+            if (marketData == null)
+            {
+                LogService.Warning("MarketDataSnapshot 为空，跳过分析: {Symbol}", ticker.Symbol);
+                return;
+            }
 
             // 2. AI分析生成信号
-            AITradingSignal signal = await _aiAgent.AnalyzeMarketSituationAsync(marketData);
+            AITradingSignal signal = null;
+            try
+            {
+                signal = await _aiAgent.AnalyzeMarketSituationAsync(marketData).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "AI agent 分析失败: {Symbol}", ticker.Symbol);
+                return;
+            }
+
+            if (signal == null)
+            {
+                LogService.Warning("AI 未返回信号: {Symbol}", ticker.Symbol);
+                return;
+            }
+
+            // 基本校验
+            if (signal.Confidence < 0 || signal.Confidence > 1)
+            {
+                LogService.Warning("信心度异常, 忽略信号: {Symbol} {Confidence}", signal.Symbol, signal.Confidence);
+                return;
+            }
 
             Services.Observability.TraceManager.AddTag("signal.action", signal.Action);
             Services.Observability.TraceManager.AddTag("signal.confidence", signal.Confidence);
 
-            LogService.Info("🧠 AI信号: {Symbol} {Action} 信心度={Confidence:P0} 理由={Reason}",
+            LogService.Info("AI信号: {Symbol} {Action} 信心度={Confidence:P0} 理由={Reason}",
                 signal.Symbol, signal.Action, signal.Confidence, signal.Reason ?? string.Empty);
 
             // 广播到UI
@@ -167,7 +303,7 @@ public class AITradingAutomation
             // Persist signal for learning
             try
             {
-                await ServiceLocator.Cache.SaveSignalAsync(signal.Symbol, signal.Action.ToString(), signal.Confidence, signal.Reason, "AITradingAutomation", DateTime.UtcNow);
+                _ = ServiceLocator.Cache.SaveSignalAsync(signal.Symbol, signal.Action.ToString(), signal.Confidence, signal.Reason, "AITradingAutomation", DateTime.UtcNow);
             }
             catch (Exception ex)
             {
@@ -176,7 +312,7 @@ public class AITradingAutomation
 
             if (_eventBus != null)
             {
-                await _eventBus.PublishAsync(new AITradingSignalGeneratedEvent
+                _ = _eventBus.PublishAsync(new AITradingSignalGeneratedEvent
                 {
                     Signal = signal,
                     Source = "AITradingAutomation",
@@ -188,7 +324,7 @@ public class AITradingAutomation
             OrderExecutionResult result;
             if (signal.Action != SignalAction.Hold)
             {
-                result = await _executionEngine.ExecuteSignalAsync(signal);
+                result = await _executionEngine.ExecuteSignalAsync(signal).ConfigureAwait(false);
             }
             else
             {
@@ -197,7 +333,7 @@ public class AITradingAutomation
 
             if (_eventBus != null)
             {
-                await _eventBus.PublishAsync(new AITradingSignalExecutedEvent
+                _ = _eventBus.PublishAsync(new AITradingSignalExecutedEvent
                 {
                     Signal = signal,
                     Result = result,
@@ -207,52 +343,58 @@ public class AITradingAutomation
 
             if (result.IsSuccess)
             {
-                LogService.Info("✅ 订单执行成功: {OrderId} @ {Price}",
+                LogService.Info("订单执行成功: {OrderId} @ {Price}",
                     result.OrderId ?? string.Empty, result.ExecutedPrice);
 
-                // 保存订单到历史
-                try
+                // 保存订单到历史（fire-and-forget, catch errors）
+                _ = Task.Run(async () =>
                 {
-                    var orderHistory = new OrderHistoryService(ServiceLocator.Cache);
-                    long orderIdLong;
-                    if (!long.TryParse(result.OrderId, out orderIdLong))
+                    try
                     {
-                        // fallback: use stable hash of guid
-                        orderIdLong = Math.Abs(result.OrderId?.GetHashCode() ?? Guid.NewGuid().GetHashCode());
-                    }
+                        var orderHistory = new OrderHistoryService(ServiceLocator.Cache);
+                        long orderIdLong;
+                        if (!long.TryParse(result.OrderId, out orderIdLong))
+                        {
+                            orderIdLong = Math.Abs(result.OrderId?.GetHashCode() ?? Guid.NewGuid().GetHashCode());
+                        }
 
-                    await orderHistory.RecordOrderPlacedAsync(new OrderResponse
+                        await orderHistory.RecordOrderPlacedAsync(new OrderResponse
+                        {
+                            OrderId = orderIdLong,
+                            Symbol = signal.Symbol,
+                            Status = "FILLED",
+                            ExecutedQuantity = (decimal)result.ExecutedQuantity,
+                            Price = (decimal)result.ExecutedPrice,
+                            AvgPrice = (decimal)result.ExecutedPrice,
+                            Time = DateTime.UtcNow
+                        }, strategyName: "AutoTrader").ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
                     {
-                        OrderId = orderIdLong,
-                        Symbol = signal.Symbol,
-                        Status = "FILLED",
-                        ExecutedQuantity = (decimal)result.ExecutedQuantity,
-                        Price = (decimal)result.ExecutedPrice,
-                        AvgPrice = (decimal)result.ExecutedPrice,
-                        Time = DateTime.UtcNow
-                    }, strategyName: "AutoTrader");
-                }
-                catch (Exception ex)
-                {
-                    LogService.Warning("保存订单历史失败: {Message}", ex.Message);
-                }
+                        LogService.Error(ex, "保存订单历史失败");
+                    }
+                });
             }
             else if (!result.IsSuccess && string.Equals(result.Error, "Hold", StringComparison.OrdinalIgnoreCase))
             {
-                LogService.Debug("⏸️ 信号被忽略(Hold)");
+                LogService.Debug("信号被忽略(Hold)");
             }
             else if (!result.IsSuccess && string.Equals(result.Error, "风控拒绝", StringComparison.OrdinalIgnoreCase))
             {
-                LogService.Debug("⏸️ 信号被风控拒绝");
+                LogService.Debug("信号被风控拒绝");
             }
             else if (!result.IsSuccess)
             {
-                LogService.Warning("❌ 订单执行失败: {Reason}", result.Error ?? string.Empty);
+                LogService.Warning("订单执行失败: {Reason}", result.Error ?? string.Empty);
             }
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "AI自动交易异常: {Symbol}", ticker.Symbol);
+            try
+            {
+                LogService.Error(ex, "AI自动交易异常: {Symbol}", ticker.Symbol);
+            }
+            catch { }
         }
     }
 

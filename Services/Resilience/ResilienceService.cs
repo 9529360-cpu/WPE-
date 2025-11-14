@@ -1,11 +1,16 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Polly;
+using Polly.CircuitBreaker;
+using Polly.Retry;
+using Polly.Timeout;
+using Polly.Wrap;
 
 namespace 币安量化机器人.Services.Resilience;
 
 /// <summary>
-/// 弹性服务集成器
+/// 弹性服务集成器（增加 Polly 策略工厂）
 /// </summary>
 /// <remarks>
 /// 统一管理所有弹性组件:
@@ -19,6 +24,11 @@ public class ResilienceService : IDisposable
     private readonly AnomalyDetectionSystem _anomalyDetection;
     private readonly AutoRecoveryManager _recoveryManager;
 
+    private readonly AsyncPolicyWrap _defaultPolicy;
+    private readonly AsyncRetryPolicy _retryPolicy;
+    private readonly AsyncCircuitBreakerPolicy _circuitBreakerPolicy;
+    private readonly AsyncTimeoutPolicy _timeoutPolicy;
+
     private bool _isInitialized;
 
     public ResilienceService()
@@ -29,6 +39,26 @@ public class ResilienceService : IDisposable
         // 初始化自动恢复
         _recoveryManager = new AutoRecoveryManager();
 
+        // 初始化 Polly 策略
+        _retryPolicy = Policy.Handle<Exception>()
+            .WaitAndRetryAsync(new[] { TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4) }, onRetry: (ex, ts, cnt, ctx) =>
+            {
+                LogService.Warning("[Resilience] 重试 #{Attempt} after {Delay} due to {Exception}", cnt, ts, ex.Message);
+            });
+
+        _circuitBreakerPolicy = Policy.Handle<Exception>()
+            .CircuitBreakerAsync(5, TimeSpan.FromSeconds(60), onBreak: (ex, ts) =>
+            {
+                LogService.Warning("[Resilience] 熔断触发: {Exception}", ex.Message);
+            }, onReset: () =>
+            {
+                LogService.Info("[Resilience] 熔断器已重置");
+            });
+
+        _timeoutPolicy = Policy.TimeoutAsync(TimeSpan.FromSeconds(10));
+
+        _defaultPolicy = Policy.WrapAsync(_retryPolicy, _timeoutPolicy, _circuitBreakerPolicy);
+
         // 订阅事件
         _anomalyDetection.AnomalyDetected += OnAnomalyDetected;
         _recoveryManager.RecoverySucceeded += OnRecoverySucceeded;
@@ -36,7 +66,28 @@ public class ResilienceService : IDisposable
 
         _isInitialized = true;
 
-        LogService.Info("🛡️ [ResilienceService] 弹性服务已启动");
+        LogService.Info("🛡️ [ResilienceService] 弹性服务已启动 (Polly)");
+    }
+
+    /// <summary>
+    /// 获取或创建策略（可按调用标签定制)
+    /// </summary>
+    public AsyncPolicyWrap GetPolicy(string key) => _defaultPolicy;
+
+    /// <summary>
+    /// 执行并应用默认策略包装
+    /// </summary>
+    public Task<TResult> ExecuteAsync<TResult>(Func<CancellationToken, Task<TResult>> action, CancellationToken cancellationToken = default)
+    {
+        return _defaultPolicy.ExecuteAsync(ct => action(ct), cancellationToken);
+    }
+
+    /// <summary>
+    /// 执行无返回值的操作
+    /// </summary>
+    public Task ExecuteAsync(Func<CancellationToken, Task> action, CancellationToken cancellationToken = default)
+    {
+        return _defaultPolicy.ExecuteAsync(ct => action(ct), cancellationToken);
     }
 
     #region 异常检测

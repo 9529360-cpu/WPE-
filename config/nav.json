@@ -1,0 +1,14 @@
+[
+  { "Tag": "仪表盘", "Title": "仪表盘", "GeometryKey": "Geo_Dashboard", "Group": "核心" },
+  { "Tag": "市场", "Title": "市场/行情", "GeometryKey": "Geo_Market", "Group": "行情" },
+  { "Tag": "交易", "Title": "交易", "GeometryKey": "Geo_Trading", "Group": "交易" },
+  { "Tag": "绩效", "Title": "绩效", "GeometryKey": "Geo_Performance", "Group": "分析" },
+  { "Tag": "参数优化", "Title": "参数优化", "GeometryKey": "Geo_Optimize", "Group": "进阶" },
+  { "Tag": "策略库", "Title": "策略库", "GeometryKey": "Geo_Library", "Group": "进阶" },
+  { "Tag": "组合管理", "Title": "策略组合", "GeometryKey": "Geo_Library", "Group": "进阶" },
+  { "Tag": "API", "Title": "API 管理", "GeometryKey": "Geo_Api", "Group": "系统管理" },
+  { "Tag": "设置", "Title": "系统配置", "GeometryKey": "Geo_Settings", "Group": "系统管理" },
+  { "Tag": "诊断", "Title": "日志诊断", "GeometryKey": "Geo_Diagnostics", "Group": "系统管理" },
+  { "Tag": "账户", "Title": "账户", "GeometryKey": "Geo_Account", "Group": "账户" },
+  { "Tag": "预警", "Title": "预警", "GeometryKey": "Geo_Alert", "Group": "账户" }
+]

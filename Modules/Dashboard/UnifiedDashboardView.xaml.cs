@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -18,6 +19,7 @@ public partial class UnifiedDashboardView : UserControl
     private readonly ObservableCollection<RunningStrategyItem> _runningStrategies = new();
     private readonly ObservableCollection<OrderItem> _recentOrders = new();
     private readonly DispatcherTimer _sidebarTimer;
+    private readonly DispatcherTimer _clockTimer;
 
     public UnifiedDashboardView()
     {
@@ -27,9 +29,19 @@ public partial class UnifiedDashboardView : UserControl
         {
             runList.ItemsSource = _runningStrategies;
         }
-        if (this.FindName("RecentOrdersList") is ListView ordList)
+        if (this.FindName("HistoryOrdersList") is ListView ordList)
         {
             ordList.ItemsSource = _recentOrders;
+        }
+
+        // Bind AI start/stop buttons if present
+        if (FindName("StartAIButton") is Button sb)
+        {
+            sb.IsEnabled = true;
+        }
+        if (FindName("StopAIButton") is Button stb)
+        {
+            stb.IsEnabled = false;
         }
 
         // Subscribe to strategy changes
@@ -40,11 +52,112 @@ public partial class UnifiedDashboardView : UserControl
         _sidebarTimer.Tick += (_, __) => _ = RefreshRecentOrdersAsync();
         _sidebarTimer.Start();
 
+        // Live clock
+        _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _clockTimer.Tick += (_, __) => UpdateClock();
+        _clockTimer.Start();
+
         // Initial fill
         UpdateRunningStrategies();
         _ = RefreshRecentOrdersAsync();
 
         RefreshFactorStats();
+
+        // Wire up SymbolsInput change to validate
+        if (FindName("SymbolsInput") is TextBox tb)
+        {
+            tb.TextChanged += SymbolsInput_TextChanged;
+        }
+
+        // subscribe to Unloaded to cleanup
+        this.Unloaded += OnViewUnloaded;
+
+        // subscribe to runtime log buffer
+        Services.Runtime.InMemoryLogBuffer.LogAppended += OnLogAppended;
+
+        // Initial validation
+        ValidateSymbolsInput();
+    }
+
+    private void UpdateClock()
+    {
+        var now = DateTime.Now;
+        if (FindName("CurrentTimeText") is TextBlock tb)
+        {
+            tb.Text = now.ToString("yyyy-MM-dd HH:mm:ss");
+        }
+    }
+
+    private void SymbolsInput_TextChanged(object? sender, TextChangedEventArgs e)
+    {
+        ValidateSymbolsInput();
+    }
+
+    private void ValidateSymbolsInput()
+    {
+        var startBtn = FindName("StartAIButton") as Button;
+        var symbolsText = string.Empty;
+        if (FindName("SymbolsInput") is TextBox tb)
+        {
+            symbolsText = tb.Text ?? string.Empty;
+        }
+
+        // basic validation: non-empty, alphanumeric + commas
+        bool valid = false;
+        if (!string.IsNullOrWhiteSpace(symbolsText))
+        {
+            var parts = symbolsText.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim());
+            valid = parts.All(p => p.Length >= 3 && p.All(c => char.IsLetterOrDigit(c)));
+        }
+
+        if (startBtn != null)
+        {
+            startBtn.IsEnabled = valid;
+        }
+    }
+
+    private void OnLogAppended(string message)
+    {
+        // append to RuntimeLogList on UI thread
+        Dispatcher.Invoke(() =>
+        {
+            if (FindName("RuntimeLogList") is ListBox lb)
+            {
+                lb.Items.Insert(0, $"[{DateTime.Now:HH:mm:ss}] {message}");
+                while (lb.Items.Count > 200)
+                {
+                    lb.Items.RemoveAt(lb.Items.Count - 1);
+                }
+            }
+        });
+    }
+
+    private void ClearLogButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Services.Runtime.InMemoryLogBuffer.Clear();
+            if (FindName("RuntimeLogList") is ListBox lb)
+            {
+                lb.Items.Clear();
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "清空运行日志失败");
+        }
+    }
+
+    private void OnViewUnloaded(object? sender, RoutedEventArgs e)
+    {
+        _sidebarTimer.Stop();
+        _clockTimer.Stop();
+        if (FindName("SymbolsInput") is TextBox tb)
+        {
+            tb.TextChanged -= SymbolsInput_TextChanged;
+        }
+        this.Unloaded -= OnViewUnloaded;
+        Services.Runtime.InMemoryLogBuffer.LogAppended -= OnLogAppended;
     }
 
     private void UpdateRunningStrategies()
@@ -455,5 +568,148 @@ public partial class UnifiedDashboardView : UserControl
         public string Symbol { get; set; } = string.Empty;
         public string ShortInfo { get; set; } = string.Empty;
         public string TimeText { get; set; } = string.Empty;
+    }
+
+    private async void StartAI_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var startBtn = FindName("StartAIButton") as Button;
+            var stopBtn = FindName("StopAIButton") as Button;
+            var progressBar = FindName("StartupProgressBar") as ProgressBar;
+            var statusText = FindName("StartupStatusText") as TextBlock;
+
+            if (startBtn != null)
+            {
+                startBtn.IsEnabled = false;
+            }
+            if (stopBtn != null)
+            {
+                stopBtn.IsEnabled = true;
+            }
+
+            // parse symbols from SymbolsInput
+            string symbolsText = string.Empty;
+            if (FindName("SymbolsInput") is TextBox tb)
+            {
+                symbolsText = tb.Text ?? string.Empty;
+            }
+            string[] symbols = symbolsText.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim().ToUpperInvariant()).ToArray();
+            if (symbols.Length == 0)
+            {
+                symbols = new[] { "BTCUSDT" };
+            }
+
+            // Use progress reporting and batched startup sequence to avoid UI freeze
+            var progress = new Progress<int>(p =>
+            {
+                if (progressBar != null)
+                {
+                    progressBar.Value = p;
+                }
+                if (statusText != null)
+                {
+                    statusText.Text = $"启动中：{p}%";
+                }
+            });
+
+            CancellationTokenSource cts = new();
+
+            // Run startup sequence on background thread
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // Steps: 1) Initialize data pipeline 2) Initialize Market Subscriptions 3) Start AutoTrader modules 4) Warm caches
+                    var steps = new List<Func<Task>>
+                    {
+                        async () => { await Task.Run(() => ServiceLocator.Cache.InitializeAsync().GetAwaiter().GetResult()); },
+                        async () => { /* subscribe market streams if needed */ await Task.Delay(300); },
+                        async () => { await ServiceLocator.AutoTrader.StartAsync(symbols, RuntimeState.CurrentAccountType); },
+                        async () => { await Task.Delay(200); /* warm caches */ }
+                    };
+
+                    int done = 0;
+                    int total = steps.Count;
+                    int batchSize = 1; // keep small batches to give UI time
+
+                    for (int i = 0; i < total; i += batchSize)
+                    {
+                        var batch = steps.Skip(i).Take(batchSize).ToArray();
+                        var tasks = batch.Select(f => f());
+                        await Task.WhenAll(tasks);
+                        done += batch.Length;
+                        int percent = (int)((done / (double)total) * 100);
+                        (progress as IProgress<int>)?.Report(percent);
+                        await Task.Delay(100); // give UI thread a moment
+                        if (cts.IsCancellationRequested) break;
+                    }
+
+                    // final 100%
+                    (progress as IProgress<int>)?.Report(100);
+                    await Task.Delay(200);
+                    Dispatcher.Invoke(() =>
+                    {
+                        if (statusText != null)
+                        {
+                            statusText.Text = "已启动";
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        MessageBox.Show($"AI 启动失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        if (startBtn != null)
+                        {
+                            startBtn.IsEnabled = true;
+                        }
+                        if (stopBtn != null)
+                        {
+                            stopBtn.IsEnabled = false;
+                        }
+                    });
+                    LogService.Error(ex, "[UnifiedDashboard] 一键启动失败");
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"启动失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async void StopAI_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var startBtn = FindName("StartAIButton") as Button;
+            var stopBtn = FindName("StopAIButton") as Button;
+            await ServiceLocator.AutoTrader.StopAsync();
+            if (startBtn != null)
+            {
+                startBtn.IsEnabled = true;
+            }
+            if (stopBtn != null)
+            {
+                stopBtn.IsEnabled = false;
+            }
+
+            var progressBar = FindName("StartupProgressBar") as ProgressBar;
+            var statusText = FindName("StartupStatusText") as TextBlock;
+            if (progressBar != null)
+            {
+                progressBar.Value = 0;
+            }
+            if (statusText != null)
+            {
+                statusText.Text = "已停止";
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"停止失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 }

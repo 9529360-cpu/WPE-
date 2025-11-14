@@ -3,18 +3,20 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:ctrl="clr-namespace:币安量化机器人.Controls"
+             xmlns:local="clr-namespace:币安量化机器人.Modules.Dashboard"
              mc:Ignorable="d" 
              d:DesignHeight="900" d:DesignWidth="1600">
-    
-    <Grid Background="#F9FAFB">
+
+    <Grid Background="{StaticResource BackgroundBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- 顶部标题栏 -->
-        <Border Grid.Row="0" Background="White" Padding="24,20" 
-                BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+        <!-- 顶部标题栏 (unchanged) -->
+        <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" Padding="24,20" BorderBrush="{StaticResource BorderBrushValue}" BorderThickness="0,0,0,1">
+            <!-- header content omitted for brevity, keep existing markup -->
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -22,124 +24,181 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- 标题 -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
                     <TextBlock Text="🅰️" FontSize="28" VerticalAlignment="Center" Margin="0,0,12,0"/>
                     <StackPanel>
-                        <TextBlock Text="Alpha Arena 量化仪表盘" FontSize="22" FontWeight="Bold" Foreground="#111827"/>
-                        <TextBlock x:Name="StatusText" Text="实时监控 · 智能决策 · 自动执行" 
-                                   FontSize="14" Foreground="#6B7280" Margin="0,4,0,0"/>
+                        <TextBlock Text="Alpha Arena 量化仪表盘" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock x:Name="StatusText" Text="实时监控 · 智能决策 · 自动执行" FontSize="14" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
                     </StackPanel>
                 </StackPanel>
 
-                <!-- 系统状态 -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" 
-                           HorizontalAlignment="Center" Margin="40,0">
-                    <Border Background="#10B981" CornerRadius="20" Padding="12,6" Margin="0,0,8,0">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="40,0">
+                    <Border Background="{StaticResource SuccessBrush}" CornerRadius="20" Padding="12,6" Margin="0,0,8,0" Width="171">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse Width="8" Height="8" Fill="White" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <TextBlock x:Name="SystemStatusText" Text="系统运行中" 
-                                       FontSize="12" FontWeight="Bold" Foreground="White"/>
+                            <TextBlock x:Name="SystemStatusText" Text="系统运行中" FontSize="12" FontWeight="Bold" Foreground="White"/>
                         </StackPanel>
                     </Border>
-                    
-                    <TextBlock x:Name="CurrentTimeText" Text="2024-01-15 14:30:25" 
-                               FontSize="13" Foreground="#6B7280" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="CurrentTimeText" Text="2024-01-15 14:30:25" FontSize="13" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <!-- 快捷操作 -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="💡 提示: 在下方 AI Tab 中启动交易" 
-                               FontSize="12" Foreground="#6B7280" 
-                               VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <Grid Grid.Column="2" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                    <ComboBox x:Name="AccountTypeCombo" Width="120" Margin="0,0,8,0">
-                        <ComboBoxItem Tag="Sim">Simulated</ComboBoxItem>
-                        <ComboBoxItem Tag="Live">Live</ComboBoxItem>
-                    </ComboBox>
-                    <TextBox x:Name="SymbolsInput" Width="200" Text="BTCUSDT" Margin="0,0,8,0"/>
-                    <Button x:Name="StartAIButton" Content="▶️ 启动AI" Width="100" Margin="0,0,8,0"/>
-                    <Button x:Name="StopAIButton" Content="⏹ 停止AI" Width="100" IsEnabled="False"/>
-                </StackPanel>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0"/>
+
+                    <StackPanel Grid.Column="1" Orientation="Vertical" HorizontalAlignment="Right">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"/>
+
+                        <!-- Startup progress UI -->
+                        <StackPanel Orientation="Vertical" Margin="0,8,0,0" HorizontalAlignment="Right">
+                            <TextBlock x:Name="StartupStatusText" Text="就绪" FontSize="12" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Right" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
             </Grid>
         </Border>
 
-        <!-- 主内容区: 左侧为 CombinedHost, 右侧为侧边栏 -->
-        <Grid Grid.Row="1" Margin="24">
+        <!-- 主内容区: 三列布局：左: 控件， 中: 主视图， 右: 账户/持仓/历史/日志 (更宽、更表格化) -->
+        <Grid Grid.Row="1" Margin="16">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="360"/>
+                <ColumnDefinition Width="280" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="6" />
+                <ColumnDefinition Width="1.2*" />
             </Grid.ColumnDefinitions>
 
-            <ContentControl x:Name="CombinedHost" Grid.Column="0"/>
-
-            <!-- 侧边栏 -->
-            <Border Grid.Column="1" Background="White" CornerRadius="12" BorderBrush="#E5E7EB" BorderThickness="1" Padding="12">
+            <!-- 左侧 控件和策略管理 -->
+            <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrushValue}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="运行中策略" FontSize="14" FontWeight="Bold" Foreground="#111827" Margin="0,0,0,8"/>
-                    <ListView x:Name="RunningStrategiesList" Height="160" Margin="0,0,0,8">
+                    <TextBlock Text="控制面板" FontSize="14" FontWeight="Bold" Margin="0,0,0,8"/>
+
+                    <TextBlock Text="启动设置" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                    <TextBlock Text="账户类型" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
+                    <ComboBox x:Name="LeftAccountTypeCombo" Width="200" Margin="0,6,0,8">
+                        <ComboBoxItem Tag="Sim">Simulated</ComboBoxItem>
+                        <ComboBoxItem Tag="Live">Live</ComboBoxItem>
+                    </ComboBox>
+
+                    <TextBlock Text="交易对 (逗号分隔)" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
+                    <TextBox x:Name="LeftSymbolsInput" Width="220" Text="BTCUSDT" Margin="0,6,0,8"/>
+
+                    <Separator Margin="0,8"/>
+
+                    <TextBlock Text="运行中策略" FontSize="14" FontWeight="Bold" Margin="0,8,0,8"/>
+                    <ListView x:Name="RunningStrategiesList" Height="220">
                         <ListView.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Vertical">
                                     <TextBlock Text="{Binding Name}" FontWeight="Bold" />
-                                    <TextBlock Text="{Binding SymbolsText}" FontSize="12" Foreground="#6B7280"/>
+                                    <TextBlock Text="{Binding SymbolsText}" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
                                 </StackPanel>
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
 
-                    <TextBlock Text="最近订单" FontSize="14" FontWeight="Bold" Foreground="#111827" Margin="0,8,0,8"/>
-                    <ListView x:Name="RecentOrdersList" Height="140" Margin="0,0,0,8">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Orientation="Vertical">
-                                        <TextBlock Text="{Binding Symbol}" FontWeight="Bold"/>
-                                        <TextBlock Text="{Binding ShortInfo}" FontSize="12" Foreground="#6B7280"/>
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="1" Text="{Binding TimeText}" Foreground="#6B7280" VerticalAlignment="Top"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-
-                    <!-- Learning actions -->
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Stretch" Margin="0,8,0,0">
-                        <Button x:Name="ExportTrainingButton" Content="导出训练数据" Height="32" Margin="0,0,0,8" Click="ExportTraining_Click"/>
-                        <Button x:Name="StartTrainingButton" Content="开始训练" Height="32" Click="StartTraining_Click"/>
-                    </StackPanel>
-
-                    <TextBlock x:Name="TrainingStatusText" Text="" FontSize="12" Foreground="#6B7280" Margin="0,8,0,0"/>
-
-                    <!-- 学习管理 -->
-                    <Separator Margin="0,12,0,12"/>
-                    <TextBlock Text="学习管理" FontSize="14" FontWeight="Bold" Foreground="#111827" Margin="0,0,0,8"/>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="0,0,0,8">
-                        <Button x:Name="SaveLearningStateButton" Content="保存学习状态" Width="120" Height="28" Margin="0,0,8,0" Click="SaveLearningState_Click"/>
-                        <Button x:Name="LoadLearningStateButton" Content="加载学习状态" Width="120" Height="28" Margin="0,0,8,0" Click="LoadLearningState_Click"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
-                        <Button x:Name="ResetLearningButton" Content="重置学习状态" Width="120" Height="28" Click="ResetLearning_Click"/>
-                    </StackPanel>
-
-                    <TextBlock Text="因子性能" FontSize="13" FontWeight="SemiBold" Margin="0,8,0,4"/>
-                    <ListView x:Name="FactorStatsList" Height="180">
-                        <ListView.View>
-                            <GridView>
-                                <GridViewColumn Header="因子" DisplayMemberBinding="{Binding FactorCode}" Width="120" />
-                                <GridViewColumn Header="样本" DisplayMemberBinding="{Binding TotalSamples}" Width="60" />
-                                <GridViewColumn Header="胜率" DisplayMemberBinding="{Binding WinRateText}" Width="60" />
-                                <GridViewColumn Header="平均收益" DisplayMemberBinding="{Binding AvgProfitText}" Width="80" />
-                                <GridViewColumn Header="相关" DisplayMemberBinding="{Binding CorrelationText}" Width="60" />
-                            </GridView>
-                        </ListView.View>
-                    </ListView>
+                    <Button x:Name="ManageStrategiesButton" Content="管理策略" Margin="0,12,0,0"/>
                 </StackPanel>
             </Border>
+
+            <!-- 中间 主视图区 (大) -->
+            <Border Grid.Column="1" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrushValue}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,12,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="2*" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- 实时 K 线占位 -->
+                    <local:RealTimeKLineView Grid.Row="0" x:Name="RealTimeKLine" Margin="0,0,0,8" />
+
+                    <ContentControl Grid.Row="1" x:Name="CombinedHost" />
+                </Grid>
+            </Border>
+
+            <!-- 可拖动分隔条 -->
+            <GridSplitter Grid.Column="2" Width="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" ShowsPreview="True" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"/>
+
+            <!-- 右侧 更宽的账户/持仓/历史/日志 (表格化订单) -->
+            <Grid Grid.Column="3" Margin="0,0,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Accounts area: two-row label/value layout (Simulated above Real) -->
+                <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrushValue}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="3*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="模拟账户" FontWeight="Bold"/>
+                            <TextBlock Text="真实账户" FontWeight="Bold" Margin="0,12,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1">
+                            <TextBlock x:Name="SimAccountBalanceText" Text="余额: 10000 USDT" Foreground="{StaticResource MutedBrush}"/>
+                            <TextBlock x:Name="RealAccountBalanceText" Text="真实余额: 0 USDT" Foreground="{StaticResource MutedBrush}" Margin="0,12,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Open positions / current orders in Excel-like ListView -->
+                <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrushValue}" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="持仓 / 进行中订单" FontWeight="Bold" Margin="0,0,0,8"/>
+                        <ListView x:Name="OpenPositionsList" HorizontalAlignment="Stretch" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Symbol" DisplayMemberBinding="{Binding Symbol}" />
+                                    <GridViewColumn Header="Qty" DisplayMemberBinding="{Binding Qty}" />
+                                    <GridViewColumn Header="Entry" DisplayMemberBinding="{Binding EntryPrice}" />
+                                    <GridViewColumn Header="P&amp;L" DisplayMemberBinding="{Binding UnrealizedPnL}" />
+                                    <GridViewColumn Header="Since" DisplayMemberBinding="{Binding OpenTime}" />
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                    </StackPanel>
+                </Border>
+
+                <!-- History orders (Excel-like) -->
+                <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrushValue}" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="历史订单" FontWeight="Bold" Margin="0,0,0,8"/>
+                        <ListView x:Name="HistoryOrdersList" HorizontalAlignment="Stretch" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Time" DisplayMemberBinding="{Binding TimeText}" />
+                                    <GridViewColumn Header="Symbol" DisplayMemberBinding="{Binding Symbol}" />
+                                    <GridViewColumn Header="Side" DisplayMemberBinding="{Binding Side}" />
+                                    <GridViewColumn Header="Qty" DisplayMemberBinding="{Binding Quantity}" />
+                                    <GridViewColumn Header="Price" DisplayMemberBinding="{Binding AvgFillPrice}" />
+                                    <GridViewColumn Header="Status" DisplayMemberBinding="{Binding Status}" />
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                    </StackPanel>
+                </Border>
+
+                <!-- Runtime log (simple full-width list) -->
+                <Border Grid.Row="3" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrushValue}" BorderThickness="1" CornerRadius="6" Padding="12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                            <TextBlock Text="实时日志" FontWeight="Bold"/>
+                            <Button x:Name="ClearLogButton" Content="清空" Width="72" Click="ClearLogButton_Click" HorizontalAlignment="Right"/>
+                        </StackPanel>
+                        <ListBox x:Name="RuntimeLogList" HorizontalContentAlignment="Stretch"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
         </Grid>
     </Grid>
 </UserControl>

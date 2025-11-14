@@ -1,0 +1,12 @@
+<UserControl x:Class="币安量化机器人.Controls.Icon"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:币安量化机器人.Controls"
+             x:Name="Root"
+             Width="20" Height="20">
+    <Grid>
+        <!-- Show Path when Geometry provided, otherwise show Rectangle filled by Brush -->
+        <Path x:Name="IconPath" Stretch="Uniform" Fill="{Binding Fill, ElementName=Root}" Visibility="Collapsed"/>
+        <Rectangle x:Name="IconRect" Visibility="Collapsed"/>
+    </Grid>
+</UserControl>

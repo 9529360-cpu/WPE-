@@ -30,6 +30,7 @@ public class OrderRequest : INotifyPropertyChanged
     private decimal _price;
     private decimal _stopPrice;
     private TimeInForce _timeInForce = TimeInForce.Gtc;
+    private string? _clientOrderId;
 
     public string Symbol
     {
@@ -71,6 +72,13 @@ public class OrderRequest : INotifyPropertyChanged
     {
         get => _timeInForce;
         set => SetField(ref _timeInForce, value);
+    }
+
+    // 客户端订单ID，用于本地幂等和追踪
+    public string? ClientOrderId
+    {
+        get => _clientOrderId;
+        set => SetField(ref _clientOrderId, value);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

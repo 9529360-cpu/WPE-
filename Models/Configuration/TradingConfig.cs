@@ -59,6 +59,26 @@ public class TradingConfig
     public double MaxAcceptableSlippage { get; init; } = 0.005;
 
     /// <summary>
+    /// 交易手续费率 (默认 0.0004 = 0.04%)
+    /// </summary>
+    public double FeeRate { get; init; } = 0.0004;
+
+    /// <summary>
+    /// 是否使用杠杆计算PnL（对于合约/杠杆账户）
+    /// </summary>
+    public bool UseLeverage { get; init; } = false;
+
+    /// <summary>
+    /// 默认杠杆倍数（仅当 UseLeverage=true 时使用）
+    /// </summary>
+    public double DefaultLeverage { get; init; } = 1.0;
+
+    /// <summary>
+    /// 合约乘数/标的单位（例如永续合约的合约面值），默认1表示现货
+    /// </summary>
+    public double ContractMultiplier { get; init; } = 1.0;
+
+    /// <summary>
     /// 自动驾驶配置
     /// </summary>
     public AutopilotConfig Autopilot { get; init; } = new();

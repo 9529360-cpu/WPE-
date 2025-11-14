@@ -20,7 +20,10 @@ public partial class AlertCenterView : UserControl
 
     public AlertCenterView()
     {
+        LogService.Info("[AlertCenterView] Constructor called");
         InitializeComponent();
+
+        this.Loaded += (_, __) => LogService.Info("[AlertCenterView] Loaded at {0}", DateTime.UtcNow);
 
         // 绑定数据
         PriceAlertsGrid.ItemsSource = _priceAlerts;
@@ -32,6 +35,16 @@ public partial class AlertCenterView : UserControl
 
         // 异步加载真实通知数据
         _ = LoadNotificationsAsync();
+
+        // 订阅实时告警事件（直接通过 ObservabilityService 提供的事件）
+        try
+        {
+            ServiceLocator.Observability.AlertRaised += OnAlertRaised;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "订阅 Observability.AlertRaised 失败");
+        }
     }
 
     private void InitializePositionAlerts()
@@ -40,7 +53,7 @@ public partial class AlertCenterView : UserControl
 
         _positionAlerts.Add(new PositionAlertItem
         {
-            Icon = "📉",
+            Icon = string.Empty,
             IconBackground = new SolidColorBrush(Color.FromRgb(254, 242, 242)),
             AlertName = "止损预警",
             Description = "持仓亏损达到止损线时发出预警",
@@ -50,7 +63,7 @@ public partial class AlertCenterView : UserControl
 
         _positionAlerts.Add(new PositionAlertItem
         {
-            Icon = "📈",
+            Icon = string.Empty,
             IconBackground = new SolidColorBrush(Color.FromRgb(236, 253, 245)),
             AlertName = "止盈预警",
             Description = "持仓盈利达到止盈线时发出预警",
@@ -66,16 +79,19 @@ public partial class AlertCenterView : UserControl
             var cache = ServiceLocator.Cache;
             if (cache != null)
             {
-                var signals = await cache.LoadSignalsAsync(limit: 200);
-                foreach (var s in signals)
+                // load persisted alerts
+                var alerts = await cache.LoadAlertsAsync(limit: 200);
+                foreach (var a in alerts)
                 {
                     _allNotifications.Add(new NotificationHistoryItem
                     {
-                        Timestamp = s.Timestamp,
-                        NotificationType = s.Action,
-                        Level = "信息",
-                        Title = s.Symbol,
-                        Message = s.Reason ?? ""
+                        Timestamp = a.Timestamp,
+                        NotificationType = a.RuleName ?? "系统",
+                        Level = a.Severity ?? "",
+                        Title = a.RuleName ?? "",
+                        Message = a.Message ?? "",
+                        AlertId = a.Id,
+                        IsResolved = a.IsResolved
                     });
                 }
             }
@@ -166,6 +182,45 @@ public partial class AlertCenterView : UserControl
         FilterNotifications();
     }
 
+    private void OnAlertRaised(Services.Observability.AlertEvent alert)
+    {
+        // UI thread dispatch
+        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+        {
+            _allNotifications.Insert(0, new NotificationHistoryItem
+            {
+                Timestamp = alert.Timestamp,
+                NotificationType = alert.RuleName,
+                Level = alert.Severity.ToString(),
+                Title = alert.RuleName,
+                Message = alert.Message
+            });
+
+            FilterNotifications();
+            UpdateStatistics();
+            // show pending badge when realtime on
+            if (RealtimeToggle.IsChecked == true)
+            {
+                PendingCountText.Text = (_allNotifications.Count(n => !n.IsResolved)).ToString();
+                PendingBadge.Visibility = _allNotifications.Any(n => !n.IsResolved) ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+            }
+        });
+    }
+
+    private void RealtimeToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        bool on = RealtimeToggle.IsChecked == true;
+        if (!on)
+        {
+            PendingBadge.Visibility = System.Windows.Visibility.Collapsed;
+        }
+        else
+        {
+            PendingCountText.Text = (_allNotifications.Count(n => !n.IsResolved)).ToString();
+            PendingBadge.Visibility = _allNotifications.Any(n => !n.IsResolved) ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        }
+    }
+
     private async void SendTestEmail_Click(object sender, RoutedEventArgs e)
     {
         string email = EmailAddressInput.Text;
@@ -205,6 +260,86 @@ public partial class AlertCenterView : UserControl
             MessageBox.Show($"发送失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
+
+    private async void MarkResolved_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.DataContext is NotificationHistoryItem item)
+        {
+            try
+            {
+                var cache = ServiceLocator.Cache;
+                if (cache != null && item.AlertId.HasValue)
+                {
+                    await cache.UpdateAlertResolvedAsync(item.AlertId.Value, true, DateTime.UtcNow).ConfigureAwait(false);
+                }
+
+                item.IsResolved = true;
+                UpdateStatistics();
+                FilterNotifications();
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "标记已解决失败");
+                MessageBox.Show("操作失败，请查看日志", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+
+    private void ShowDetails_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.DataContext is NotificationHistoryItem item)
+        {
+            // show a simple details window/modal
+            var details = $"时间: {item.Timestamp:yyyy-MM-dd HH:mm:ss}\n类型: {item.NotificationType}\n级别: {item.Level}\n标题: {item.Title}\n\n消息:\n{item.Message}";
+            MessageBox.Show(details, "告警详情", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
+
+    private async void UndoResolved_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.DataContext is NotificationHistoryItem item)
+        {
+            try
+            {
+                var cache = ServiceLocator.Cache;
+                if (cache != null && item.AlertId.HasValue)
+                {
+                    await cache.UpdateAlertResolvedAsync(item.AlertId.Value, false, null).ConfigureAwait(false);
+                }
+
+                item.IsResolved = false;
+                UpdateStatistics();
+                FilterNotifications();
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "撤销已解决失败");
+                MessageBox.Show("操作失败，请查看日志", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+
+    private async void TriggerTestAlert_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var ev = new Services.Observability.AlertEvent
+            {
+                RuleName = "UI.Test",
+                Severity = Services.Observability.AlertSeverity.Info,
+                Message = "这是一个测试告警，用于验证 UI 实时更新",
+                Timestamp = DateTime.UtcNow
+            };
+
+            await ServiceLocator.Observability.TriggerAlert(ev);
+            MessageBox.Show("测试告警已触发", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "触发测试告警失败");
+            MessageBox.Show($"触发失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
 }
 
 public class PriceAlertItem
@@ -235,4 +370,6 @@ public class NotificationHistoryItem
     public string Level { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
+    public long? AlertId { get; set; }
+    public bool IsResolved { get; set; }
 }

@@ -51,7 +51,10 @@
                                 Padding="8" 
                                 CornerRadius="8" 
                                 Margin="0,0,12,0">
-                            <TextBlock Text="📊" FontSize="20"/>
+                            <!-- use centralized Geo_Api geometry -->
+                            <Grid Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Path Data="{StaticResource Geo_Api}" Fill="{StaticResource TextPrimaryBrush}" Stretch="Uniform"/>
+                            </Grid>
                         </Border>
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="Binance 币安交易所 API" 
@@ -240,7 +243,10 @@
                                 Padding="8" 
                                 CornerRadius="8" 
                                 Margin="0,0,12,0">
-                            <TextBlock Text="🤖" FontSize="20"/>
+                            <!-- use centralized Geo_Optimize geometry for AI icon -->
+                            <Grid Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Path Data="{StaticResource Geo_Optimize}" Fill="{StaticResource TextPrimaryBrush}" Stretch="Uniform"/>
+                            </Grid>
                         </Border>
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="DeepSeek AI 人工智能" 

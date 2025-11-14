@@ -49,6 +49,11 @@ public class RiskConfig
     public bool EnableDailyLossLimit { get; init; } = true;
 
     /// <summary>
+    /// 每日最大亏损占初始资金的比例 (默认3%)
+    /// </summary>
+    public double MaxDailyLossPct { get; init; } = 0.03;
+
+    /// <summary>
     /// 启用移动止损
     /// </summary>
     /// <remarks>
@@ -86,6 +91,11 @@ public class RiskConfig
     public double MaxDrawdownThreshold { get; init; } = 0.10;
 
     /// <summary>
+    /// 峰值缓存生存时间（分钟），用于回撤峰值缓存 (默认5)
+    /// </summary>
+    public int PeakCacheTtlMinutes { get; init; } = 5;
+
+    /// <summary>
     /// 启用最大仓位限制
     /// </summary>
     public bool EnableMaxPositionLimit { get; init; } = true;
@@ -105,4 +115,29 @@ public class RiskConfig
     /// 阻止交易黑名单中的交易对
     /// </remarks>
     public bool EnableBlacklist { get; init; } = true;
+
+    /// <summary>
+    /// 黑名单交易对列表
+    /// </summary>
+    public string[] BlacklistSymbols { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// 启用白名单（仅允许白名单中的交易对）
+    /// </summary>
+    public bool EnableWhitelist { get; init; } = false;
+
+    /// <summary>
+    /// 白名单交易对列表（仅当 EnableWhitelist=true 时生效）
+    /// </summary>
+    public string[] WhitelistSymbols { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// 单笔最大下单占账户净值的比例 (默认2%)
+    /// </summary>
+    public double MaxSingleTradePct { get; init; } = 0.02;
+
+    /// <summary>
+    /// 最小下单间隔（毫秒），用于防止短时间重复下单 (默认500ms)
+    /// </summary>
+    public int MinOrderIntervalMs { get; init; } = 500;
 }

@@ -8,11 +8,12 @@ using 币安量化机器人.Services;
 namespace 币安量化机器人.Services.AI;
 
 /// <summary>
-/// AI交易机器人 - 集成DeepSeek分析、风控、执行的完整系统
+/// AI交易机器人 - 集成AI分析、风控、执行的完整系统
+/// 已修改为使用可插拔的 ITradingAgent（本地适配器或远端代理）
 /// </summary>
 public class AITradingBot
 {
-    private readonly DeepSeekTradingAgent _aiAgent;
+    private readonly ITradingAgent _aiAgent;
     private readonly MarketDataPreprocessor _dataProcessor;
     private readonly AIRiskManager _riskManager;
     private readonly AIPerformanceTracker _performanceTracker;
@@ -21,16 +22,24 @@ public class AITradingBot
     private bool _isRunning;
     private CancellationTokenSource? _cts;
 
+    // 新构造：注入 ITradingAgent
     public AITradingBot(
-        string deepSeekApiKey,
+        ITradingAgent tradingAgent,
         BinanceApiClient apiClient,
         DataCacheService cacheService)
     {
-        _aiAgent = new DeepSeekTradingAgent(deepSeekApiKey);
+        _aiAgent = tradingAgent ?? throw new ArgumentNullException(nameof(tradingAgent));
         _dataProcessor = new MarketDataPreprocessor(apiClient, cacheService);
         _riskManager = new AIRiskManager();
         _performanceTracker = new AIPerformanceTracker();
         _apiClient = apiClient;
+    }
+
+    // 兼容旧构造函数：接受 API Key，但仍使用本地适配器（防止外部依赖）
+    public AITradingBot(string deepSeekApiKey, BinanceApiClient apiClient, DataCacheService cacheService)
+        : this(new LocalAIAgentAdapter(ConfigurationService.GetAIConfig().Temperature), apiClient, cacheService)
+    {
+        // do nothing else - keep compatibility
     }
 
     public bool IsRunning => _isRunning;
@@ -39,21 +48,28 @@ public class AITradingBot
     /// <summary>
     /// 启动交易机器人
     /// </summary>
-    public async Task StartAsync(string symbol, TimeSpan interval)
+    public async Task StartAsync(string symbol, TimeSpan interval, CancellationToken cancellationToken = default)
     {
-        if (_isRunning)
+        if (string.IsNullOrWhiteSpace(symbol)) { throw new ArgumentException("symbol is required", nameof(symbol)); }
+
+        lock (this)
         {
-            throw new InvalidOperationException("机器人已在运行中");
+            if (_isRunning)
+            {
+                LogService.Warning("AITradingBot.StartAsync called while already running");
+                return;
+            }
+            _isRunning = true;
+            _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         }
 
-        _isRunning = true;
-        _cts = new CancellationTokenSource();
+        CancellationToken ct = _cts.Token;
 
         StartupDiagnostics.Log($"AITradingBot: 启动交易机器人 {symbol}, 间隔 {interval.TotalMinutes} 分钟");
 
         try
         {
-            await RunTradingCycleAsync(symbol, interval, _cts.Token);
+            await RunTradingCycleAsync(symbol, interval, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -61,12 +77,17 @@ public class AITradingBot
         }
         catch (Exception ex)
         {
-            StartupDiagnostics.Log($"AITradingBot Error: {ex.Message}");
+            StartupDiagnostics.Log($"AITradingBot Error: {ex.GetBaseException().Message}");
             throw;
         }
         finally
         {
-            _isRunning = false;
+            lock (this)
+            {
+                _isRunning = false;
+                _cts?.Dispose();
+                _cts = null;
+            }
         }
     }
 
@@ -75,8 +96,18 @@ public class AITradingBot
     /// </summary>
     public void Stop()
     {
-        _cts?.Cancel();
-        _isRunning = false;
+        try
+        {
+            _cts?.Cancel();
+        }
+        catch (Exception ex)
+        {
+            StartupDiagnostics.Log($"AITradingBot.Stop error: {ex.Message}");
+        }
+        finally
+        {
+            _isRunning = false;
+        }
     }
 
     /// <summary>
@@ -84,11 +115,14 @@ public class AITradingBot
     /// </summary>
     public async Task<AITradingSignal> AnalyzeOnceAsync(string symbol, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(symbol)) { throw new ArgumentException("symbol is required", nameof(symbol)); }
+
         // 1. 收集市场数据
-        MarketDataSnapshot marketData = await _dataProcessor.CollectMarketDataAsync(symbol, ct);
+        MarketDataSnapshot marketData = await _dataProcessor.CollectMarketDataAsync(symbol, ct).ConfigureAwait(false);
+        if (marketData == null) { throw new InvalidOperationException("无法收集市场数据"); }
 
         // 2. AI分析
-        AITradingSignal signal = await _aiAgent.AnalyzeMarketSituationAsync(marketData, ct);
+        AITradingSignal signal = await _aiAgent.AnalyzeMarketSituationAsync(marketData, ct).ConfigureAwait(false);
 
         StartupDiagnostics.Log($"AITradingBot: {symbol} 分析完成 - {signal.Action} (信心度: {signal.Confidence:P0})");
 
@@ -107,16 +141,28 @@ public class AITradingBot
             try
             {
                 // 1. 收集数据
-                MarketDataSnapshot marketData = await _dataProcessor.CollectMarketDataAsync(symbol, ct);
+                MarketDataSnapshot marketData = await _dataProcessor.CollectMarketDataAsync(symbol, ct).ConfigureAwait(false);
+                if (marketData == null)
+                {
+                    StartupDiagnostics.Log($"AITradingBot: 未能获取市场数据, 跳过本轮 {symbol}");
+                    await Task.Delay(TimeSpan.FromSeconds(ERROR_COOLDOWN_SECONDS), ct).ConfigureAwait(false);
+                    continue;
+                }
 
                 // 2. AI分析
-                AITradingSignal signal = await _aiAgent.AnalyzeMarketSituationAsync(marketData, ct);
+                AITradingSignal signal = await _aiAgent.AnalyzeMarketSituationAsync(marketData, ct).ConfigureAwait(false);
+                if (signal == null)
+                {
+                    StartupDiagnostics.Log($"AITradingBot: AI未返回信号, 跳过本轮 {symbol}");
+                    await Task.Delay(interval, ct).ConfigureAwait(false);
+                    continue;
+                }
 
                 // 3. 风控检查
                 if (_riskManager.ApproveSignal(signal))
                 {
                     // 4. 执行交易
-                    TradeExecutionResult result = await ExecuteTradeAsync(signal, ct);
+                    TradeExecutionResult result = await ExecuteTradeAsync(signal, ct).ConfigureAwait(false);
 
                     // 5. 记录绩效
                     _performanceTracker.RecordSignal(signal, result);
@@ -129,12 +175,23 @@ public class AITradingBot
                 }
 
                 // 6. 等待下一个周期
-                await Task.Delay(interval, ct);
+                await Task.Delay(interval, ct).ConfigureAwait(false);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (OperationCanceledException)
             {
-                StartupDiagnostics.Log($"AITradingBot Cycle Error: {ex.Message}");
-                await Task.Delay(TimeSpan.FromSeconds(ERROR_COOLDOWN_SECONDS), ct);
+                break;
+            }
+            catch (Exception ex)
+            {
+                StartupDiagnostics.Log($"AITradingBot Cycle Error: {ex.GetBaseException().Message}");
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(ERROR_COOLDOWN_SECONDS), ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
             }
         }
     }
@@ -151,7 +208,9 @@ public class AITradingBot
                 return new TradeExecutionResult
                 {
                     Status = "SKIPPED",
-                    Message = "Hold信号,不执行交易"
+                    Message = "Hold信号,不执行交易",
+                    ExecutedPrice = 0,
+                    ExecutedQuantity = 0
                 };
             }
 
@@ -171,7 +230,9 @@ public class AITradingBot
             return new TradeExecutionResult
             {
                 Status = "FAILED",
-                Message = ex.Message
+                Message = ex.GetBaseException().Message,
+                ExecutedPrice = 0,
+                ExecutedQuantity = 0
             };
         }
     }
@@ -240,17 +301,19 @@ public class AIRiskManager
     /// <returns>true表示通过，false表示拒绝</returns>
     public bool ApproveSignal(AITradingSignal signal)
     {
+        if (signal == null) { return false; }
+
         // 1. 信心度检查
-        if (signal.Confidence < _minConfidence)
+        if (double.IsNaN(signal.Confidence) || signal.Confidence < _minConfidence)
         {
             StartupDiagnostics.Log($"RiskCheck: 信心度不足 {signal.Confidence:P0} < {_minConfidence:P0}");
             return false;
         }
 
         // 2. 仓位检查
-        if (signal.PositionSize > _maxPositionSize)
+        if (double.IsNaN(signal.PositionSize) || signal.PositionSize <= 0 || signal.PositionSize > _maxPositionSize)
         {
-            StartupDiagnostics.Log($"RiskCheck: 仓位过大 {signal.PositionSize:P0} > {_maxPositionSize:P0}");
+            StartupDiagnostics.Log($"RiskCheck: 仓位异常 {signal.PositionSize:P0} > {_maxPositionSize:P0}");
             return false;
         }
 
@@ -262,6 +325,12 @@ public class AIRiskManager
         }
 
         // 4. 止损合理性检查
+        if (signal.EntryPrice <= 0 || signal.StopLoss <= 0)
+        {
+            StartupDiagnostics.Log($"RiskCheck: 价格数据无效 Entry={signal.EntryPrice}, StopLoss={signal.StopLoss}");
+            return false;
+        }
+
         double riskPercent = Math.Abs(signal.EntryPrice - signal.StopLoss) / signal.EntryPrice;
         if (riskPercent > RiskConstants.MAX_STOP_LOSS_PERCENT)
         {
@@ -304,6 +373,8 @@ public class AIPerformanceTracker
 
     public void RecordSignal(AITradingSignal signal, TradeExecutionResult result)
     {
+        if (signal == null || result == null) { return; }
+
         _signalHistory.Add(new SignalRecord
         {
             Signal = signal,
@@ -342,7 +413,7 @@ public class AIPerformanceTracker
 /// </summary>
 public class TradeExecutionResult
 {
-    public required string Status { get; init; }
+    public string Status { get; init; } = string.Empty;
     public string Message { get; init; } = string.Empty;
     public double ExecutedPrice { get; init; }
     public double ExecutedQuantity { get; init; }
@@ -353,7 +424,7 @@ public class TradeExecutionResult
 /// </summary>
 public class SignalRecord
 {
-    public required AITradingSignal Signal { get; init; }
-public required TradeExecutionResult Result { get; init; }
-public DateTime Timestamp { get; init; }
+    public AITradingSignal Signal { get; init; } = null!;
+    public TradeExecutionResult Result { get; init; } = null!;
+    public DateTime Timestamp { get; init; }
 }

@@ -311,8 +311,9 @@ public class Position
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
     public string Symbol { get; init; } = string.Empty;
     public OrderSide Side { get; init; }
-    public double Quantity { get; init; }
-    public double EntryPrice { get; init; }
+    // Quantity can change on partial closes
+    public double Quantity { get; set; }
+    public double EntryPrice { get; set; }
     public double CurrentPrice { get; set; }
     public double ClosePrice { get; set; }
     public double StopLoss { get; init; }

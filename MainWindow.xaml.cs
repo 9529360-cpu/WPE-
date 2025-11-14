@@ -1,15 +1,27 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using 币安量化机器人.Models;
 using 币安量化机器人.Modules;
+using 币安量化机器人.Services;
+using System.Reflection;
 
 namespace 币安量化机器人
 {
     public partial class MainWindow : Window
     {
+        // DI-provided service provider (optional)
+        private readonly IServiceProvider? _provider;
+        private readonly ILogger<MainWindow>? _logger;
+
         // Tag -> 模块 UserControl 的"类型全名, 程序集名"
         private readonly Dictionary<string, string> _viewMap = new()
         {
@@ -47,19 +59,107 @@ namespace 币安量化机器人
             ["诊断"] = "币安量化机器人.Modules.Diagnostics.DiagnosticsView, 币安量化机器人"
         };
 
+        // Nav items for data-driven left navigation
+        public ObservableCollection<NavMenuItem> NavItems { get; } = new();
+
         private DispatcherTimer? _heartbeat;
 
         // Track currently active lifecycle
         private IModuleLifecycle? _currentLifecycle;
         private UserControl? _currentView;
 
+        // Parameterless constructor - keep for designer/back-compat
         public MainWindow()
         {
             InitializeComponent();
+
+            // set DataContext so bindings in XAML can access NavItems
+            DataContext = this;
+
             StartHeartbeat();
+
+            // Try load from config first
+            try
+            {
+                var configItems = NavConfigService.LoadFromConfig(AppDomain.CurrentDomain.BaseDirectory);
+                var any = false;
+                foreach (var ni in configItems)
+                {
+                    NavItems.Add(ni);
+                    any = true;
+                }
+
+                if (!any)
+                {
+                    PopulateDefaultNavItems();
+                }
+            }
+            catch
+            {
+                PopulateDefaultNavItems();
+            }
+
+            // Setup grouping view for NavItems
+            var view = CollectionViewSource.GetDefaultView(NavItems) as ListCollectionView;
+            if (view != null)
+            {
+                view.GroupDescriptions?.Clear();
+                view.GroupDescriptions?.Add(new PropertyGroupDescription("Group"));
+            }
 
             // 默认打开仪表盘
             LoadViewByTag("仪表盘");
+
+            // Diagnostic startup log to help identify running build/version
+            try
+            {
+                var asm = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+                var ver = asm.GetName().Version?.ToString() ?? "n/a";
+                LogService.Info("[MainWindow] Starting - Assembly: {Asm} Version: {Ver}", asm.GetName().Name, ver);
+            }
+            catch (Exception ex)
+            {
+                LogService.Warning("[MainWindow] Failed to log assembly version: {0}", ex.Message);
+            }
+        }
+
+        // DI constructor used when resolved from Host
+        public MainWindow(IServiceProvider provider, ILogger<MainWindow> logger) : this()
+        {
+            _provider = provider ?? throw new ArgumentNullException(nameof(provider));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+            _logger.LogInformation("MainWindow constructed with DI provider");
+        }
+
+        private void PopulateDefaultNavItems()
+        {
+            try
+            {
+                Brush? iconDash = TryFindResource("IconDashboard") as Brush;
+                Brush? iconOptimize = TryFindResource("IconOptimize") as Brush;
+                Brush? iconLibrary = TryFindResource("IconLibrary") as Brush;
+                Brush? iconApi = TryFindResource("IconApi") as Brush;
+
+                var geoDash = TryFindResource("Geo_Dashboard") as Geometry;
+                var geoOptimize = TryFindResource("Geo_Optimize") as Geometry;
+                var geoLibrary = TryFindResource("Geo_Library") as Geometry;
+                var geoApi = TryFindResource("Geo_Api") as Geometry;
+                var geoSettings = TryFindResource("Geo_Settings") as Geometry;
+                var geoDiag = TryFindResource("Geo_Diagnostics") as Geometry;
+
+                NavItems.Add(new NavMenuItem { Tag = "仪表盘", Title = "仪表盘", Icon = iconDash ?? Brushes.Transparent, GeometryData = geoDash });
+                NavItems.Add(new NavMenuItem { Tag = "参数优化", Title = "参数优化", Icon = iconOptimize ?? Brushes.Transparent, GeometryData = geoOptimize });
+                NavItems.Add(new NavMenuItem { Tag = "策略库", Title = "策略库", Icon = iconLibrary ?? Brushes.Transparent, GeometryData = geoLibrary });
+                NavItems.Add(new NavMenuItem { Tag = "组合管理", Title = "策略组合", Icon = iconLibrary ?? Brushes.Transparent, GeometryData = geoLibrary });
+                NavItems.Add(new NavMenuItem { Tag = "API", Title = "API 管理", Icon = iconApi ?? Brushes.Transparent, GeometryData = geoApi });
+                NavItems.Add(new NavMenuItem { Tag = "设置", Title = "系统配置", Icon = iconApi ?? Brushes.Transparent, GeometryData = geoSettings });
+                NavItems.Add(new NavMenuItem { Tag = "诊断", Title = "日志诊断", Icon = iconApi ?? Brushes.Transparent, GeometryData = geoDiag });
+            }
+            catch (Exception ex)
+            {
+                LogError(ex, "PopulateDefaultNavItems 失败");
+            }
         }
 
         private void StartHeartbeat()
@@ -78,6 +178,40 @@ namespace 币安量化机器人
             {
                 LoadViewByTag(tag);
             }
+        }
+
+        private void NavCollapseToggle_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (LeftColumn.Width.Value > 60)
+                {
+                    // collapse
+                    LeftColumn.Width = new GridLength(56);
+
+                    // hide text labels inside buttons - best-effort by traversing visual tree
+                    CollapseLeftNavText();
+                }
+                else
+                {
+                    LeftColumn.Width = new GridLength(220);
+                    ExpandLeftNavText();
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError(ex, "切换侧边栏折叠状态失败");
+            }
+        }
+
+        private void CollapseLeftNavText()
+        {
+            // No-op: label visibility handled by binding to NavCollapseToggle.IsChecked
+        }
+
+        private void ExpandLeftNavText()
+        {
+            // No-op: label visibility handled by binding to NavCollapseToggle.IsChecked
         }
 
         // Make async void so we can await lifecycle Start/Stop without changing callers
@@ -103,7 +237,7 @@ namespace 币安量化机器人
                     }
                     catch (Exception ex)
                     {
-                        Services.LogService.Error(ex, "[MainWindow] 停止上一个模块失败");
+                        LogError(ex, "[MainWindow] 停止上一个模块失败");
                     }
                 }
 
@@ -115,18 +249,45 @@ namespace 币安量化机器人
                 {
                     MainContentHost.Children.Add(MakePlaceholder(tag, "未注册模块"));
                     StatusText.Text = $"状态：未找到 {tag} 模块";
+                    LogService.Warning("[MainWindow] 未找到模块映射: {Tag}", tag);
                     return;
                 }
 
+                LogService.Info("[MainWindow] 尝试加载模块 Tag={Tag} TypeName={TypeName}", tag, typeName);
                 var type = Type.GetType(typeName, throwOnError: false);
                 if (type == null || !typeof(UserControl).IsAssignableFrom(type))
                 {
                     MainContentHost.Children.Add(MakePlaceholder(tag, $"未找到类型 {typeName}"));
                     StatusText.Text = $"状态：{tag} 模块加载失败";
+                    LogService.Error("[MainWindow] 模块类型解析失败: {TypeName}", typeName);
                     return;
                 }
 
-                var view = (UserControl)Activator.CreateInstance(type)!;
+                UserControl? view = null;
+
+                // 如果通过 DI 可解析出视图实例，优先使用 DI 解析以确保依赖注入
+                if (_provider != null)
+                {
+                    try
+                    {
+                        var svc = _provider.GetService(type) as UserControl;
+                        if (svc != null)
+                        {
+                            view = svc;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogError(ex, "DI 解析模块视图失败，回退到 Activator");
+                    }
+                }
+
+                if (view == null)
+                {
+                    view = (UserControl)Activator.CreateInstance(type)!;
+                    LogService.Info("[MainWindow] Activator created view instance: {ViewType}", view.GetType().FullName);
+                }
+
                 MainContentHost.Children.Add(view);
                 StatusText.Text = $"状态：{tag} 模块加载成功 · {DateTime.Now:HH:mm:ss}";
 
@@ -138,10 +299,11 @@ namespace 币安量化机器人
                     try
                     {
                         await lifecycle.StartAsync();
+                        LogService.Info("[MainWindow] Started lifecycle for view {ViewType}", view.GetType().FullName);
                     }
                     catch (Exception ex)
                     {
-                        Services.LogService.Error(ex, "[MainWindow] 启动模块生命周期失败");
+                        LogError(ex, "[MainWindow] 启动模块生命周期失败");
                     }
                 }
                 else
@@ -157,7 +319,7 @@ namespace 币安量化机器人
                 StatusText.Text = $"状态：错误 - {errorMsg}";
 
                 // 记录到日志
-                Services.LogService.Error(ex, $"加载模块 {tag} 时发生异常");
+                LogError(ex, $"加载模块 {tag} 时发生异常");
             }
         }
 
@@ -174,7 +336,7 @@ namespace 币安量化机器人
                 }
                 catch (Exception ex)
                 {
-                    Services.LogService.Error(ex, "[MainWindow] 关闭时停止模块失败");
+                    LogError(ex, "[MainWindow] 关闭时停止模块失败");
                 }
             }
         }
@@ -228,6 +390,18 @@ namespace 币安量化机器人
                     }
                 }
             };
+        }
+
+        private void LogError(Exception ex, string messageTemplate, params object[] args)
+        {
+            if (_logger != null)
+            {
+                _logger.LogError(ex, messageTemplate, args);
+            }
+            else
+            {
+                Services.LogService.Error(ex, messageTemplate, args);
+            }
         }
     }
 }

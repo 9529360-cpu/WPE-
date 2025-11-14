@@ -5,6 +5,7 @@ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
 xmlns:performance="clr-namespace:币安量化机器人.Modules.Performance"
 xmlns:sp="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+xmlns:ctrl="clr-namespace:币安量化机器人.Controls"
 mc:Ignorable="d" 
 d:DesignHeight="800" d:DesignWidth="1400">
     <UserControl.DataContext>
@@ -27,7 +28,10 @@ d:DesignHeight="800" d:DesignWidth="1400">
 
                 <!-- 标题与状态 -->
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="绩效分析仪表盘" FontSize="18" FontWeight="Bold" Foreground="#111827"/>
+                    <StackPanel Orientation="Horizontal">
+                        <ctrl:Icon Geometry="{StaticResource Geo_Performance}" Fill="#111827" Width="20" Height="20" Margin="0,0,8,0"/>
+                        <TextBlock Text="绩效分析仪表盘" FontSize="18" FontWeight="Bold" Foreground="#111827" VerticalAlignment="Center"/>
+                    </StackPanel>
                     <TextBlock Text="{Binding Status}" FontSize="12" Foreground="#6B7280" Margin="0,4,0,0"/>
                 </StackPanel>
 

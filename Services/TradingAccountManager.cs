@@ -70,7 +70,7 @@ public class TradingAccountManager : INotifyPropertyChanged
     /// <param name="name">账户名称</param>
     /// <param name="initialBalance">初始资金</param>
     /// <returns>创建的模拟账户</returns>
-    public TradingAccount CreateSimulatedAccount(string name = "模拟账户", decimal initialBalance = 10000m)
+    public TradingAccount CreateSimulatedAccount(string name = "模拟账户", decimal initialBalance = 100m)
     {
         // 检查是否已存在模拟账户
         if (SimulatedAccount != null)

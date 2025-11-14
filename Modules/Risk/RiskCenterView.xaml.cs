@@ -41,7 +41,7 @@ public partial class RiskCenterView : UserControl
 
         _riskRules.Add(new RiskRuleItem
         {
-            Icon = "🛡️",
+            Icon = string.Empty,
             IconBackground = new SolidColorBrush(Color.FromRgb(239, 246, 255)),
             RuleName = "最大持仓数限制",
             Description = "限制同时持有的交易对数量,防止过度分散",
@@ -51,7 +51,7 @@ public partial class RiskCenterView : UserControl
 
         _riskRules.Add(new RiskRuleItem
         {
-            Icon = "💰",
+            Icon = string.Empty,
             IconBackground = new SolidColorBrush(Color.FromRgb(236, 253, 245)),
             RuleName = "单笔最大仓位",
             Description = "限制单笔交易占总资金的比例",
@@ -61,7 +61,7 @@ public partial class RiskCenterView : UserControl
 
         _riskRules.Add(new RiskRuleItem
         {
-            Icon = "📉",
+            Icon = string.Empty,
             IconBackground = new SolidColorBrush(Color.FromRgb(254, 242, 242)),
             RuleName = "最大回撤限制",
             Description = "当回撤超过阈值时停止交易",
@@ -71,7 +71,7 @@ public partial class RiskCenterView : UserControl
 
         _riskRules.Add(new RiskRuleItem
         {
-            Icon = "⏰",
+            Icon = string.Empty,
             IconBackground = new SolidColorBrush(Color.FromRgb(255, 251, 235)),
             RuleName = "持仓时间止损",
             Description = "持仓超过指定时间自动平仓",
@@ -81,7 +81,7 @@ public partial class RiskCenterView : UserControl
 
         _riskRules.Add(new RiskRuleItem
         {
-            Icon = "🔥",
+            Icon = string.Empty,
             IconBackground = new SolidColorBrush(Color.FromRgb(254, 242, 242)),
             RuleName = "极端亏损止损",
             Description = "单笔亏损超过阈值立即平仓",
@@ -91,7 +91,7 @@ public partial class RiskCenterView : UserControl
 
         _riskRules.Add(new RiskRuleItem
         {
-            Icon = "📊",
+            Icon = string.Empty,
             IconBackground = new SolidColorBrush(Color.FromRgb(243, 244, 246)),
             RuleName = "每日亏损限制",
             Description = "当日累计亏损超过限制时停止交易",

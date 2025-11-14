@@ -1,8 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
 <UserControl x:Class="币安量化机器人.Modules.Alert.AlertCenterView"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="#F9FAFB">
-    
+              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+              xmlns:ctrl="clr-namespace:币安量化机器人.Controls"
+              xmlns:local="clr-namespace:币安量化机器人.Modules.Alert"
+              Background="#F9FAFB">
+    <UserControl.Resources>
+        <local:InverseBooleanConverter x:Key="InverseBool"/>
+        <local:LevelToBrushConverter x:Key="LevelToBrush"/>
+    </UserControl.Resources>
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -13,14 +19,17 @@
         <!-- 标题栏 -->
         <Border Grid.Row="0" Background="#1F2937" Padding="16" CornerRadius="8" Margin="0,0,0,12">
             <DockPanel>
-                <TextBlock Text="🚨 预警与通知中心" 
-                           FontSize="20" FontWeight="Bold" 
-                           Foreground="White" 
-                           VerticalAlignment="Center"
-                           DockPanel.Dock="Left"/>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
+                    <Grid Width="24" Height="24" Margin="0,0,8,0" VerticalAlignment="Center">
+                        <Path Data="{StaticResource Geo_Alert}" Fill="White" Stretch="Uniform"/>
+                    </Grid>
+                    <TextBlock Text="预警与通知中心" 
+                               FontSize="20" FontWeight="Bold" 
+                               Foreground="White" 
+                               VerticalAlignment="Center"/>
+                </StackPanel>
                 
-                <Button Content="➕ 新建预警"
-                        Height="36"
+                <Button Height="36"
                         Padding="16,0"
                         Background="#10B981"
                         Foreground="White"
@@ -48,6 +57,23 @@
                             </Style.Triggers>
                         </Style>
                     </Button.Style>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <ctrl:Icon Geometry="{StaticResource Geo_Alert}" Fill="White" Width="16" Height="16" Margin="0,0,8,0"/>
+                        <TextBlock Text="新建预警" Foreground="White" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Height="36"
+                        Padding="12,0"
+                        Background="#2563EB"
+                        Foreground="White"
+                        BorderThickness="0"
+                        HorizontalAlignment="Right"
+                        Margin="8,0,0,0"
+                        Click="TriggerTestAlert_Click"
+                        Cursor="Hand">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="触发测试告警" Foreground="White" VerticalAlignment="Center"/>
+                    </StackPanel>
                 </Button>
             </DockPanel>
         </Border>
@@ -99,11 +125,13 @@
                     CornerRadius="8" Padding="16">
                 <StackPanel>
                     <TextBlock Text="通知方式" FontSize="12" Foreground="#6B7280"/>
-                    <TextBlock x:Name="NotificationMethodsText" 
-                               Text="系统通知" 
-                               FontSize="16" 
-                               FontWeight="Bold"
-                               Margin="0,4,0,0"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <TextBlock x:Name="NotificationMethodsText" Text="系统通知" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <ToggleButton x:Name="RealtimeToggle" Content="实时" Margin="12,0,0,0" Width="60" Height="24" VerticalAlignment="Center" IsChecked="True" Checked="RealtimeToggle_Changed" Unchecked="RealtimeToggle_Changed"/>
+                        <Border x:Name="PendingBadge" Background="#F59E0B" CornerRadius="8" Padding="6,2" Margin="8,0,0,0" Visibility="Collapsed">
+                            <TextBlock x:Name="PendingCountText" Text="0" Foreground="White" FontSize="12"/>
+                        </Border>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
@@ -131,7 +159,13 @@
                     BorderThickness="0">
             
             <!-- Tab 1: 价格预警 -->
-            <TabItem Header="💰 价格预警" FontSize="14" Padding="12,8">
+            <TabItem FontSize="14" Padding="12,8">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ctrl:Icon Geometry="{StaticResource Geo_Market}" Fill="#6B7280" Width="16" Height="16" Margin="0,0,8,0"/>
+                        <TextBlock Text="价格预警" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
                 <Border Background="White" Padding="16">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -141,14 +175,18 @@
 
                         <!-- 操作栏 -->
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-                            <Button Content="➕ 新建价格预警"
-                                    Height="32"
+                            <Button Height="32"
                                     Padding="12,0"
                                     Background="#3B82F6"
                                     Foreground="White"
                                     BorderThickness="0"
                                     Click="CreatePriceAlert_Click"
-                                    Cursor="Hand"/>
+                                    Cursor="Hand">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <ctrl:Icon Geometry="{StaticResource Geo_Trading}" Fill="White" Width="16" Height="16" Margin="0,0,8,0"/>
+                                    <TextBlock Text="新建价格预警" Foreground="White" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
 
                         <!-- 价格预警列表 -->
@@ -197,7 +235,13 @@
             </TabItem>
 
             <!-- Tab 2: 持仓预警 -->
-            <TabItem Header="📊 持仓预警" FontSize="14" Padding="12,8">
+            <TabItem FontSize="14" Padding="12,8">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ctrl:Icon Geometry="{StaticResource Geo_Performance}" Fill="#6B7280" Width="16" Height="16" Margin="0,0,8,0"/>
+                        <TextBlock Text="持仓预警" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
                 <Border Background="White" Padding="16">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel>
@@ -230,10 +274,7 @@
                                                         Width="48"
                                                         Height="48"
                                                         Margin="0,0,12,0">
-                                                    <TextBlock Text="{Binding Icon}" 
-                                                               FontSize="24" 
-                                                               HorizontalAlignment="Center"
-                                                               VerticalAlignment="Center"/>
+                                                    <ctrl:Icon Geometry="{StaticResource Geo_Alert}" Fill="#6B7280" Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                 </Border>
 
                                                 <!-- 规则信息 -->
@@ -268,7 +309,13 @@
             </TabItem>
 
             <!-- Tab 3: 通知历史 -->
-            <TabItem Header="📋 通知历史" FontSize="14" Padding="12,8">
+            <TabItem FontSize="14" Padding="12,8">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ctrl:Icon Geometry="{StaticResource Geo_Optimize}" Fill="#6B7280" Width="16" Height="16" Margin="0,0,8,0"/>
+                        <TextBlock Text="通知历史" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
                 <Border Background="White" Padding="16">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -294,25 +341,72 @@
                         </StackPanel>
 
                         <!-- 通知历史列表 -->
-                        <DataGrid Grid.Row="1" 
-                                  x:Name="NotificationHistoryGrid" 
-                                  AutoGenerateColumns="False" 
-                                  IsReadOnly="True" 
+                        <DataGrid Grid.Row="1"
+                                  x:Name="NotificationHistoryGrid"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
                                   CanUserAddRows="False"
                                   CanUserDeleteRows="False"
                                   HeadersVisibility="Column"
-                                  GridLinesVisibility="Horizontal"
+                                  GridLinesVisibility="None"
                                   BorderThickness="1"
                                   BorderBrush="#E5E7EB"
                                   Background="White"
                                   RowBackground="White"
-                                  AlternatingRowBackground="#F9FAFB">
+                                  AlternatingRowBackground="#F9FAFB"
+                                  EnableRowVirtualization="True"
+                                  RowHeight="48">
+
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow">
+                                    <Setter Property="Background" Value="White" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsResolved}" Value="True">
+                                            <Setter Property="Opacity" Value="0.6" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
+
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="时间" Binding="{Binding Timestamp, StringFormat='yyyy-MM-dd HH:mm:ss'}" Width="140"/>
-                                <DataGridTextColumn Header="类型" Binding="{Binding NotificationType}" Width="100"/>
-                                <DataGridTextColumn Header="级别" Binding="{Binding Level}" Width="80"/>
-                                <DataGridTextColumn Header="标题" Binding="{Binding Title}" Width="200"/>
+                                <!-- Severity color bar -->
+                                <DataGridTemplateColumn Width="6" IsReadOnly="True">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{Binding Level, Converter={StaticResource LevelToBrush}}" Width="6" HorizontalAlignment="Left" CornerRadius="2"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTextColumn Header="时间" Binding="{Binding Timestamp, StringFormat='yyyy-MM-dd HH:mm:ss'}" Width="160"/>
+                                <DataGridTextColumn Header="类型" Binding="{Binding NotificationType}" Width="120"/>
+
+                                <DataGridTemplateColumn Header="级别" Width="100">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Ellipse Width="10" Height="10" Fill="{Binding Level, Converter={StaticResource LevelToBrush}}" Margin="0,0,8,0"/>
+                                                <TextBlock Text="{Binding Level}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTextColumn Header="标题" Binding="{Binding Title}" Width="220"/>
+
                                 <DataGridTextColumn Header="消息内容" Binding="{Binding Message}" Width="*"/>
+
+                                <DataGridTemplateColumn Header="操作" Width="180">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="详情" Height="28" Padding="8,0" Margin="0,0,8,0" Click="ShowDetails_Click"/>
+                                                <Button x:Name="MarkBtn" Content="标记已解决" Height="28" Padding="8,0" Margin="0,0,4,0" Click="MarkResolved_Click" Visibility="{Binding IsResolved, Converter={StaticResource InverseBool}, ConverterParameter=Visibility}"/>
+                                                <Button x:Name="UndoBtn" Content="撤销" Height="28" Padding="8,0" Margin="0,0,4,0" Click="UndoResolved_Click" Visibility="{Binding IsResolved, Converter={StaticResource InverseBool}}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
@@ -320,7 +414,13 @@
             </TabItem>
 
             <!-- Tab 4: 通知设置 -->
-            <TabItem Header="⚙️ 通知设置" FontSize="14" Padding="12,8">
+            <TabItem FontSize="14" Padding="12,8">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ctrl:Icon Geometry="{StaticResource Geo_Settings}" Fill="#6B7280" Width="16" Height="16" Margin="0,0,8,0"/>
+                        <TextBlock Text="通知设置" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </TabItem.Header>
                 <Border Background="White" Padding="16">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel>
@@ -338,10 +438,12 @@
                                     Margin="0,0,0,12">
                                 <StackPanel>
                                     <DockPanel>
-                                        <TextBlock Text="💻 系统通知" 
-                                                   FontSize="16" 
-                                                   FontWeight="Bold"
-                                                   DockPanel.Dock="Left"/>
+                                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                                            <ctrl:Icon Geometry="{StaticResource Geo_Diagnostics}" Fill="#111827" Width="18" Height="18" Margin="0,0,8,0"/>
+                                            <TextBlock Text="系统通知" 
+                                                       FontSize="16" 
+                                                       FontWeight="Bold"/>
+                                        </StackPanel>
                                         <CheckBox Content="启用"
                                                   IsChecked="True"
                                                   HorizontalAlignment="Right"/>
@@ -362,10 +464,12 @@
                                     Margin="0,0,0,12">
                                 <StackPanel>
                                     <DockPanel>
-                                        <TextBlock Text="📧 邮件通知" 
-                                                   FontSize="16" 
-                                                   FontWeight="Bold"
-                                                   DockPanel.Dock="Left"/>
+                                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                                            <ctrl:Icon Geometry="{StaticResource Geo_Api}" Fill="#111827" Width="18" Height="18" Margin="0,0,8,0"/>
+                                            <TextBlock Text="邮件通知" 
+                                                       FontSize="16" 
+                                                       FontWeight="Bold"/>
+                                        </StackPanel>
                                         <CheckBox x:Name="EmailEnableCheckBox"
                                                   Content="启用"
                                                   HorizontalAlignment="Right"/>
@@ -393,10 +497,12 @@
                                     Padding="16">
                                 <StackPanel>
                                     <DockPanel>
-                                        <TextBlock Text="📱 Telegram通知" 
-                                                   FontSize="16" 
-                                                   FontWeight="Bold"
-                                                   DockPanel.Dock="Left"/>
+                                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                                            <ctrl:Icon Geometry="{StaticResource Geo_Optimize}" Fill="#111827" Width="18" Height="18" Margin="0,0,8,0"/>
+                                            <TextBlock Text="Telegram通知" 
+                                                       FontSize="16" 
+                                                       FontWeight="Bold"/>
+                                        </StackPanel>
                                         <CheckBox x:Name="TelegramEnableCheckBox"
                                                   Content="启用"
                                                   HorizontalAlignment="Right"/>

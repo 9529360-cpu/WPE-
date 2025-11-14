@@ -19,13 +19,37 @@ public class ObservabilityService : IDisposable
     private readonly StructuredLogger _logger;
     private readonly MetricsCollector _metrics;
     private readonly AlertManager _alerts;
+    /// <summary>
+    /// Event forwarded when an alert is raised. UI and other components should subscribe to this
+    /// to receive real-time alerts without accessing internal AlertManager.
+    /// </summary>
+    public event Action<AlertEvent>? AlertRaised;
 
     public ObservabilityService(string loggerName = "System")
     {
         // 初始化日志
         _logger = new StructuredLogger(loggerName, LogLevel.Info);
         _logger.AddOutput(new ConsoleLogOutput(useColors: true));
-        _logger.AddOutput(new FileLogOutput($"Logs/{DateTime.Now:yyyy-MM-dd}.log", useJson: true));
+
+        // Ensure logs directory exists under application base directory so runtime will always write logs there
+        try
+        {
+            string logsDir = Path.Combine(AppContext.BaseDirectory, "Logs");
+            Directory.CreateDirectory(logsDir);
+            string logFile = Path.Combine(logsDir, $"{DateTime.Now:yyyy-MM-dd}.log");
+            _logger.AddOutput(new FileLogOutput(logFile, useJson: true));
+            _logger.Info("ObservabilityService initialized. Log file: {LogFile}", logFile);
+        }
+        catch (Exception ex)
+        {
+            // fallback: still add file output with relative path if absolute path creation fails
+            try
+            {
+                _logger.AddOutput(new FileLogOutput($"Logs/{DateTime.Now:yyyy-MM-dd}.log", useJson: true));
+            }
+            catch { }
+            LogService.Error(ex, "Failed to initialize log file output");
+        }
 
         // 初始化指标
         _metrics = new MetricsCollector();
@@ -34,6 +58,34 @@ public class ObservabilityService : IDisposable
         // 初始化告警
         _alerts = new AlertManager();
         _alerts.AddNotifier(new UIAlertNotifier());
+
+        // forward internal AlertManager events to external subscribers
+        _alerts.AlertRaised += ev =>
+        {
+            try
+            {
+                AlertRaised?.Invoke(ev);
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "ObservabilityService AlertRaised handler failed");
+            }
+        };
+
+        // 如果配置了通知渠道（例如 Telegram），添加 BinanceNotifier
+        try
+        {
+            string? bot = Environment.GetEnvironmentVariable("NOTIFY_TELEGRAM_BOT_TOKEN");
+            string? chat = Environment.GetEnvironmentVariable("NOTIFY_TELEGRAM_CHAT_ID");
+            if (!string.IsNullOrWhiteSpace(bot) && !string.IsNullOrWhiteSpace(chat))
+            {
+                _alerts.AddNotifier(new BinanceNotifier());
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "初始化告警通知器失败");
+        }
     }
 
     #region Logs
@@ -122,7 +174,18 @@ public class ObservabilityService : IDisposable
             RuleName = ruleName,
             Severity = severity,
             Message = message
-        });
+        }).ConfigureAwait(false);
+    }
+
+    // Overload to accept a prebuilt AlertEvent
+    public async Task TriggerAlert(AlertEvent alertEvent)
+    {
+        if (alertEvent == null)
+        {
+            throw new ArgumentNullException(nameof(alertEvent));
+        }
+
+        await _alerts.TriggerAlert(alertEvent).ConfigureAwait(false);
     }
 
     #endregion
@@ -170,5 +233,29 @@ public class ObservabilityService : IDisposable
     public void Dispose()
     {
         _logger?.Dispose();
+    }
+
+    // Binance/TG notifier that delegates to ServiceLocator.Notification
+    private class BinanceNotifier : IAlertNotifier
+    {
+        public async Task NotifyAsync(AlertEvent alertEvent)
+        {
+            try
+            {
+                string? bot = Environment.GetEnvironmentVariable("NOTIFY_TELEGRAM_BOT_TOKEN");
+                string? chat = Environment.GetEnvironmentVariable("NOTIFY_TELEGRAM_CHAT_ID");
+                if (string.IsNullOrWhiteSpace(bot) || string.IsNullOrWhiteSpace(chat))
+                {
+                    return;
+                }
+
+                string msg = $"[ALERT] {alertEvent.Severity} - {alertEvent.RuleName}: {alertEvent.Message} (at {alertEvent.Timestamp:O})";
+                await ServiceLocator.Notification.SendTelegramAsync(bot, chat, msg).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "BinanceNotifier 发送告警失败");
+            }
+        }
     }
 }

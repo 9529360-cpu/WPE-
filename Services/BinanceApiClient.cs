@@ -11,18 +11,13 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using 币安量化机器人.Models;
+using 币安量化机器人.Services.Resilience;
 
 namespace 币安量化机器人.Services;
 
 public class BinanceApiClient : IDisposable
 {
     private const string RestEndpoint = "https://fapi.binance.com";
-    private static readonly TimeSpan[] RetryDelays = new[]
-    {
-        TimeSpan.FromSeconds(1),
-        TimeSpan.FromSeconds(2),
-        TimeSpan.FromSeconds(4)
-    };
 
     private readonly HttpClient _httpClient;
     private readonly JsonSerializerOptions _serializerOptions = new(JsonSerializerDefaults.Web)
@@ -30,26 +25,27 @@ public class BinanceApiClient : IDisposable
         PropertyNameCaseInsensitive = true
     };
 
-    // 🆕 健壮性组件
+    // 健壮性与监控
     private readonly RateLimiter _rateLimiter = new();
-    private readonly ApiCircuitBreaker _circuitBreaker = new(failureThreshold: 5, cooldown: TimeSpan.FromMinutes(1));
     private readonly ApiHealthMonitor _healthMonitor = new();
+    private readonly ResilienceService _resilience;
 
     private string? _apiKey;
     private byte[]? _secretBytes;
 
-    public BinanceApiClient(HttpClient? httpClient = null)
+    public BinanceApiClient(ResilienceService resilience, HttpClient? httpClient = null)
     {
+        _resilience = resilience ?? throw new ArgumentNullException(nameof(resilience));
+
         _httpClient = httpClient ?? new HttpClient
         {
             BaseAddress = new Uri(RestEndpoint),
-            Timeout = TimeSpan.FromSeconds(10) // 🆕 默认10秒超时
+            Timeout = TimeSpan.FromSeconds(15)
         };
     }
 
-    // 🆕 公开健康状态
+    // 公开健康状态
     public ApiHealthReport GetHealthReport(TimeSpan? window = null) => _healthMonitor.GetHealthReport(window);
-    public CircuitBreakerState CircuitBreakerState => _circuitBreaker.State;
     public double ApiSuccessRate => _healthMonitor.SuccessRate;
 
     public void SetApiCredentials(string apiKey, string secretKey)
@@ -57,7 +53,6 @@ public class BinanceApiClient : IDisposable
         _apiKey = apiKey;
         _secretBytes = Encoding.UTF8.GetBytes(secretKey);
 
-        // 🔧 添加日志记录
         LogService.Info("[BinanceApiClient] API 凭证已设置: Key={MaskedKey}, SecretLength={SecretLength}",
             apiKey.Length > 8 ? $"{apiKey.Substring(0, 8)}...{apiKey.Substring(apiKey.Length - 4)}" : "****",
             secretKey.Length);
@@ -306,11 +301,9 @@ public class BinanceApiClient : IDisposable
 
     private async Task<T> SendPublicAsync<T>(HttpMethod method, string path, IDictionary<string, string?>? query, CancellationToken cancellationToken)
     {
-        // 🆕 等待速率限制
         await _rateLimiter.WaitForRestApiAsync(weight: 1, cancellationToken);
-
         var request = new HttpRequestMessage(method, BuildUri(path, query));
-        return await SendWithRetryAsync<T>(request, path, cancellationToken).ConfigureAwait(false);
+        return await SendWithResilienceAsync<T>(request, path, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<T> SendSignedAsync<T>(HttpMethod method, string path, IDictionary<string, string?>? query, CancellationToken cancellationToken)
@@ -323,7 +316,6 @@ public class BinanceApiClient : IDisposable
         string signature = ComputeSignature(queryString);
         query["signature"] = signature;
 
-        // 🆕 订单API需要额外限速
         if (path.Contains("/order", StringComparison.OrdinalIgnoreCase))
         {
             await _rateLimiter.WaitForOrderApiAsync(cancellationToken);
@@ -335,111 +327,52 @@ public class BinanceApiClient : IDisposable
 
         var request = new HttpRequestMessage(method, BuildUri(path, query));
         request.Headers.Add("X-MBX-APIKEY", _apiKey);
-        return await SendWithRetryAsync<T>(request, path, cancellationToken).ConfigureAwait(false);
+        return await SendWithResilienceAsync<T>(request, path, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// 🆕 带重试和熔断的请求发送
+    /// 使用 ResilienceService 执行 HTTP 请求并根据状态码抛出异常以触发重试/熔断
     /// </summary>
-    private async Task<T> SendWithRetryAsync<T>(HttpRequestMessage request, string endpoint, CancellationToken cancellationToken)
+    private async Task<T> SendWithResilienceAsync<T>(HttpRequestMessage request, string endpoint, CancellationToken cancellationToken)
     {
-        // 检查熔断器
-        if (!_circuitBreaker.AllowRequest())
+        DateTime start = DateTime.UtcNow;
+
+        return await _resilience.ExecuteAsync(async ct =>
         {
-            TimeSpan? retry = _circuitBreaker.TimeUntilRetry();
-            throw new InvalidOperationException($"API熔断中,{retry?.TotalSeconds:F0}秒后自动恢复");
-        }
+            using HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            TimeSpan duration = DateTime.UtcNow - start;
 
-        Exception? lastException = null;
-        DateTime startTime = DateTime.UtcNow;
-
-        for (int attempt = 0; attempt <= RetryDelays.Length; attempt++)
-        {
-            try
+            // 429 或 5xx 视为需要重试的 transient 错误 => 抛异常以触发重试
+            if (response.StatusCode == (HttpStatusCode)429)
             {
-                using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-                TimeSpan duration = DateTime.UtcNow - startTime;
-
-                // 🆕 429 速率限制错误,需要重试
-                if (response.StatusCode == (HttpStatusCode)429)
-                {
-                    _healthMonitor.RecordCall(endpoint, false, duration, "Rate limit exceeded", 429);
-
-                    if (attempt < RetryDelays.Length)
-                    {
-                        TimeSpan delay = RetryDelays[attempt];
-                        StartupDiagnostics.Log($"API RateLimit: {endpoint}, 等待 {delay.TotalSeconds}s 重试 (attempt {attempt + 1})");
-                        await Task.Delay(delay, cancellationToken);
-                        continue;
-                    }
-
-                    throw new InvalidOperationException("API速率限制,已达最大重试次数");
-                }
-
-                // 🆕 5xx 服务器错误,可重试
-                if ((int)response.StatusCode >= 500 && (int)response.StatusCode < 600)
-                {
-                    _healthMonitor.RecordCall(endpoint, false, duration, $"Server error {response.StatusCode}", (int)response.StatusCode);
-
-                    if (attempt < RetryDelays.Length)
-                    {
-                        TimeSpan delay = RetryDelays[attempt];
-                        StartupDiagnostics.Log($"API ServerError: {endpoint} {response.StatusCode}, 等待 {delay.TotalSeconds}s 重试");
-                        await Task.Delay(delay, cancellationToken);
-                        continue;
-                    }
-
-                    _circuitBreaker.RecordFailure();
-                    throw new HttpRequestException($"Binance服务器错误: {response.StatusCode}");
-                }
-
-                // 其他错误直接抛出
-                response.EnsureSuccessStatusCode();
-
-                // 解析响应
-                T data;
-                if (typeof(T) == typeof(string))
-                {
-                    string text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                    data = (T)(object)text;
-                }
-                else
-                {
-                    await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-                    data = await JsonSerializer.DeserializeAsync<T>(stream, _serializerOptions, cancellationToken).ConfigureAwait(false)
-                        ?? throw new InvalidOperationException("Failed to deserialize Binance response");
-                }
-
-                // 🆕 记录成功
-                _healthMonitor.RecordCall(endpoint, true, duration);
-                _circuitBreaker.RecordSuccess();
-                return data;
+                _healthMonitor.RecordCall(endpoint, false, duration, "Rate limit exceeded", 429);
+                throw new HttpRequestException("429 Rate limit");
             }
-            catch (OperationCanceledException)
+
+            if ((int)response.StatusCode >= 500 && (int)response.StatusCode < 600)
             {
-                throw; // 用户取消,不重试
+                _healthMonitor.RecordCall(endpoint, false, duration, $"Server error {response.StatusCode}", (int)response.StatusCode);
+                throw new HttpRequestException($"Server error {(int)response.StatusCode}");
             }
-            catch (Exception ex) when (attempt < RetryDelays.Length)
-            {
-                lastException = ex;
-                TimeSpan duration = DateTime.UtcNow - startTime;
-                _healthMonitor.RecordCall(endpoint, false, duration, ex.Message);
 
-                TimeSpan delay = RetryDelays[attempt];
-                StartupDiagnostics.Log($"API Exception: {endpoint} - {ex.Message}, 等待 {delay.TotalSeconds}s 重试");
-                await Task.Delay(delay, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                TimeSpan duration = DateTime.UtcNow - startTime;
-                _healthMonitor.RecordCall(endpoint, false, duration, ex.Message);
-                _circuitBreaker.RecordFailure();
-                throw;
-            }
-        }
+            response.EnsureSuccessStatusCode();
 
-        _circuitBreaker.RecordFailure();
-        throw lastException ?? new InvalidOperationException("API请求失败");
+            T data;
+            if (typeof(T) == typeof(string))
+            {
+                string text = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                data = (T)(object)text;
+            }
+            else
+            {
+                await using Stream stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                data = await JsonSerializer.DeserializeAsync<T>(stream, _serializerOptions, ct).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("Failed to deserialize Binance response");
+            }
+
+            _healthMonitor.RecordCall(endpoint, true, duration);
+            return data;
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     private string ComputeSignature(string queryString)
@@ -478,6 +411,11 @@ public class BinanceApiClient : IDisposable
         {
             throw new InvalidOperationException("请先在 API 管理中配置 Binance API Key 与 Secret");
         }
+    }
+
+    public void Dispose()
+    {
+        _httpClient.Dispose();
     }
 
     private static FundingRateSnapshot MapFunding(string symbol, FundingRateDto[] rates, IDictionary<string, MarkPriceDto> markMap)
@@ -588,11 +526,6 @@ public class BinanceApiClient : IDisposable
             Price = dto.Price,
             Time = DateTimeOffset.FromUnixTimeMilliseconds(dto.Time).UtcDateTime
         };
-    }
-
-    public void Dispose()
-    {
-        _httpClient.Dispose();
     }
 
     private record FundingRateDto

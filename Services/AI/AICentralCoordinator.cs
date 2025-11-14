@@ -46,6 +46,7 @@ public class AICentralCoordinator : IDisposable
     private CancellationTokenSource? _mainLoopCts;
     private Task? _mainLoopTask;
     private bool _isRunning;
+    private readonly object _startStopLock = new();
 
     // 🆕 Phase 2: 自动化决策开关
     private bool _autoDecisionEnabled = true;
@@ -132,12 +133,19 @@ public class AICentralCoordinator : IDisposable
         LogService.Info("   ✅ 可观测性系统已加载");  // 🆕
 
         // 🆕 Phase 4: 记录初始化指标
-        _observability.IncrementCounter("ai_coordinator_init_count");
-        _observability.LogInfo("AI协调器初始化完成", new
+        try
         {
-            factorCount = _factorLibrary.GetFactors().Count,
-            components = "WorkflowEngine+DecisionEngine+FactorLibrary+Resilience+Performance+Observability"
-        });
+            _observability.IncrementCounter("ai_coordinator_init_count");
+            _observability.LogInfo("AI协调器初始化完成", new
+            {
+                factorCount = _factorLibrary.GetFactors().Count,
+                components = "WorkflowEngine+DecisionEngine+FactorLibrary+Resilience+Performance+Observability"
+            });
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning("记录初始化指标失败: {Message}", ex.Message);
+        }
     }
 
     #region 状态访问
@@ -195,35 +203,60 @@ public class AICentralCoordinator : IDisposable
     /// </summary>
     public async Task StartAsync(CancellationToken ct = default)
     {
-        using var activity = _observability.StartTrace("AICentralCoordinator.Start");
+        using var activity = _observability?.StartTrace("AICentralCoordinator.Start");
 
-        try
+        lock (_startStopLock)
         {
             if (_isRunning)
             {
-                _observability.LogWarning("协调器已在运行中");
+                _observability?.LogWarning("协调器已在运行中");
+                return;
+            }
+            _isRunning = true;
+        }
+
+        try
+        {
+            if (ct.IsCancellationRequested)
+            {
+                _observability?.LogWarning("StartAsync 被取消的 token");
+                lock (_startStopLock) { _isRunning = false; }
                 return;
             }
 
-            _isRunning = true;
             _mainLoopCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
-            _observability.LogInfo("🚀 启动增强版中央AI协调器");
-            _observability.IncrementCounter("ai_coordinator_start_count");
-            _observability.SetGauge("ai_coordinator_running", 1);
+            _observability?.LogInfo("🚀 启动增强版中央AI协调器");
+            _observability?.IncrementCounter("ai_coordinator_start_count");
+            _observability?.SetGauge("ai_coordinator_running", 1);
 
             // 初始化系统状态
-            await _stateManager.InitializeAsync();
+            await _stateManager.InitializeAsync().ConfigureAwait(false);
 
             // 启动主循环
             _mainLoopTask = MainControlLoopAsync(_mainLoopCts.Token);
 
-            await _mainLoopTask;
+            await _mainLoopTask.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            _observability?.LogInfo("StartAsync 取消");
         }
         catch (Exception ex)
         {
-            _observability.LogError("启动AI协调器失败", ex);
-            _observability.IncrementCounter("ai_coordinator_start_error_count");
+            _observability?.LogError("启动AI协调器失败", ex);
+            _observability?.IncrementCounter("ai_coordinator_start_error_count");
+
+            // cleanup state on failure
+            try
+            {
+                _mainLoopCts?.Cancel();
+                _mainLoopTask = null;
+            }
+            catch { }
+
+            lock (_startStopLock) { _isRunning = false; }
+
             throw;
         }
     }
@@ -233,25 +266,45 @@ public class AICentralCoordinator : IDisposable
     /// </summary>
     public async Task StopAsync()
     {
-        using var activity = _observability.StartTrace("AICentralCoordinator.Stop");
+        using var activity = _observability?.StartTrace("AICentralCoordinator.Stop");
 
-        if (!_isRunning)
+        lock (_startStopLock)
         {
-            return;
+            if (!_isRunning)
+            {
+                return;
+            }
+            _isRunning = false;
         }
 
-        _observability.LogInfo("🛑 停止中央AI协调器");
-        _observability.SetGauge("ai_coordinator_running", 0);
+        _observability?.LogInfo("🛑 停止中央AI协调器");
+        _observability?.SetGauge("ai_coordinator_running", 0);
 
-        _mainLoopCts?.Cancel();
-
-        if (_mainLoopTask != null)
+        try
         {
-            await _mainLoopTask;
-        }
+            _mainLoopCts?.Cancel();
 
-        _isRunning = false;
-        _observability.LogInfo("✅ AI协调器已停止");
+            if (_mainLoopTask != null)
+            {
+                await Task.WhenAny(_mainLoopTask, Task.Delay(TimeSpan.FromSeconds(10))).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _observability?.LogError("停止 AI 调度器时发生错误", ex);
+        }
+        finally
+        {
+            try
+            {
+                _mainLoopCts?.Dispose();
+                _mainLoopCts = null;
+                _mainLoopTask = null;
+            }
+            catch { }
+
+            _observability?.LogInfo("✅ AI协调器已停止");
+        }
     }
 
     /// <summary>
@@ -274,11 +327,11 @@ public class AICentralCoordinator : IDisposable
                             using (_performanceService.RecordOperation("MainControlLoop"))
                             {
                                 // 1. 收集全系统状态
-                                var systemState = await CollectSystemStateWithObservabilityAsync(ct);
+                                var systemState = await CollectSystemStateWithObservabilityAsync(ct).ConfigureAwait(false);
                                 _stateManager.UpdateState(systemState);
 
                                 // 2. 计算决策因子得分
-                                var factorScores = await CalculateDecisionFactorsWithObservabilityAsync(systemState, ct);
+                                var factorScores = await CalculateDecisionFactorsWithObservabilityAsync(systemState, ct).ConfigureAwait(false);
                                 var weightedScore = _factorLibrary.CalculateWeightedScore(factorScores);
 
                                 // 🆕 记录指标
@@ -286,7 +339,7 @@ public class AICentralCoordinator : IDisposable
                                 _observability.RecordHistogram("ai_decision_factor_count", factorScores.Count);
 
                                 // 3. AI决策分析
-                                var decisions = await _decisionEngine.AnalyzeAsync(systemState, ct);
+                                var decisions = await _decisionEngine.AnalyzeAsync(systemState, ct).ConfigureAwait(false);
                                 decisions.FactorScore = weightedScore;
                                 decisions.FactorBreakdown = factorScores;
 
@@ -300,7 +353,7 @@ public class AICentralCoordinator : IDisposable
                                 // 4. 自动化工作流转换
                                 if (_autoDecisionEnabled)
                                 {
-                                    var transitioned = await _workflowEngine.EvaluateAndTransitionAsync(ct);
+                                    var transitioned = await _workflowEngine.EvaluateAndTransitionAsync(ct).ConfigureAwait(false);
                                     if (transitioned)
                                     {
                                         _observability.LogInfo("✅ 工作流自动转换成功");
@@ -309,14 +362,14 @@ public class AICentralCoordinator : IDisposable
                                 }
 
                                 // 5. 执行工作流编排
-                                await _workflowOrchestrator.ExecuteAsync(decisions, ct);
+                                await _workflowOrchestrator.ExecuteAsync(decisions, ct).ConfigureAwait(false);
 
                                 // 6. 学习优化
-                                await _learningModule.UpdateKnowledgeAsync(systemState, decisions, ct);
-                                await UpdateFactorWeightsAsync(systemState, decisions, ct);
+                                await _learningModule.UpdateKnowledgeAsync(systemState, decisions, ct).ConfigureAwait(false);
+                                await UpdateFactorWeightsAsync(systemState, decisions, ct).ConfigureAwait(false);
 
                                 // 7. 策略生命周期管理
-                                await _strategyLifecycle.TickAsync(systemState, ct);
+                                await _strategyLifecycle.TickAsync(systemState, ct).ConfigureAwait(false);
 
                                 // 8. 定期清理
                                 _workflowEngine.CleanupHistory(100);
@@ -329,11 +382,11 @@ public class AICentralCoordinator : IDisposable
                             stage = _stateManager.CurrentStage.ToString(),
                             autoDecisionEnabled = _autoDecisionEnabled
                         }
-                    );
+                    ).ConfigureAwait(false);
 
                     // 9. 等待下一个周期
                     var interval = GetControlLoopInterval();
-                    await Task.Delay(interval, ct);
+                    await Task.Delay(interval, ct).ConfigureAwait(false);
                 }
                 catch (TaskCanceledException)
                 {
@@ -342,25 +395,24 @@ public class AICentralCoordinator : IDisposable
                 catch (Exception ex)
                 {
                     // 🆕 Phase 4: 增强异常处理和告警
-                    _observability.LogError("主循环迭代异常", ex, new
+                    _observability?.LogError("主循环迭代异常", ex, new
                     {
                         stage = _stateManager.CurrentStage.ToString(),
                         iteration = "main_loop"
                     });
-                    _observability.IncrementCounter("ai_coordinator_error_count");
+                    _observability?.IncrementCounter("ai_coordinator_error_count");
 
                     // 触发告警
-                    await _observability.TriggerAlert(
-                        "MainLoopError",
-                        AlertSeverity.Error,
-                        $"主循环异常: {ex.Message}"
-                    );
+                    if (_observability != null)
+                    {
+                        await _observability.TriggerAlert("MainLoopError", AlertSeverity.Error, $"主循环异常: {ex.Message}");
+                    }
 
                     // 报告故障给弹性服务
                     var recovered = await _resilienceService.ReportFailureAsync(
                         "AICentralCoordinator.MainLoop",
                         ex
-                    );
+                    ).ConfigureAwait(false);
 
                     if (!recovered)
                     {
@@ -369,37 +421,43 @@ public class AICentralCoordinator : IDisposable
                         var health = _resilienceService.GetSystemHealth();
                         if (!health.IsHealthy)
                         {
-                            _observability.LogCritical("🚨 系统健康异常，触发紧急停止", ex);
-                            await _observability.TriggerAlert(
-                                "SystemHealthCritical",
-                                AlertSeverity.Critical,
-                                "系统健康检查失败，紧急停止"
-                            );
-                            await EmergencyStopAsync("系统健康检查失败");
+                            _observability?.LogCritical("🚨 系统健康异常，触发紧急停止", ex);
+                            if (_observability != null)
+                            {
+                                await _observability.TriggerAlert(
+                                    "SystemHealthCritical",
+                                    AlertSeverity.Critical,
+                                    "系统健康检查失败，紧急停止"
+                                ).ConfigureAwait(false);
+                            }
+                            await EmergencyStopAsync("系统健康检查失败").ConfigureAwait(false);
                             break;
                         }
                     }
 
-                    await Task.Delay(TimeSpan.FromSeconds(5), ct);
+                    await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
                 }
             }
         }
         catch (OperationCanceledException)
         {
-            _observability.LogInfo("主循环已取消");
+            _observability?.LogInfo("主循环已取消");
         }
         catch (Exception ex)
         {
-            _observability.LogCritical("主循环致命异常", ex);
-            _observability.IncrementCounter("ai_coordinator_fatal_error_count");
+            _observability?.LogCritical("主循环致命异常", ex);
+            _observability?.IncrementCounter("ai_coordinator_fatal_error_count");
 
             _resilienceService.DetectSystemAnomaly("AICentralCoordinator", ex);
 
-            await _observability.TriggerAlert(
-                "MainLoopFatalError",
-                AlertSeverity.Critical,
-                $"主循环致命异常: {ex.Message}"
-            );
+            if (_observability != null)
+            {
+                await _observability.TriggerAlert(
+                    "MainLoopFatalError",
+                    AlertSeverity.Critical,
+                    $"主循环致命异常: {ex.Message}"
+                ).ConfigureAwait(false);
+            }
 
             throw;
         }
@@ -435,7 +493,7 @@ public class AICentralCoordinator : IDisposable
         try
         {
             // 准备市场数据
-            var marketData = await PrepareMarketDataAsync(ct);
+            var marketData = await PrepareMarketDataAsync(ct).ConfigureAwait(false);
 
             // 计算所有因子
             var factorScores = _factorLibrary.CalculateAllFactors(marketData);

@@ -151,8 +151,17 @@ public class DataCacheService
                 updated_at INTEGER NOT NULL
             );";
 
+        string createAlerts = @"CREATE TABLE IF NOT EXISTS alerts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                rule_name TEXT,
+                severity TEXT,
+                message TEXT,
+                timestamp INTEGER
+            );
+            CREATE INDEX IF NOT EXISTS idx_alerts_timestamp ON alerts(timestamp DESC);";
+
         await using SqliteCommand cmd = connection.CreateCommand();
-        cmd.CommandText = string.Join(Environment.NewLine, new[] { createFunding, createPrices, createAccounts, createOrders, createTrades, createStrategyPerf, createDailyPnl, createSignals, createDecisionRecords, createLearningState });
+        cmd.CommandText = string.Join(Environment.NewLine, new[] { createFunding, createPrices, createAccounts, createOrders, createTrades, createStrategyPerf, createDailyPnl, createSignals, createDecisionRecords, createLearningState, createAlerts });
         await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
     }
 
@@ -655,5 +664,103 @@ public class DataCacheService
         }
 
         return null;
+    }
+
+    public async Task SaveAlertAsync(string ruleName, string severity, string message, DateTime timestamp)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        await using SqliteCommand cmd = connection.CreateCommand();
+        cmd.CommandText = @"INSERT INTO alerts(rule_name, severity, message, timestamp) VALUES ($rule, $sev, $msg, $ts);";
+        cmd.Parameters.AddWithValue("$rule", (object?)ruleName ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$sev", severity);
+        cmd.Parameters.AddWithValue("$msg", (object?)message ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$ts", new DateTimeOffset(timestamp).ToUnixTimeMilliseconds());
+        await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+    }
+
+    // Ensure alerts table has resolution columns and return true if migration executed
+    private async Task EnsureAlertsSchemaAsync()
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        // check columns
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "PRAGMA table_info(alerts);";
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using (var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync().ConfigureAwait(false))
+            {
+                existing.Add(reader.GetString(1));
+            }
+        }
+
+        if (!existing.Contains("is_resolved"))
+        {
+            await using var alter = connection.CreateCommand();
+            alter.CommandText = "ALTER TABLE alerts ADD COLUMN is_resolved INTEGER DEFAULT 0;";
+            await alter.ExecuteNonQueryAsync().ConfigureAwait(false);
+        }
+
+        if (!existing.Contains("resolved_at"))
+        {
+            await using var alter2 = connection.CreateCommand();
+            alter2.CommandText = "ALTER TABLE alerts ADD COLUMN resolved_at INTEGER;";
+            await alter2.ExecuteNonQueryAsync().ConfigureAwait(false);
+        }
+    }
+
+    public async Task<IReadOnlyList<AlertRow>> LoadAlertsAsync(int limit = 200)
+    {
+        await EnsureAlertsSchemaAsync().ConfigureAwait(false);
+
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT id, rule_name, severity, message, timestamp, is_resolved, resolved_at FROM alerts ORDER BY timestamp DESC LIMIT $limit";
+        cmd.Parameters.AddWithValue("$limit", limit);
+
+        var result = new List<AlertRow>();
+        await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            result.Add(new AlertRow
+            {
+                Id = reader.GetInt64(0),
+                RuleName = reader.IsDBNull(1) ? null : reader.GetString(1),
+                Severity = reader.IsDBNull(2) ? null : reader.GetString(2),
+                Message = reader.IsDBNull(3) ? null : reader.GetString(3),
+                Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(4)).UtcDateTime,
+                IsResolved = !reader.IsDBNull(5) && reader.GetInt32(5) == 1,
+                ResolvedAt = reader.IsDBNull(6) ? (DateTime?)null : DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(6)).UtcDateTime
+            });
+        }
+
+        return result;
+    }
+
+    public async Task UpdateAlertResolvedAsync(long id, bool resolved, DateTime? resolvedAt)
+    {
+        await EnsureAlertsSchemaAsync().ConfigureAwait(false);
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "UPDATE alerts SET is_resolved = $res, resolved_at = $rt WHERE id = $id";
+        cmd.Parameters.AddWithValue("$res", resolved ? 1 : 0);
+        cmd.Parameters.AddWithValue("$rt", resolvedAt.HasValue ? new DateTimeOffset(resolvedAt.Value).ToUnixTimeMilliseconds() : (object?)DBNull.Value);
+        cmd.Parameters.AddWithValue("$id", id);
+        await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+    }
+
+    public class AlertRow
+    {
+        public long Id { get; set; }
+        public string? RuleName { get; set; }
+        public string? Severity { get; set; }
+        public string? Message { get; set; }
+        public DateTime Timestamp { get; set; }
+        public bool IsResolved { get; set; }
+        public DateTime? ResolvedAt { get; set; }
     }
 }
