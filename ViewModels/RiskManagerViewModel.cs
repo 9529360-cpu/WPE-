@@ -23,8 +23,8 @@ namespace 币安量化机器人.ViewModels
 
         public double DailyLossLimit
         {
-            get => _riskManager.DailyLossLimit;
-            set { _riskManager.DailyLossLimit = value; RaisePropertyChanged(); }
+            get => (double)_riskManager.DailyLossLimit;
+            set { _riskManager.DailyLossLimit = (decimal)value; RaisePropertyChanged(); }
         }
 
         public ObservableCollection<string> Breaches { get; } = new ObservableCollection<string>();

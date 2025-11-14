@@ -13,10 +13,10 @@ namespace 币安量化机器人.Services
     /// </summary>
     public class MarketDataService : IMarketDataService
     {
-        public event Action<string> RawMessageReceived;
+        public event Action<string>? RawMessageReceived;
 
-        private ClientWebSocket _ws;
-        private CancellationTokenSource _cts;
+        private ClientWebSocket? _ws;
+        private CancellationTokenSource? _cts;
         private readonly Uri _endpoint;
         private readonly int _reconnectDelayMs = 3000;
         private bool _running;
@@ -116,12 +116,12 @@ namespace 币安量化机器人.Services
                         {
                             RawMessageReceived?.Invoke(message);
 
-                            // 发布到事件总线，供其它服务解析与处理
-                            _eventBus.Publish(new Core.MarketDataRawMessage { Raw = message, ReceivedAt = DateTime.UtcNow });
+                            // 发布到事件总线，供其它服务解析与处理（使用新的事件契约）
+                            _eventBus.Publish(new Core.MarketDataRawMessage { Raw = message, OccurredAt = DateTime.UtcNow });
                         }
                         catch
                         {
-                            // UI/上层处理异常不应影响接收循环
+                            // 上层处理异常不应影响接收循环
                         }
                     }
                 }

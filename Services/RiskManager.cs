@@ -8,7 +8,7 @@ namespace 币安量化机器人.Services
     {
         public double MaxOrderQuantity { get; set; } = 100;
         public double MaxPositionSize { get; set; } = 1000;
-        public double DailyLossLimit { get; set; } = 10000;
+        public decimal DailyLossLimit { get; set; } = 10000m;
 
         public Task<global::币安量化机器人.Core.RiskCheckResult> CheckOrderAsync(global::币安量化机器人.Core.OrderRequestEvent request)
         {
@@ -17,7 +17,7 @@ namespace 币安量化机器人.Services
                 return Task.FromResult(new global::币安量化机器人.Core.RiskCheckResult { Passed = false, Reason = "数量必须大于 0" });
             }
 
-            if (request.Quantity > MaxOrderQuantity)
+            if (request.Quantity > (decimal)MaxOrderQuantity)
             {
                 return Task.FromResult(new global::币安量化机器人.Core.RiskCheckResult { Passed = false, Reason = "超出单笔数量限制" });
             }
@@ -44,7 +44,7 @@ namespace 币安量化机器人.Services
 
             MaxOrderQuantity = configuration.MaxOrderQuantity;
             MaxPositionSize = configuration.MaxPositionSize;
-            DailyLossLimit = configuration.DailyLossLimit;
+            DailyLossLimit = (decimal)configuration.DailyLossLimit;
         }
 
         public ValueTask UpdateAsync(global::币安量化机器人.Core.Risk.PositionSnapshot position, CancellationToken cancellationToken = default)
@@ -58,7 +58,7 @@ namespace 币安量化机器人.Services
             {
                 return true;
             }
-            if (action.Quantity > MaxOrderQuantity)
+            if ((decimal)action.Quantity > (decimal)MaxOrderQuantity)
             {
                 return false;
             }

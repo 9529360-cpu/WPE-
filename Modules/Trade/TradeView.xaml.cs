@@ -14,8 +14,8 @@ namespace 币安量化机器人.Modules.Trade;
 public partial class TradeView : UserControl
 {
     private readonly ObservableCollection<OrderRequest> _batchOrders = new();
-    private readonly BinanceApiClient _api = ServiceLocator.Api;
-    private CancellationTokenSource _cts = new();
+    private readonly BinanceApiClient? _api = ServiceLocator.Api;
+    private CancellationTokenSource? _cts = new();
 
     public TradeView()
     {
@@ -36,7 +36,8 @@ public partial class TradeView : UserControl
     {
         try
         {
-            SymbolBox.Items.Clear();
+            // Ensure UI access for item operations
+            await Dispatcher.InvokeAsync(() => SymbolBox.Items.Clear());
 
             var api = ServiceLocator.Api;
             if (api != null)
@@ -48,35 +49,47 @@ public partial class TradeView : UserControl
                     {
                         // TickerQuote contains symbol property named Symbol or maybe s; use reflection-safe access
                         string sym = t?.Symbol ?? t?.symbol ?? t?.s ?? string.Empty;
-                        if (!string.IsNullOrEmpty(sym) && !SymbolBox.Items.Contains(sym))
+                        if (!string.IsNullOrEmpty(sym))
                         {
-                            SymbolBox.Items.Add(sym);
+                            await Dispatcher.InvokeAsync(() =>
+                            {
+                                if (!SymbolBox.Items.Contains(sym))
+                                {
+                                    SymbolBox.Items.Add(sym);
+                                }
+                            });
                         }
                     }
                 }
             }
 
             // fallback
-            if (SymbolBox.Items.Count == 0)
+            await Dispatcher.InvokeAsync(() =>
             {
-                SymbolBox.Items.Add("BTCUSDT");
-                SymbolBox.Items.Add("ETHUSDT");
-                SymbolBox.Items.Add("BNBUSDT");
-            }
+                if (SymbolBox.Items.Count == 0)
+                {
+                    SymbolBox.Items.Add("BTCUSDT");
+                    SymbolBox.Items.Add("ETHUSDT");
+                    SymbolBox.Items.Add("BNBUSDT");
+                }
 
-            SymbolBox.SelectedIndex = 0;
-            StatusText.Text = "状态：合约列表已加载";
+                SymbolBox.SelectedIndex = 0;
+                StatusText.Text = "状态：合约列表已加载";
+            });
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "[TradeView] 加载合约失败");
             // fallback symbols
-            if (SymbolBox.Items.Count == 0)
+            await Dispatcher.InvokeAsync(() =>
             {
-                SymbolBox.Items.Add("BTCUSDT");
-                SymbolBox.Items.Add("ETHUSDT");
-            }
-            StatusText.Text = "状态：合约加载失败，使用默认列表";
+                if (SymbolBox.Items.Count == 0)
+                {
+                    SymbolBox.Items.Add("BTCUSDT");
+                    SymbolBox.Items.Add("ETHUSDT");
+                }
+                StatusText.Text = "状态：合约加载失败，使用默认列表";
+            });
         }
     }
 
