@@ -37,7 +37,7 @@ public class TradingAccount : INotifyPropertyChanged
         CreatedAt = DateTime.UtcNow;
 
         Positions = new List<Position>();
-        OrderHistory = new List<Order>();
+        OrderHistory = new List<TradingOrder>();
     }
 
     #region 账户基本信息
@@ -200,7 +200,7 @@ public class TradingAccount : INotifyPropertyChanged
     /// <summary>
     /// 订单历史
     /// </summary>
-    public List<Order> OrderHistory { get; }
+    public List<TradingOrder> OrderHistory { get; }
 
     /// <summary>
     /// 当前持仓数量
@@ -338,9 +338,9 @@ public enum PositionStatus
 }
 
 /// <summary>
-/// 订单
+/// 订单（账户内部类型，避免与简化 UI Order 类型冲突）
 /// </summary>
-public class Order
+public class TradingOrder
 {
     public string OrderId { get; init; } = string.Empty;
     public string Symbol { get; init; } = string.Empty;

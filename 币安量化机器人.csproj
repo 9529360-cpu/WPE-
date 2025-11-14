@@ -16,7 +16,12 @@
 		<NoWarn>8999</NoWarn>
 	</PropertyGroup>
 
+	<ItemGroup>
+	  <None Include=".github\upgrades\change-log.md" />
+	</ItemGroup>
+
     <ItemGroup>
+      <PackageReference Include="LiteDB" Version="5.0.11" />
       <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.10" />
       <PackageReference Include="ScottPlot" Version="5.0.56" />
       <PackageReference Include="ScottPlot.WPF" Version="5.0.56" />

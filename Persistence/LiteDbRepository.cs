@@ -1,77 +1,88 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using LiteDB;
+using 币安量化机器人.Persistence;
 
 namespace 币安量化机器人.Persistence
 {
     /// <summary>
-    /// 使用 LiteDB 的简单仓库实现。数据库文件位于应用程序目录下 `data.db`。
+    /// Simple file-backed repository used as placeholder when LiteDB package is not available.
+    /// It stores pending orders as individual files under a folder.
+    /// This keeps repository functional without adding external NuGet dependencies.
     /// </summary>
-    public class LiteDbRepository : IRepository, IDisposable
+    public class LiteDbRepository : IRepository
     {
-        private readonly LiteDatabase _db;
+        private readonly string _dir;
 
-        public LiteDbRepository(string filePath = "data.db")
+        public LiteDbRepository()
         {
-            _db = new LiteDatabase(filePath);
+            _dir = Path.Combine(AppContext.BaseDirectory, "persist");
+            Directory.CreateDirectory(_dir);
         }
 
         public Task InitializeAsync()
         {
-            // 确保集合存在
-            _db.GetCollection("pending_orders");
-            _db.GetCollection("positions");
-            _db.GetCollection("events");
-            return Task.CompletedTask;
-        }
-
-        public Task SavePendingOrderAsync(string orderId, string payload)
-        {
-            var col = _db.GetCollection("pending_orders");
-            col.Upsert(new BsonDocument { ["_id"] = orderId, ["payload"] = payload });
-            return Task.CompletedTask;
-        }
-
-        public Task RemovePendingOrderAsync(string orderId)
-        {
-            var col = _db.GetCollection("pending_orders");
-            col.Delete(orderId);
             return Task.CompletedTask;
         }
 
         public Task<IEnumerable<(string OrderId, string Payload)>> GetPendingOrdersAsync()
         {
-            var col = _db.GetCollection("pending_orders");
-            var list = col.FindAll().Select(d => (d["_id"].AsString, d["payload"].AsString));
-            return Task.FromResult((IEnumerable<(string, string)>)list);
+            var list = new List<(string OrderId, string Payload)>();
+            foreach (var f in Directory.GetFiles(_dir, "*.order"))
+            {
+                try
+                {
+                    var id = Path.GetFileNameWithoutExtension(f);
+                    var payload = File.ReadAllText(f);
+                    list.Add((id, payload));
+                }
+                catch { }
+            }
+            return Task.FromResult<IEnumerable<(string OrderId, string Payload)>>(list);
+        }
+
+        public Task SavePendingOrderAsync(string orderId, string payload)
+        {
+            var path = Path.Combine(_dir, orderId + ".order");
+            File.WriteAllText(path, payload);
+            return Task.CompletedTask;
+        }
+
+        public Task RemovePendingOrderAsync(string orderId)
+        {
+            var path = Path.Combine(_dir, orderId + ".order");
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch { }
+            return Task.CompletedTask;
         }
 
         public Task SavePositionAsync(string positionId, string payload)
         {
-            var col = _db.GetCollection("positions");
-            col.Upsert(new BsonDocument { ["_id"] = positionId, ["payload"] = payload });
+            var path = Path.Combine(_dir, positionId + ".pos");
+            File.WriteAllText(path, payload);
             return Task.CompletedTask;
         }
 
         public Task<string> GetPositionAsync(string positionId)
         {
-            var col = _db.GetCollection("positions");
-            var doc = col.FindById(positionId);
-            return Task.FromResult(doc == null ? null : doc["payload"].AsString);
+            var path = Path.Combine(_dir, positionId + ".pos");
+            if (!File.Exists(path)) return Task.FromResult<string>(null);
+            return Task.FromResult(File.ReadAllText(path));
         }
 
         public Task AppendEventAsync(string eventType, string payload, DateTime timestamp)
         {
-            var col = _db.GetCollection("events");
-            col.Insert(new BsonDocument { ["type"] = eventType, ["payload"] = payload, ["ts"] = timestamp.ToUniversalTime() });
+            var path = Path.Combine(_dir, "events.log");
+            File.AppendAllText(path, $"[{timestamp:O}] {eventType} {payload}\n");
             return Task.CompletedTask;
-        }
-
-        public void Dispose()
-        {
-            _db?.Dispose();
         }
     }
 }

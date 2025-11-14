@@ -134,17 +134,17 @@ namespace 币安量化机器人
                     services.AddSingleton<MainWindow>();
 
                     // 注册核心服务
-                    services.AddSingleton<IEventBus, EventBus>();
-                    services.AddSingleton<IMarketDataService, MarketDataService>();
-                    services.AddSingleton<IOrderExecutionService, OrderExecutionService>();
-                    services.AddSingleton<IRepository, LiteDbRepository>();
-                    services.AddSingleton<IRiskManager, RiskManager>();
+                    services.AddSingleton<Core.IEventBus, EventBus>();
+                    services.AddSingleton<Core.IMarketDataService, MarketDataService>();
+                    services.AddSingleton<Core.IOrderExecutionService, OrderExecutionService>();
+                    services.AddSingleton<Persistence.IRepository, LiteDbRepository>();
+                    services.AddSingleton<Core.IRiskManager, RiskManager>();
                     services.AddSingleton<StrategyHost>();
 
                     // ViewModels
-                    services.AddSingleton<MainWindowViewModel>();
-                    services.AddSingleton<StrategyManagerViewModel>();
-                    services.AddSingleton<OrderExecutionViewModel>();
+                    services.AddSingleton<ViewModels.MainWindowViewModel>();
+                    services.AddSingleton<ViewModels.StrategyManagerViewModel>();
+                    services.AddSingleton<ViewModels.OrderExecutionViewModel>();
                 })
                 .Build();
 

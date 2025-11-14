@@ -20,13 +20,13 @@ namespace 币安量化机器人.Services
         private readonly Uri _endpoint;
         private readonly int _reconnectDelayMs = 3000;
         private bool _running;
-        private readonly IEventBus _eventBus;
+        private readonly Core.IEventBus _eventBus;
 
-        public MarketDataService(IEventBus eventBus) : this(new Uri("wss://stream.binance.com:9443/ws/!ticker@arr"), eventBus)
+        public MarketDataService(Core.IEventBus eventBus) : this(new Uri("wss://stream.binance.com:9443/ws/!ticker@arr"), eventBus)
         {
         }
 
-        public MarketDataService(Uri endpoint, IEventBus eventBus)
+        public MarketDataService(Uri endpoint, Core.IEventBus eventBus)
         {
             _endpoint = endpoint;
             _eventBus = eventBus;
@@ -36,7 +36,11 @@ namespace 币安量化机器人.Services
 
         public Task StartAsync(CancellationToken cancellationToken = default)
         {
-            if (_running) return Task.CompletedTask;
+            if (_running)
+            {
+                return Task.CompletedTask;
+            }
+
             _running = true;
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             Task.Run(() => RunAsync(_cts.Token));
@@ -55,6 +59,7 @@ namespace 币安量化机器人.Services
                     {
                         await _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "shutdown", CancellationToken.None).ConfigureAwait(false);
                     }
+
                     _ws.Dispose();
                     _ws = null;
                 }
@@ -100,6 +105,7 @@ namespace 币安量化机器人.Services
                                 // 消息太大，丢弃
                                 break;
                             }
+
                             seg = new ArraySegment<byte>(buffer, count, buffer.Length - count);
                             result = await _ws.ReceiveAsync(seg, token).ConfigureAwait(false);
                             count += result.Count;
@@ -111,7 +117,7 @@ namespace 币安量化机器人.Services
                             RawMessageReceived?.Invoke(message);
 
                             // 发布到事件总线，供其它服务解析与处理
-                            _eventBus.Publish(new MarketDataRawMessage { Raw = message, ReceivedAt = DateTime.UtcNow });
+                            _eventBus.Publish(new Core.MarketDataRawMessage { Raw = message, ReceivedAt = DateTime.UtcNow });
                         }
                         catch
                         {
@@ -128,7 +134,11 @@ namespace 币安量化机器人.Services
                     // 连接或接收错误，等待后重连
                 }
 
-                if (!_running || token.IsCancellationRequested) break;
+                if (!_running || token.IsCancellationRequested)
+                {
+                    break;
+                }
+
                 await Task.Delay(_reconnectDelayMs, token).ContinueWith(_ => { });
             }
 

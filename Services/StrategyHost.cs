@@ -33,11 +33,23 @@ namespace 币安量化机器人.Services
 
         public async Task LoadStrategyFromAssemblyAsync(string assemblyPath, string typeName, IServiceProvider services)
         {
-            if (!File.Exists(assemblyPath)) throw new FileNotFoundException(assemblyPath);
+            if (!File.Exists(assemblyPath))
+            {
+                throw new FileNotFoundException(assemblyPath);
+            }
+
             var asm = Assembly.LoadFrom(assemblyPath);
             var type = asm.GetType(typeName);
-            if (type == null) throw new InvalidOperationException("类型未找到: " + typeName);
-            if (!typeof(IStrategy).IsAssignableFrom(type)) throw new InvalidOperationException("类型未实现 IStrategy: " + typeName);
+            if (type == null)
+            {
+                throw new InvalidOperationException("类型未找到: " + typeName);
+            }
+
+            if (!typeof(IStrategy).IsAssignableFrom(type))
+            {
+                throw new InvalidOperationException("类型未实现 IStrategy: " + typeName);
+            }
+
             var strat = (IStrategy)Activator.CreateInstance(type);
             await LoadStrategyAsync(strat, services);
         }

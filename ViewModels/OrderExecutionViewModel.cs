@@ -9,24 +9,23 @@ namespace 币安量化机器人.ViewModels
 {
     public class OrderExecutionViewModel : ObservableObject
     {
-        private readonly IOrderExecutionService _orderService;
+        private readonly Services.IOrderExecutionService _orderService;
 
-        public ObservableCollection<Order> Orders { get; } = new ObservableCollection<Order>();
+        public ObservableCollection<Models.Order> Orders { get; } = new ObservableCollection<Models.Order>();
 
         public ICommand CancelOrderCommand { get; }
 
-        public OrderExecutionViewModel(IOrderExecutionService orderService)
+        public OrderExecutionViewModel(Services.IOrderExecutionService orderService)
         {
             _orderService = orderService;
             CancelOrderCommand = new RelayCommand<string>(async id => await CancelOrderAsync(id));
 
-            // 占位：加载所有待处理的订单
-            // 尝试初始化服务，以恢复未完成的订单
+            // initialize service
             _ = _orderService.InitializeAsync();
 
-            // 测试数据
-            Orders.Add(new Order { Id = "o1", Symbol = "BTCUSDT", Side = "BUY", Quantity = 0.01, Status = "NEW" });
-            Orders.Add(new Order { Id = "o2", Symbol = "ETHUSDT", Side = "SELL", Quantity = 0.1, Status = "FILLED" });
+            // demo data
+            Orders.Add(new Models.Order { Id = "o1", Symbol = "BTCUSDT", Side = "BUY", Quantity = 0.01, Status = "NEW" });
+            Orders.Add(new Models.Order { Id = "o2", Symbol = "ETHUSDT", Side = "SELL", Quantity = 0.1, Status = "FILLED" });
         }
 
         private async Task CancelOrderAsync(string id)
@@ -47,10 +46,12 @@ namespace 币安量化机器人.ViewModels
             }
         }
 
-        private Order FindOrderById(string id)
+        private Models.Order FindOrderById(string id)
         {
             foreach (var o in Orders)
+            {
                 if (o.Id == id) return o;
+            }
             return null;
         }
     }

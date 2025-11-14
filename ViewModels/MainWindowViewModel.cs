@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 using System;
-using System.Windows.Input;
 
 namespace 币安量化机器人.ViewModels
 {
@@ -19,12 +18,12 @@ namespace 币安量化机器人.ViewModels
             new NavMenuItem { Title = "回测", Tag = "Backtest" }
         };
 
-        private readonly IMarketDataService _marketDataService;
+        private readonly Core.IMarketDataService _marketDataService;
 
         public string MarketStatus { get; private set; }
         public DateTime LastTick { get; private set; }
 
-        public MainWindowViewModel(IMarketDataService marketDataService, Services.IEventBus eventBus)
+        public MainWindowViewModel(Core.IMarketDataService marketDataService, Core.IEventBus eventBus)
         {
             _marketDataService = marketDataService;
             eventBus.Subscribe<Core.MarketDataRawMessage>(m =>
