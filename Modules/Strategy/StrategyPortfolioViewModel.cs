@@ -43,6 +43,7 @@ namespace 币安量化机器人.Modules.Strategy
         public ICommand AddCommand { get; }
         public ICommand EditCommand { get; }
         public ICommand DeleteCommand { get; }
+        public ICommand ClearSearchCommand { get; }
 
         private string _searchText = string.Empty;
         public string SearchText
@@ -112,6 +113,15 @@ namespace 币安量化机器人.Modules.Strategy
             set { _totalStrategiesText = value; OnPropertyChanged(); }
         }
 
+        private int _filteredCount;
+        public int FilteredCount
+        {
+            get => _filteredCount;
+            private set { _filteredCount = value; OnPropertyChanged(); OnPropertyChanged(nameof(FilteredCountText)); }
+        }
+
+        public string FilteredCountText => $"已筛选 {FilteredCount} / {Strategies.Count}";
+
         public StrategyPortfolioViewModel(StrategyPortfolioManager portfolioManager) : this(portfolioManager, new DialogService()) { }
 
         public StrategyPortfolioViewModel(StrategyPortfolioManager portfolioManager, IDialogService dialogService)
@@ -126,16 +136,19 @@ namespace 币安量化机器人.Modules.Strategy
             AddCommand = new RelayCommand(_ => Add());
             EditCommand = new RelayCommand(p => Edit(p));
             DeleteCommand = new RelayCommand(p => Delete(p));
+            ClearSearchCommand = new RelayCommand(_ => { SearchText = string.Empty; UpdateFilteredCount(); });
 
             // create view
             StrategiesView = CollectionViewSource.GetDefaultView(Strategies);
             StrategiesView.Filter = StrategyFilter;
+            StrategiesView.CollectionChanged += (_, __) => UpdateFilteredCount();
 
             // load initial
             Refresh();
 
             // subscribe
             _portfolioManager.StrategiesChanged += () => Refresh();
+            UpdateFilteredCount();
         }
 
         private bool StrategyFilter(object obj)
@@ -192,6 +205,7 @@ namespace 币安量化机器人.Modules.Strategy
             TotalStrategiesText = $"({stats.TotalStrategies} 个策略)";
 
             StrategiesView?.Refresh();
+            UpdateFilteredCount();
             OnPropertyChanged(nameof(Strategies));
         }
 
@@ -262,6 +276,29 @@ namespace 币安量化机器人.Modules.Strategy
                 _portfolioManager.RemoveStrategy(id);
                 Refresh();
                 _dialogService.ShowInfo("策略已删除", "提示");
+            }
+        }
+
+        private void UpdateFilteredCount()
+        {
+            if (StrategiesView is null)
+            {
+                FilteredCount = 0;
+                return;
+            }
+
+            try
+            {
+                int count = 0;
+                foreach (var _ in StrategiesView)
+                {
+                    count++;
+                }
+                FilteredCount = count;
+            }
+            catch
+            {
+                FilteredCount = 0;
             }
         }
 

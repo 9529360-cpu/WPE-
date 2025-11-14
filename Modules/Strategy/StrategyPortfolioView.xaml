@@ -40,10 +40,25 @@
 
                 <!-- 中部搜索 + 组合统计 -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="40,0" VerticalAlignment="Center">
-                    <TextBox Width="280" Margin="0,0,16,0" ToolTip="搜索策略：名称、类型、ID" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
+                    <!-- search box with clear button and filtered count -->
+                    <Grid Width="360" Margin="0,0,16,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="36" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                    <!-- 组合统计 -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBox Grid.Column="0" Width="280" ToolTip="搜索策略：名称、类型、ID" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="8"/>
+
+                        <Button Grid.Column="1" Width="32" Height="28" Margin="6,0,0,0" Command="{Binding ClearSearchCommand}" ToolTip="清除搜索">
+                            <TextBlock Text="✖" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
+
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="8,0,0,0" Foreground="#6B7280" Text="{Binding FilteredCountText}" />
+                    </Grid>
+
+                     <!-- 组合统计 -->
+                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <!-- 总收益率 -->
                         <Border Background="#F0FDF4" CornerRadius="8" Padding="16,12" Margin="0,0,12,0">
                             <StackPanel>
