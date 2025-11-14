@@ -1,0 +1,29 @@
+<UserControl x:Class="币安量化机器人.Modules.Backtest.BacktestView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="400" d:DesignWidth="700">
+    <Grid Margin="12">
+        <StackPanel>
+            <TextBlock Text="回测" FontWeight="Bold" FontSize="16"/>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <TextBlock Text="交易对：" VerticalAlignment="Center"/>
+                <TextBox x:Name="SymbolBox" Width="120" Text="BTCUSDT" Margin="8,0,0,0"/>
+                <TextBlock Text="开始：" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                <TextBox x:Name="FromBox" Width="140" Text="2025-01-01 00:00:00" Margin="8,0,0,0"/>
+                <TextBlock Text="结束：" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                <TextBox x:Name="ToBox" Width="140" Text="2025-01-01 00:01:00" Margin="8,0,0,0"/>
+                <Button x:Name="RunBtn" Content="运行回测" Width="100" Margin="8,0,0,0"/>
+            </StackPanel>
+
+            <Border Margin="0,12,0,0" Padding="8" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4">
+                <StackPanel>
+                    <TextBlock Text="回测结果（示例）" FontWeight="Bold"/>
+                    <TextBlock x:Name="ResultBox" Text="未运行" Margin="0,8,0,0"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Grid>
+</UserControl>

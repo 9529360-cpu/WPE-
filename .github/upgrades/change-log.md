@@ -124,3 +124,6 @@
   状态: `Done`
   提交: `local`
   备注: `无`
+
+- CHG-20251114-12 | 2025-11-14 | 任务: U6 | 新增: `Services/MockExchange.cs`, `Modules/Backtest/BacktestView.xaml`, `Modules/Backtest/BacktestView.xaml.cs` | 状态: Done | 提交: local
+  说明: 添加 MockExchange 用于合成历史行情，并实现基础回测视图以演示回放与结果汇总。
