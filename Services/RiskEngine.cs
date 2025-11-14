@@ -50,12 +50,13 @@ public sealed class RiskEngine
         // 检查白名单
         if (cfg.EnableWhitelist && cfg.WhitelistSymbols?.Length > 0)
         {
-            if (!cfg.WhitelistSymbols.Contains(request.Symbol?.ToUpperInvariant()))
-            {
-                var reason = "交易对不在白名单中";
-                _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.Whitelist", Services.Observability.AlertSeverity.Warning, $"拒单: {request.Symbol} - {reason}");
-                return TradePermitResult.Deny(reason);
-            }
+                if (!cfg.WhitelistSymbols.Contains(request.Symbol?.ToUpperInvariant()))
+                {
+                    var reason = "交易对不在白名单中";
+                    _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.Whitelist", Core.Risk.AlertSeverity.Warning, $"拒单: {request.Symbol} - {reason}");
+                    return TradePermitResult.Deny(reason);
+                }
+
         }
 
         // 检查黑名单
@@ -64,7 +65,7 @@ public sealed class RiskEngine
             if (cfg.BlacklistSymbols.Contains(request.Symbol?.ToUpperInvariant()))
             {
                 var reason = "交易对在黑名单中";
-                _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.Blacklist", Services.Observability.AlertSeverity.Warning, $"拒单: {request.Symbol} - {reason}");
+                _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.Blacklist", Core.Risk.AlertSeverity.Warning, $"拒单: {request.Symbol} - {reason}");
                 return TradePermitResult.Deny(reason);
             }
         }
@@ -80,7 +81,7 @@ public sealed class RiskEngine
                 if (elapsedMs < cfg.MinOrderIntervalMs)
                 {
                     var reason = $"短时间内重复下单 (间隔 {elapsedMs}ms < {cfg.MinOrderIntervalMs}ms)";
-                    _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.RateLimit", Services.Observability.AlertSeverity.Warning, $"拒单: {request.Symbol} - {reason}");
+                    _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.RateLimit", Core.Risk.AlertSeverity.Warning, $"拒单: {request.Symbol} - {reason}");
                     return TradePermitResult.Deny(reason);
                 }
             }
@@ -94,7 +95,7 @@ public sealed class RiskEngine
             if (net <= 0)
             {
                 var reason = "账户净值不足";
-                _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.NoNet", Services.Observability.AlertSeverity.Error, $"拒单: {request.Symbol} - {reason}");
+                _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.NoNet", Core.Risk.AlertSeverity.Error, $"拒单: {request.Symbol} - {reason}");
                 return TradePermitResult.Deny(reason);
             }
 
@@ -103,7 +104,7 @@ public sealed class RiskEngine
             if (proposedValue > allowed)
             {
                 var reason = $"单笔下单超出最大允许占比 ({proposedValue:F4} > {allowed:F4})";
-                _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.SingleSize", Services.Observability.AlertSeverity.Warning, $"拒单: {request.Symbol} - {reason}");
+                _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.SingleSize", Core.Risk.AlertSeverity.Warning, $"拒单: {request.Symbol} - {reason}");
                 return TradePermitResult.Deny(reason);
             }
         }
@@ -120,7 +121,7 @@ public sealed class RiskEngine
                 if (totalPositionsValue > maxTotal)
                 {
                     var reason = $"总持仓超出阈值 ({totalPositionsValue:F4} > {maxTotal:F4})";
-                    _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.TotalPosition", Services.Observability.AlertSeverity.Warning, $"拒单: {request.Symbol} - {reason}");
+                    _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.TotalPosition", Core.Risk.AlertSeverity.Warning, $"拒单: {request.Symbol} - {reason}");
                     return TradePermitResult.Deny(reason);
                 }
             }
@@ -138,7 +139,7 @@ public sealed class RiskEngine
                 {
                     var reason = $"已达到当日亏损上限: {account.TodayPnL:F4} <= -{dailyLossLimit:F4}";
                     // 触发告警（异步不阻塞）
-                    _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny", Services.Observability.AlertSeverity.Warning, $"拒单: {reason}");
+                    _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny", Core.Risk.AlertSeverity.Warning, $"拒单: {reason}");
                     return TradePermitResult.Deny(reason);
                 }
             }
@@ -161,7 +162,7 @@ public sealed class RiskEngine
                         if (drawdownPct >= (decimal)cfg.MaxDrawdownThreshold)
                         {
                             var reason = $"账户回撤超出阈值 ({drawdownPct:P2} >= {cfg.MaxDrawdownThreshold:P2})";
-                            _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.Drawdown", Services.Observability.AlertSeverity.Critical, $"拒单: {request.Symbol} - {reason}");
+                            _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.Drawdown", Core.Risk.AlertSeverity.Critical, $"拒单: {request.Symbol} - {reason}");
                             return TradePermitResult.Deny(reason);
                         }
                     }
@@ -176,7 +177,7 @@ public sealed class RiskEngine
                         if (drawdownPct >= (decimal)cfg.MaxDrawdownThreshold)
                         {
                             var reason = $"账户回撤超出阈值 ({drawdownPct:P2} >= {cfg.MaxDrawdownThreshold:P2})";
-                            _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.Drawdown", Services.Observability.AlertSeverity.Critical, $"拒单: {request.Symbol} - {reason}");
+                            _ = ServiceLocator.Observability.TriggerAlert("Risk.Deny.Drawdown", Core.Risk.AlertSeverity.Critical, $"拒单: {request.Symbol} - {reason}");
                             return TradePermitResult.Deny(reason);
                         }
                     }

@@ -12,7 +12,7 @@ public interface IStrategyContext
 
     IMarketDataService MarketData { get; }
 
-    IRiskManager RiskManager { get; }
+    global::币安量化机器人.Core.Risk.IRiskManager RiskManager { get; }
 
     IFeatureStore FeatureStore { get; }
 

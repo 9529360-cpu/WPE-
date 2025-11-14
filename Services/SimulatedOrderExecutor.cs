@@ -104,7 +104,7 @@ public class SimulatedOrderExecutor
                 OrderId = Guid.NewGuid().ToString("N"),
                 Symbol = request.Symbol,
                 Side = request.Side,
-                Type = ConvertOrderType(request.Type),
+                Type = ConvertOrderType(request.Type).ToString(),
                 Price = (double)request.Price,
                 Quantity = (double)request.Quantity,
                 ExecutedPrice = executedPrice,

@@ -182,7 +182,7 @@ public partial class AlertCenterView : UserControl
         FilterNotifications();
     }
 
-    private void OnAlertRaised(Services.Observability.AlertEvent alert)
+    private void OnAlertRaised(Core.Risk.RiskEvent alert)
     {
         // UI thread dispatch
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
@@ -191,7 +191,7 @@ public partial class AlertCenterView : UserControl
             {
                 Timestamp = alert.Timestamp,
                 NotificationType = alert.RuleName,
-                Level = alert.Severity.ToString(),
+                Level = "Warning",
                 Title = alert.RuleName,
                 Message = alert.Message
             });
@@ -206,6 +206,7 @@ public partial class AlertCenterView : UserControl
             }
         });
     }
+
 
     private void RealtimeToggle_Changed(object sender, RoutedEventArgs e)
     {
@@ -323,15 +324,9 @@ public partial class AlertCenterView : UserControl
     {
         try
         {
-            var ev = new Services.Observability.AlertEvent
-            {
-                RuleName = "UI.Test",
-                Severity = Services.Observability.AlertSeverity.Info,
-                Message = "这是一个测试告警，用于验证 UI 实时更新",
-                Timestamp = DateTime.UtcNow
-            };
+            var ev = new Core.Risk.RiskEvent("", "UI.Test", "这是一个测试告警，用于验证 UI 实时更新", DateTime.UtcNow);
 
-            await ServiceLocator.Observability.TriggerAlert(ev);
+            ServiceLocator.Observability.TriggerAlert(ev);
             MessageBox.Show("测试告警已触发", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)

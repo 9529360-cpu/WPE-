@@ -12,6 +12,25 @@ Execute steps below sequentially one by one in the order they are listed.
 6. Run local build and automated tests after each logical change. If the build fails due to an introduced change, revert or fix immediately.
 7. Once architecture & UI pass local validation, revisit the deferred framework/nuget upgrade tasks and decide as a separate change set whether to apply them.
 
+## 强制优先项（新增）
+
+**S0 — 强制修复编译错误与分析器警告（必须优先）**
+
+- 描述：在执行任何新功能或重构之前，先修复所有编译错误、类型不匹配和 IDE/分析器警告（例如 IDE0011、CSxxxx）。这些修复必须真实、完整且不引入新的警告。
+- 要求：
+  - 为所有单行 `if` / `foreach` 等语句添加大括号，消除 IDE0011 风格警告。
+  - 修复所有类型/命名冲突（例如 `EventBus`、`IRiskManager`、`Order`/`TradingOrder` 等），保证 API 明确无二义性。
+  - 补齐缺失模型字段和枚举映射（例如 `PositionSnapshot.EntryPrice`、订单字段、AlertSeverity 映射等）。
+  - 保证所有修改通过 `dotnet build`，并在本地运行主要交互（下单→持久化→处理→UI 更新）能正常工作。
+- 流程：
+  1. 读取当前 `dotnet build` 报告，按错误优先级排序（语法 -> 类型 -> 逻辑依赖）。
+  2. 按错误列表逐一修复，每次修复完成后运行 `dotnet build` 验证并提交改动到 `upgrade-to-NET10`，commit 信息格式 `chore(upgrade-fix): CHG-<日期>-<编号> <简短说明>`。
+  3. 在 `.github/upgrades/change-log.md` 中记录每次变更条目（中文说明）。
+
+- 验收标准：无编译错误，关键分析器警告解决，主界面能正常启动且主要页面与按钮可交互。
+
+> 说明：从现在开始，所有后续任务（A*/U*）在开始实现前必须先确保 S0 的状态为 Done 或 InProgress（已分配并进行中）。
+
 ## Settings
 
 ### Operational note: preserve current framework & packages

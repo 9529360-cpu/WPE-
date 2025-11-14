@@ -1,5 +1,7 @@
 using System;
+using 币安量化机器人.Core.Extensions;
 using 币安量化机器人.Core.Models;
+using 币安量化机器人.Core.Risk;
 
 namespace 币安量化机器人.Core.Risk;
 
@@ -16,7 +18,7 @@ public sealed class DynamicStopLossRule : IRiskRule
 
     public RiskRuleResult Evaluate(in PositionSnapshot snapshot)
     {
-        double atr = snapshot.Indicators?.GetValueOrDefault("atr", 0) ?? 0;
+        double atr = snapshot.Indicators?.GetValueOrDefault("atr", 0.0) ?? 0.0;
         if (atr <= 0)
         {
             return new RiskRuleResult(true);

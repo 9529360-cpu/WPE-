@@ -24,8 +24,8 @@ namespace 币安量化机器人.ViewModels
             _ = _orderService.InitializeAsync();
 
             // demo data
-            Orders.Add(new Models.Order { Id = "o1", Symbol = "BTCUSDT", Side = "BUY", Quantity = 0.01, Status = "NEW" });
-            Orders.Add(new Models.Order { Id = "o2", Symbol = "ETHUSDT", Side = "SELL", Quantity = 0.1, Status = "FILLED" });
+            Orders.Add(new Models.Order { Id = "o1", Symbol = "BTCUSDT", Side = OrderSide.Buy, Quantity = 0.01, Status = OrderStatus.New });
+            Orders.Add(new Models.Order { Id = "o2", Symbol = "ETHUSDT", Side = OrderSide.Sell, Quantity = 0.1, Status = OrderStatus.Filled });
         }
 
         private async Task CancelOrderAsync(string id)
@@ -36,7 +36,7 @@ namespace 币安量化机器人.ViewModels
                 var ord = FindOrderById(id);
                 if (ord != null)
                 {
-                    ord.Status = "CANCELED";
+                    ord.Status = OrderStatus.Canceled;
                     RaisePropertyChanged(nameof(Orders));
                 }
             }
@@ -46,11 +46,14 @@ namespace 币安量化机器人.ViewModels
             }
         }
 
-        private Models.Order FindOrderById(string id)
+        public Models.Order? FindOrderById(string id)
         {
             foreach (var o in Orders)
             {
-                if (o.Id == id) return o;
+                if (o.Id == id)
+                {
+                    return o;
+                }
             }
             return null;
         }

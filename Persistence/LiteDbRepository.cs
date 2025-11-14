@@ -74,7 +74,10 @@ namespace 币安量化机器人.Persistence
         public Task<string> GetPositionAsync(string positionId)
         {
             var path = Path.Combine(_dir, positionId + ".pos");
-            if (!File.Exists(path)) return Task.FromResult<string>(null);
+            if (!File.Exists(path))
+            {
+                return Task.FromResult<string>(null);
+            }
             return Task.FromResult(File.ReadAllText(path));
         }
 

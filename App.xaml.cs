@@ -93,8 +93,6 @@ namespace 币安量化机器人
                     // 将 Serilog 与 Microsoft.Extensions.Logging 集成
                     services.AddLogging(builder => builder.AddSerilog(dispose: false));
 
-                    // 注意: 项目中存在一个静态的 LogService (Serilog 封装), 不要将其当作实例类型注册
-
                     // 仅注册实际存在的具体服务类型，按需后续再调整为接口映射
                     services.AddSingleton<DataCacheService>();
 
@@ -133,13 +131,13 @@ namespace 币安量化机器人
                     // 注册主窗口（其他窗口按需延迟解析）
                     services.AddSingleton<MainWindow>();
 
-                    // 注册核心服务
-                    services.AddSingleton<Core.IEventBus, EventBus>();
-                    services.AddSingleton<Core.IMarketDataService, MarketDataService>();
-                    services.AddSingleton<Core.IOrderExecutionService, OrderExecutionService>();
-                    services.AddSingleton<Persistence.IRepository, LiteDbRepository>();
-                    services.AddSingleton<Core.IRiskManager, RiskManager>();
-                    services.AddSingleton<StrategyHost>();
+                    // 注册核心服务 - 使用完全限定名以避免命名冲突
+                    services.AddSingleton<币安量化机器人.Core.IEventBus, 币安量化机器人.Services.LegacyEventBus>();
+                    services.AddSingleton<币安量化机器人.Core.IMarketDataService, 币安量化机器人.Services.MarketDataService>();
+                    services.AddSingleton<币安量化机器人.Services.IOrderExecutionService, 币安量化机器人.Services.OrderExecutionService>();
+                    services.AddSingleton<币安量化机器人.Persistence.IRepository, 币安量化机器人.Persistence.LiteDbRepository>();
+                    services.AddSingleton<币安量化机器人.Core.Risk.IRiskManager, 币安量化机器人.Services.RiskManager>();
+                    services.AddSingleton<币安量化机器人.Services.StrategyHost>();
 
                     // ViewModels
                     services.AddSingleton<ViewModels.MainWindowViewModel>();

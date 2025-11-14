@@ -405,7 +405,7 @@ public class AICentralCoordinator : IDisposable
                     // 触发告警
                     if (_observability != null)
                     {
-                        await _observability.TriggerAlert("MainLoopError", AlertSeverity.Error, $"主循环异常: {ex.Message}");
+                        await _observability.TriggerAlert("MainLoopError", Core.Risk.AlertSeverity.Error, $"主循环异常: {ex.Message}");
                     }
 
                     // 报告故障给弹性服务
@@ -426,7 +426,7 @@ public class AICentralCoordinator : IDisposable
                             {
                                 await _observability.TriggerAlert(
                                     "SystemHealthCritical",
-                                    AlertSeverity.Critical,
+                                    Core.Risk.AlertSeverity.Critical,
                                     "系统健康检查失败，紧急停止"
                                 ).ConfigureAwait(false);
                             }
@@ -454,7 +454,7 @@ public class AICentralCoordinator : IDisposable
             {
                 await _observability.TriggerAlert(
                     "MainLoopFatalError",
-                    AlertSeverity.Critical,
+                    Core.Risk.AlertSeverity.Critical,
                     $"主循环致命异常: {ex.Message}"
                 ).ConfigureAwait(false);
             }

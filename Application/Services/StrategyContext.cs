@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using 币安量化机器人.Core.Abstractions;
 using 币安量化机器人.Core.Models;
-using 币安量化机器人.Core.Risk;
+using global::币安量化机器人.Core.Risk;
 
 namespace 币安量化机器人.Application.Services;
 
@@ -15,7 +15,7 @@ public class StrategyContext : IStrategyContext
     public StrategyContext(
         string symbol,
         IMarketDataService marketData,
-        IRiskManager riskManager,
+        global::币安量化机器人.Core.Risk.IRiskManager riskManager,
         IFeatureStore featureStore,
         Func<TradeSignal, CancellationToken, ValueTask> signalPublisher,
         Func<StrategyPerformanceSnapshot, CancellationToken, ValueTask> metricsRecorder)
@@ -32,7 +32,7 @@ public class StrategyContext : IStrategyContext
 
     public IMarketDataService MarketData { get; }
 
-    public IRiskManager RiskManager { get; }
+    public global::币安量化机器人.Core.Risk.IRiskManager RiskManager { get; }
 
     public IFeatureStore FeatureStore { get; }
 

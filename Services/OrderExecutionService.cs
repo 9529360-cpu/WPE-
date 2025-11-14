@@ -49,7 +49,11 @@ namespace 币安量化机器人.Services
 
         private void StartBackgroundProcessing()
         {
-            if (_processingTask != null && !_processingTask.IsCompleted) return;
+            if (_processingTask != null && !_processingTask.IsCompleted)
+            {
+                return;
+            }
+
             _processingCts = new CancellationTokenSource();
             _processingTask = Task.Run(() => ProcessingLoopAsync(_processingCts.Token));
         }
@@ -59,7 +63,10 @@ namespace 币安量化机器人.Services
             try
             {
                 _processingCts?.Cancel();
-                _processingTask?.Wait(1000);
+                if (_processingTask != null)
+                {
+                    _processingTask.Wait(1000);
+                }
             }
             catch { }
             finally
@@ -130,13 +137,13 @@ namespace 币安量化机器人.Services
             {
                 // 假设 order 为匿名对象 { Symbol, Side, Quantity }
                 var json = JsonSerializer.Serialize(order);
-                var doc = JsonSerializer.Deserialize<JsonElement>(json);
+                var doc = JsonDocument.Parse(json).RootElement;
                 double qty = doc.GetProperty("Quantity").GetDouble();
 
                 var check = await _riskManager.CheckOrderAsync(new OrderRequestEvent { Quantity = qty, Symbol = doc.GetProperty("Symbol").GetString(), Side = doc.GetProperty("Side").GetString() });
                 if (!check.Passed)
                 {
-                    Services.Observability.ObservabilityService.Instance.AddLog($"风控拒单: {check.Reason}");
+                    Services.Observability.ObservabilityService.Instance.LogInfo($"风控拒单: {check.Reason}");
                     return null;
                 }
             }

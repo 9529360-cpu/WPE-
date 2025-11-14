@@ -25,7 +25,10 @@ namespace 币安量化机器人.Modules.Backtest
                         count++;
                         avg += t.Price;
                     }
-                    if (count > 0) avg /= count;
+                    if (count > 0)
+                    {
+                        avg /= count;
+                    }
                     ResultBox.Text = $"Ticks: {count}, AvgPrice: {Math.Round(avg,2)}";
                 }
                 catch (Exception ex)

@@ -14,18 +14,20 @@ public class RiskManager : IRiskManager
     private readonly KellyAllocator _allocator = new();
     private readonly ValueAtRiskCalculator _varCalculator = new();
     private RiskProfile _profile = new(0, 0, 0, Array.Empty<string>(), 0, 0);
-    private RiskConfiguration _configuration = new(
-        MaxPositionSize: 0.2,
-        MaxDrawdown: 0.15,
-        DailyLossLimit: 0.05,
-        StopLossMultiplier: 1.5,
-        BlacklistThreshold: 3,
-        RiskEvaluationInterval: TimeSpan.FromMinutes(1),
+    private RiskConfiguration _configuration = new RiskConfiguration
+    {
+        MaxPositionSize = 0.2,
+        MaxDrawdown = 0.15,
+        DailyLossLimit = 0.05,
+        StopLossMultiplier = 1.5,
+        BlacklistThreshold = 3,
+        RiskEvaluationInterval = TimeSpan.FromMinutes(1),
         // 🆕 默认配置
-        MaxPositionHoldingTime: TimeSpan.FromHours(24),
-        MaxDailyLossPercent: 0.02,
-        TrailingStopActivationPercent: 0.01,
-        TrailingStopPercent: 0.005);
+        MaxPositionHoldingTime = TimeSpan.FromHours(24),
+        MaxDailyLossPercent = 0.02,
+        TrailingStopActivationPercent = 0.01,
+        TrailingStopPercent = 0.005
+    };
     private DateTime _lastUpdate = DateTime.MinValue;
     private string? _lastSymbol;
 

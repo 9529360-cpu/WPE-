@@ -37,7 +37,7 @@ public class TradingAccount : INotifyPropertyChanged
         CreatedAt = DateTime.UtcNow;
 
         Positions = new List<Position>();
-        OrderHistory = new List<TradingOrder>();
+        OrderHistory = new List<Order>();
     }
 
     #region 账户基本信息
@@ -200,7 +200,7 @@ public class TradingAccount : INotifyPropertyChanged
     /// <summary>
     /// 订单历史
     /// </summary>
-    public List<TradingOrder> OrderHistory { get; }
+    public List<Order> OrderHistory { get; }
 
     /// <summary>
     /// 当前持仓数量
@@ -335,37 +335,4 @@ public enum PositionStatus
     Open,
     Closed,
     Liquidated
-}
-
-/// <summary>
-/// 订单（账户内部类型，避免与简化 UI Order 类型冲突）
-/// </summary>
-public class TradingOrder
-{
-    public string OrderId { get; init; } = string.Empty;
-    public string Symbol { get; init; } = string.Empty;
-    public OrderSide Side { get; init; }
-    public OrderType Type { get; init; }
-    public double Price { get; init; }
-    public double Quantity { get; init; }
-    public double ExecutedPrice { get; init; }
-    public double ExecutedQuantity { get; init; }
-    public double Commission { get; init; }
-    public double RealizedPnL { get; set; }
-    public OrderStatus Status { get; init; }
-    public DateTime CreateTime { get; init; }
-    public DateTime UpdateTime { get; init; }
-}
-
-/// <summary>
-/// 订单状态
-/// </summary>
-public enum OrderStatus
-{
-    New,
-    PartiallyFilled,
-    Filled,
-    Canceled,
-    Rejected,
-    Expired
 }

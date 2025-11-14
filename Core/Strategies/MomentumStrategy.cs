@@ -62,7 +62,15 @@ public class MomentumStrategy : ITradingStrategy
         }
 
         var tradeAction = new TradeAction(action, qty, reason);
-        if (!_context.RiskManager.Approve(tradeAction))
+
+        // Map Core.Models.TradeAction to Core.Risk.TradeAction for RiskManager
+        var riskAction = new 币安量化机器人.Core.Risk.TradeAction
+        {
+            ActionType = action == TradeActionType.EnterLong ? 币安量化机器人.Core.Risk.TradeActionType.Buy : (action == TradeActionType.EnterShort ? 币安量化机器人.Core.Risk.TradeActionType.Sell : 币安量化机器人.Core.Risk.TradeActionType.Hold),
+            Quantity = qty
+        };
+
+        if (!_context.RiskManager.Approve(riskAction))
         {
             tradeAction = new TradeAction(TradeActionType.Hold, 0, "Risk rejected");
         }
@@ -74,7 +82,7 @@ public class MomentumStrategy : ITradingStrategy
 
     public async IAsyncEnumerable<StrategyDecision> RunAsync(IAsyncEnumerable<MarketObservation> observations, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await foreach (MarketObservation? observation in observations.WithCancellation(cancellationToken))
+        await foreach (var observation in observations.WithCancellation(cancellationToken))
         {
             yield return await EvaluateAsync(observation, cancellationToken);
         }

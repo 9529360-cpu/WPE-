@@ -1,5 +1,6 @@
 using System;
 using 币安量化机器人.Core.Models;
+using 币安量化机器人.Core.Extensions;
 
 namespace 币安量化机器人.Core.Risk;
 
