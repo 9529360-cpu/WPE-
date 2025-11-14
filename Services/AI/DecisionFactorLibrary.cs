@@ -728,7 +728,7 @@ public class MarketData
     public decimal LongShortRatio { get; set; } = 1.0m;
     public decimal InterestRate { get; set; } = 0.05m;
     public decimal InterestRateChange { get; set; } = 0;
-    
+
     /// <summary>
     /// 数据质量评分 (0-1)
     /// 1.0 = 完整实时数据

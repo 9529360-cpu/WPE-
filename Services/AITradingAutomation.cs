@@ -272,13 +272,14 @@ public class AITradingAutomation
             return "无激活账户";
         }
 
-        return $"""
-            运行中 ({account.Type})
-            ├─ 账户: {account.Name}
-            ├─ 净值: {account.NetValue:F2} USDT
-            ├─ 持仓: {account.OpenPositionCount}个
-            ├─ 今日盈亏: {account.TodayPnL:F2} ({account.TodayReturnPercent:P2})
-            └─ 总盈亏: {account.TotalPnL:F2} ({account.TotalReturnPercent:P2})
-            """;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"运行中({account.Type})");
+        sb.AppendLine($"├─ 账户: {account.Name}");
+        sb.AppendLine($"├─ 净值: {account.NetValue:F2} USDT");
+        sb.AppendLine($"├─ 持仓: {account.OpenPositionCount} 个");
+        sb.AppendLine($"├─ 今日盈亏: {account.TodayPnL:F2} ({account.TodayReturnPercent:P2})");
+        sb.AppendLine($"└─ 总盈亏: {account.TotalPnL:F2} ({account.TotalReturnPercent:P2})");
+
+        return sb.ToString();
     }
 }

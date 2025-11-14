@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,33 +10,19 @@ namespace 币安量化机器人.Services.Performance;
 /// <summary>
 /// 系统资源监控器
 /// </summary>
-/// <remarks>
-/// 核心功能:
-/// 1. CPU使用率监控
-/// 2. 内存使用监控
-/// 3. 网络延迟监控
-/// 4. 磁盘I/O监控
-/// 5. 线程统计
-/// 
-/// 监控指标:
-/// - CPU使用率 (%)
-/// - 内存使用 (MB)
-/// - 网络延迟 (ms)
-/// - 活动线程数
-/// - GC回收统计
-/// </remarks>
+[SupportedOSPlatform("windows")]
 public class SystemResourceMonitor : IDisposable
 {
     private readonly Process _currentProcess;
     private readonly PerformanceCounter? _cpuCounter;
     private readonly Timer _monitorTimer;
-    
+
     private double _cpuUsage;
     private long _memoryUsage;
     private int _threadCount;
     private TimeSpan _totalProcessorTime;
     private DateTime _lastSampleTime;
-    
+
     // 网络延迟监控
     private long _networkLatency;
     private readonly string _testEndpoint = "https://fapi.binance.com";
@@ -204,33 +191,33 @@ public class SystemResourceMonitor : IDisposable
     public SystemResourceSnapshot GetSnapshot()
     {
         GC.Collect(0, GCCollectionMode.Optimized);
-        
+
         return new SystemResourceSnapshot
         {
             // CPU
             CpuUsagePercent = _cpuUsage,
             ProcessorCount = Environment.ProcessorCount,
-            
+
             // 内存
             MemoryUsageBytes = _memoryUsage,
             MemoryUsageMB = _memoryUsage / (1024.0 * 1024.0),
             TotalMemoryMB = GC.GetTotalMemory(false) / (1024.0 * 1024.0),
-            
+
             // GC统计
             Gen0Collections = GC.CollectionCount(0),
             Gen1Collections = GC.CollectionCount(1),
             Gen2Collections = GC.CollectionCount(2),
-            
+
             // 线程
             ThreadCount = _threadCount,
             ThreadPoolAvailable = GetThreadPoolInfo(),
-            
+
             // 网络
             NetworkLatencyMs = _networkLatency,
-            
+
             // 进程
             ProcessUptime = DateTime.UtcNow - Process.GetCurrentProcess().StartTime.ToUniversalTime(),
-            
+
             // 时间戳
             Timestamp = DateTime.UtcNow
         };
@@ -251,7 +238,7 @@ public class SystemResourceMonitor : IDisposable
     public ResourceHealthStatus GetHealthStatus()
     {
         var snapshot = GetSnapshot();
-        
+
         // 健康判断规则
         bool isCpuHealthy = snapshot.CpuUsagePercent < 80;
         bool isMemoryHealthy = snapshot.MemoryUsageMB < 1000; // < 1GB
@@ -321,27 +308,27 @@ public class SystemResourceSnapshot
     // CPU
     public double CpuUsagePercent { get; init; }
     public int ProcessorCount { get; init; }
-    
+
     // 内存
     public long MemoryUsageBytes { get; init; }
     public double MemoryUsageMB { get; init; }
     public double TotalMemoryMB { get; init; }
-    
+
     // GC
     public int Gen0Collections { get; init; }
     public int Gen1Collections { get; init; }
     public int Gen2Collections { get; init; }
-    
+
     // 线程
     public int ThreadCount { get; init; }
     public (int Worker, int IO) ThreadPoolAvailable { get; init; }
-    
+
     // 网络
     public long NetworkLatencyMs { get; init; }
-    
+
     // 进程
     public TimeSpan ProcessUptime { get; init; }
-    
+
     // 时间戳
     public DateTime Timestamp { get; init; }
 }

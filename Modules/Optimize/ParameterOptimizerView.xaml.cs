@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+// using ScottPlot.Plottable; // removed for v5 compatibility
+using System.Drawing;
 using System.Linq;
+using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using ScottPlot;
-// using ScottPlot.Plottable; // removed for v5 compatibility
-using System.Drawing;
 using 币安量化机器人.Services;
 using GeneticOptimizationResult = 币安量化机器人.Services.OptimizationResult; // 使用别名避免冲突
 
@@ -17,6 +18,7 @@ namespace 币安量化机器人.Modules.Optimize;
 /// <summary>
 /// 策略参数优化器
 /// </summary>
+[SupportedOSPlatform("windows")]
 public partial class ParameterOptimizerView : UserControl
 {
     private readonly GeneticAlgorithmOptimizer _geneticOptimizer;

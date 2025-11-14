@@ -354,6 +354,6 @@ public class TradeExecutionResult
 public class SignalRecord
 {
     public required AITradingSignal Signal { get; init; }
-    public required TradeExecutionResult Result { get; init; }
-    public DateTime Timestamp { get; init; }
+public required TradeExecutionResult Result { get; init; }
+public DateTime Timestamp { get; init; }
 }

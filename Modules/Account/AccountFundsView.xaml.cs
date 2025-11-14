@@ -44,18 +44,23 @@ public partial class AccountFundsView : UserControl
             TradingAccount? simAccount = _accountManager.SimulatedAccount;
             if (simAccount != null)
             {
-                if (SimNetValueText != null) SimNetValueText.Text = $"{simAccount.NetValue:N2} USDT";
-                if (SimAvailableText != null) SimAvailableText.Text = $"{simAccount.AvailableBalance:N2}";
-                if (SimPositionValueText != null) SimPositionValueText.Text = $"{simAccount.PositionValue:N2}";
+                if (SimNetValueText != null)
+                    SimNetValueText.Text = $"{simAccount.NetValue:N2} USDT";
+                if (SimAvailableText != null)
+                    SimAvailableText.Text = $"{simAccount.AvailableBalance:N2}";
+                if (SimPositionValueText != null)
+                    SimPositionValueText.Text = $"{simAccount.PositionValue:N2}";
 
                 string sign = simAccount.TotalPnL >= 0 ? "+" : string.Empty;
                 if (SimTotalPnLText != null)
                 {
                     SimTotalPnLText.Text = $"{sign}{simAccount.TotalPnL:N2}";
-                    SimTotalPnLText.Foreground = simAccount.TotalPnL >= 0 ? new SolidColorBrush(Color.FromRgb(34,197,94)) : new SolidColorBrush(Color.FromRgb(239,68,68));
+                    SimTotalPnLText.Foreground = simAccount.TotalPnL >= 0 ? new SolidColorBrush(Color.FromRgb(34, 197, 94)) : new SolidColorBrush(Color.FromRgb(239, 68, 68));
                 }
-                if (SimTradesText != null) SimTradesText.Text = $"{simAccount.TotalTrades} 笔";
-                if (SimWinRateText != null) SimWinRateText.Text = $"{simAccount.WinRate:P0}";
+                if (SimTradesText != null)
+                    SimTradesText.Text = $"{simAccount.TotalTrades} 笔";
+                if (SimWinRateText != null)
+                    SimWinRateText.Text = $"{simAccount.WinRate:P0}";
             }
 
             // 🔧 尝试加载真实账户数据（从 Binance API）
@@ -102,19 +107,23 @@ public partial class AccountFundsView : UserControl
                 decimal positionValue = netValue - available;
 
                 LogService.Info("[AccountFundsView] Binance 真实账户数据: 净值={NetValue}, 可用={Available}, 持仓={Position}", netValue, available, positionValue);
-                if (LiveNetValueText != null) LiveNetValueText.Text = $"{netValue:N2} USDT";
-                if (LiveAvailableText != null) LiveAvailableText.Text = $"{available:N2}";
-                if (LivePositionValueText != null) LivePositionValueText.Text = $"{positionValue:N2}";
+                if (LiveNetValueText != null)
+                    LiveNetValueText.Text = $"{netValue:N2} USDT";
+                if (LiveAvailableText != null)
+                    LiveAvailableText.Text = $"{available:N2}";
+                if (LivePositionValueText != null)
+                    LivePositionValueText.Text = $"{positionValue:N2}";
                 if (LiveAccountStatusBadge != null && LiveAccountStatusBadge.Child is TextBlock statusText)
                 {
                     statusText.Text = "已激活";
-                    LiveAccountStatusBadge.Background = new SolidColorBrush(Color.FromRgb(16,185,129));
+                    LiveAccountStatusBadge.Background = new SolidColorBrush(Color.FromRgb(16, 185, 129));
                 }
-                if (UseLiveRadio != null) UseLiveRadio.IsEnabled = true;
+                if (UseLiveRadio != null)
+                    UseLiveRadio.IsEnabled = true;
                 if (LiveAccountHint != null)
                 {
                     LiveAccountHint.Text = "真实账户交易,请谨慎操作";
-                    LiveAccountHint.Foreground = new SolidColorBrush(Color.FromRgb(107,114,128));
+                    LiveAccountHint.Foreground = new SolidColorBrush(Color.FromRgb(107, 114, 128));
                 }
                 if (_accountManager.LiveAccount == null && netValue > 0)
                 {
@@ -124,7 +133,7 @@ public partial class AccountFundsView : UserControl
             }
             else
             {
-                SetLiveAccountWarningState("请先向 Binance 合约账户充值 USDT", "余额为0", Color.FromRgb(251,191,36));
+                SetLiveAccountWarningState("请先向 Binance 合约账户充值 USDT", "余额为0", Color.FromRgb(251, 191, 36));
             }
         }
         catch (Exception ex)
@@ -136,27 +145,34 @@ public partial class AccountFundsView : UserControl
 
     private void SetLiveAccountInactiveState(string hint)
     {
-        if (LiveNetValueText != null) LiveNetValueText.Text = "0.00 USDT";
-        if (LiveAvailableText != null) LiveAvailableText.Text = "0.00";
-        if (LivePositionValueText != null) LivePositionValueText.Text = "0.00";
+        if (LiveNetValueText != null)
+            LiveNetValueText.Text = "0.00 USDT";
+        if (LiveAvailableText != null)
+            LiveAvailableText.Text = "0.00";
+        if (LivePositionValueText != null)
+            LivePositionValueText.Text = "0.00";
         if (LiveAccountStatusBadge != null && LiveAccountStatusBadge.Child is TextBlock statusText)
         {
             statusText.Text = "未激活";
-            LiveAccountStatusBadge.Background = new SolidColorBrush(Color.FromRgb(156,163,175));
+            LiveAccountStatusBadge.Background = new SolidColorBrush(Color.FromRgb(156, 163, 175));
         }
-        if (UseLiveRadio != null) UseLiveRadio.IsEnabled = false;
+        if (UseLiveRadio != null)
+            UseLiveRadio.IsEnabled = false;
         if (LiveAccountHint != null)
         {
             LiveAccountHint.Text = hint;
-            LiveAccountHint.Foreground = new SolidColorBrush(Color.FromRgb(239,68,68));
+            LiveAccountHint.Foreground = new SolidColorBrush(Color.FromRgb(239, 68, 68));
         }
     }
 
     private void SetLiveAccountWarningState(string hint, string badgeText, Color badgeColor)
     {
-        if (LiveNetValueText != null) LiveNetValueText.Text = "0.00 USDT";
-        if (LiveAvailableText != null) LiveAvailableText.Text = "0.00";
-        if (LivePositionValueText != null) LivePositionValueText.Text = "0.00";
+        if (LiveNetValueText != null)
+            LiveNetValueText.Text = "0.00 USDT";
+        if (LiveAvailableText != null)
+            LiveAvailableText.Text = "0.00";
+        if (LivePositionValueText != null)
+            LivePositionValueText.Text = "0.00";
         if (LiveAccountStatusBadge != null && LiveAccountStatusBadge.Child is TextBlock statusText)
         {
             statusText.Text = badgeText;
@@ -174,12 +190,12 @@ public partial class AccountFundsView : UserControl
         if (LiveAccountStatusBadge != null && LiveAccountStatusBadge.Child is TextBlock statusText)
         {
             statusText.Text = "加载失败";
-            LiveAccountStatusBadge.Background = new SolidColorBrush(Color.FromRgb(239,68,68));
+            LiveAccountStatusBadge.Background = new SolidColorBrush(Color.FromRgb(239, 68, 68));
         }
         if (LiveAccountHint != null)
         {
             LiveAccountHint.Text = hint;
-            LiveAccountHint.Foreground = new SolidColorBrush(Color.FromRgb(239,68,68));
+            LiveAccountHint.Foreground = new SolidColorBrush(Color.FromRgb(239, 68, 68));
         }
     }
 
@@ -201,7 +217,7 @@ public partial class AccountFundsView : UserControl
                 Description = check.Message,
                 CurrentValue = $"当前: {check.Value}",
                 StatusText = check.Passed ? "已达标" : "未达标",
-                StatusColor = new SolidColorBrush(check.Passed ? Color.FromRgb(16,185,129) : Color.FromRgb(239,68,68))
+                StatusColor = new SolidColorBrush(check.Passed ? Color.FromRgb(16, 185, 129) : Color.FromRgb(239, 68, 68))
             });
         }
 
@@ -233,7 +249,8 @@ public partial class AccountFundsView : UserControl
     private void Upgrade_Click(object sender, RoutedEventArgs e)
     {
         MessageBoxResult result = MessageBox.Show("确定要升级到真实账户吗?\n\n升级后将可以使用真实资金进行交易。", "确认升级", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (result != MessageBoxResult.Yes) return;
+        if (result != MessageBoxResult.Yes)
+            return;
         var dialog = new InputDialog("请输入真实账户初始资金 (USDT):", "5000");
         if (dialog.ShowDialog() == true)
         {
@@ -279,12 +296,12 @@ public partial class AccountFundsView : UserControl
                 // 更新边框样式 (添加空检查)
                 if (SimulatedAccountCard != null)
                 {
-                    SimulatedAccountCard.BorderBrush = new SolidColorBrush(Color.FromRgb(16,185,129));
+                    SimulatedAccountCard.BorderBrush = new SolidColorBrush(Color.FromRgb(16, 185, 129));
                     SimulatedAccountCard.BorderThickness = new Thickness(2);
                 }
                 if (LiveAccountCard != null)
                 {
-                    LiveAccountCard.BorderBrush = new SolidColorBrush(Color.FromRgb(229,231,235));
+                    LiveAccountCard.BorderBrush = new SolidColorBrush(Color.FromRgb(229, 231, 235));
                     LiveAccountCard.BorderThickness = new Thickness(1);
                 }
             }
@@ -302,12 +319,12 @@ public partial class AccountFundsView : UserControl
                 // 更新边框样式 (添加空检查)
                 if (SimulatedAccountCard != null)
                 {
-                    SimulatedAccountCard.BorderBrush = new SolidColorBrush(Color.FromRgb(229,231,235));
+                    SimulatedAccountCard.BorderBrush = new SolidColorBrush(Color.FromRgb(229, 231, 235));
                     SimulatedAccountCard.BorderThickness = new Thickness(1);
                 }
                 if (LiveAccountCard != null)
                 {
-                    LiveAccountCard.BorderBrush = new SolidColorBrush(Color.FromRgb(239,68,68));
+                    LiveAccountCard.BorderBrush = new SolidColorBrush(Color.FromRgb(239, 68, 68));
                     LiveAccountCard.BorderThickness = new Thickness(2);
                 }
             }
@@ -349,13 +366,21 @@ public class InputDialog : Window
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var promptText = new TextBlock { Text = prompt, Margin = new Thickness(0,0,0,8) }; Grid.SetRow(promptText,0);
-        var textBox = new TextBox { Text = defaultValue, Height = 32, FontSize = 14 }; Grid.SetRow(textBox,1);
-        var buttonPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0,16,0,0) };
-        var okButton = new Button { Content = "确定", Width = 80, Height = 32, Margin = new Thickness(0,0,8,0) }; okButton.Click += (_,__) => { InputValue = textBox.Text; DialogResult = true; };
-        var cancelButton = new Button { Content = "取消", Width = 80, Height = 32 }; cancelButton.Click += (_,__) => { DialogResult = false; };
-        buttonPanel.Children.Add(okButton); buttonPanel.Children.Add(cancelButton); Grid.SetRow(buttonPanel,2);
-        grid.Children.Add(promptText); grid.Children.Add(textBox); grid.Children.Add(buttonPanel);
+        var promptText = new TextBlock { Text = prompt, Margin = new Thickness(0, 0, 0, 8) };
+        Grid.SetRow(promptText, 0);
+        var textBox = new TextBox { Text = defaultValue, Height = 32, FontSize = 14 };
+        Grid.SetRow(textBox, 1);
+        var buttonPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 16, 0, 0) };
+        var okButton = new Button { Content = "确定", Width = 80, Height = 32, Margin = new Thickness(0, 0, 8, 0) };
+        okButton.Click += (_, __) => { InputValue = textBox.Text; DialogResult = true; };
+        var cancelButton = new Button { Content = "取消", Width = 80, Height = 32 };
+        cancelButton.Click += (_, __) => { DialogResult = false; };
+        buttonPanel.Children.Add(okButton);
+        buttonPanel.Children.Add(cancelButton);
+        Grid.SetRow(buttonPanel, 2);
+        grid.Children.Add(promptText);
+        grid.Children.Add(textBox);
+        grid.Children.Add(buttonPanel);
         Content = grid;
     }
 }

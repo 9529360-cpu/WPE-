@@ -9,13 +9,13 @@ using 币安量化机器人.Application.Backtesting;
 using 币安量化机器人.Application.Services;
 using 币安量化机器人.Core.Abstractions;
 using 币安量化机器人.Core.Models;
-using 币安量化机器人.Models;
-using 币安量化机器人.Services.AI;
-using 币安量化机器人.Models.Configuration;
 using 币安量化机器人.Core.Risk;
 using 币安量化机器人.Core.Strategies;
 using 币安量化机器人.Infrastructure.Data;
+using 币安量化机器人.Models;
+using 币安量化机器人.Models.Configuration;
 using 币安量化机器人.Monitoring;
+using 币安量化机器人.Services.AI;
 
 namespace 币安量化机器人.Services;
 
@@ -506,4 +506,7 @@ public static class ServiceLocator
     }
 
     public static LearningModule? LearningModule { get; private set; }
+
+    private static readonly Lazy<DialogService> DialogServiceFactory = new(() => new DialogService());
+    public static DialogService DialogService => DialogServiceFactory.Value;
 }

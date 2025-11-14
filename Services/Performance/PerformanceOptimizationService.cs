@@ -9,7 +9,7 @@ public class PerformanceOptimizationService : IDisposable
     private readonly RealtimeDataProcessor _dataProcessor;
     private readonly SmartCacheManager _cacheManager;
     private readonly PerformanceMonitor _performanceMonitor;
-    
+
     private bool _isInitialized;
 
     public PerformanceOptimizationService()
@@ -181,7 +181,8 @@ public class PerformanceOptimizationService : IDisposable
     /// </summary>
     public async Task ShutdownAsync(TimeSpan timeout = default)
     {
-        if (!_isInitialized) return;
+        if (!_isInitialized)
+            return;
         LogService.Info("🛑 [PerformanceOptimizationService] 开始优雅关闭...");
         try
         {

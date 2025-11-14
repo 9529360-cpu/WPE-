@@ -13,37 +13,57 @@ public class AiForecastService
 {
     private readonly BinanceApiClient _apiClient;
     private readonly DataCacheService _cacheService;
-    private readonly LstmModelDefinition _model;
-    private readonly List<ModelArtifact> _artifacts;
+    private readonly LstmModelDefinition? _model;
+    private readonly List<ModelArtifact> _artifacts = new();
+    private readonly bool _hasModel;
 
     public AiForecastService(BinanceApiClient apiClient, DataCacheService cacheService)
     {
         _apiClient = apiClient;
         _cacheService = cacheService;
-        string modelPath = Path.Combine(AppContext.BaseDirectory, "Data", "ai", "lstm_model.json");
-        if (!File.Exists(modelPath))
-        {
-            throw new FileNotFoundException("未找到 LSTM 模型权重文件", modelPath);
-        }
 
-        using FileStream stream = File.OpenRead(modelPath);
-        LstmModelDefinition? definition = JsonSerializer.Deserialize<LstmModelDefinition>(stream, new JsonSerializerOptions
+        try
         {
-            PropertyNameCaseInsensitive = true
-        });
-        _model = definition ?? throw new InvalidOperationException("无法解析 LSTM 模型权重文件");
-        _artifacts = new List<ModelArtifact>
-        {
-            new()
+            string modelPath = Path.Combine(AppContext.BaseDirectory, "Data", "ai", "lstm_model.json");
+            if (File.Exists(modelPath))
             {
-                Name = _model.Name,
-                Version = _model.Version,
-                Stage = "Production",
-                Metric = "RMSE 0.84",
-                UpdatedAt = DateTime.UtcNow,
-                Description = "双层 LSTM + 线性解码器，用于短期资金费率与价格预测"
+                using FileStream stream = File.OpenRead(modelPath);
+                LstmModelDefinition? definition = JsonSerializer.Deserialize<LstmModelDefinition>(stream, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (definition != null)
+                {
+                    _model = definition;
+                    _hasModel = true;
+                    _artifacts.Add(new ModelArtifact
+                    {
+                        Name = _model.Name,
+                        Version = _model.Version,
+                        Stage = "Production",
+                        Metric = "RMSE 0.84",
+                        UpdatedAt = DateTime.UtcNow,
+                        Description = "双层 LSTM + 线性解码器，用于短期资金费率与价格预测"
+                    });
+                }
+                else
+                {
+                    _hasModel = false;
+                    LogService.Warning("[AiForecastService] 无法解析模型文件, 切换到降级预测模式");
+                }
             }
-        };
+            else
+            {
+                _hasModel = false;
+                LogService.Warning("[AiForecastService] 模型文件未发现: {Path}", modelPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            _hasModel = false;
+            LogService.Error(ex, "[AiForecastService] 初始化模型时发生异常, 使用降级逻辑");
+        }
     }
 
     public IReadOnlyList<ModelArtifact> Models => _artifacts;
@@ -51,23 +71,58 @@ public class AiForecastService
     public async Task<ForecastResult> ForecastAsync(ForecastRequest request, CancellationToken cancellationToken = default)
     {
         IReadOnlyList<decimal> closes = await _apiClient.GetKlineClosesAsync(request.Symbol, request.Interval, request.HistoryPoints, cancellationToken).ConfigureAwait(false);
-        await _cacheService.SavePricesAsync(request.Symbol, closes);
+        await _cacheService.SavePricesAsync(request.Symbol, closes).ConfigureAwait(false);
 
         double[] history = closes.Select(c => (double)c).ToArray();
         if (history.Length == 0)
         {
-            throw new InvalidOperationException("未能获取足够的 K 线数据用于预测");
+            return new ForecastResult
+            {
+                Symbol = request.Symbol,
+                Historical = Array.Empty<double>(),
+                Predicted = Array.Empty<double>(),
+                ConfidenceUpper = Array.Empty<double>(),
+                ConfidenceLower = Array.Empty<double>(),
+                ExpectedReturn = 0,
+                ExpectedVolatility = 0,
+                PredictedRisk = 0,
+                GeneratedAt = DateTime.UtcNow
+            };
         }
 
+        // 如果有模型则使用模型预测, 否则使用简单基线预测（持平或基于历史移动平均）
         double last = history[^1];
-        double[] normalized = history.Select(v => (v - last) / last).ToArray();
-        IReadOnlyList<double> forecastNormalized = _model.Forecast(normalized, request.Horizon);
-        double[] predicted = forecastNormalized.Select(delta => last * (1 + delta)).ToArray();
+        IReadOnlyList<double> predictedNormalized;
+        try
+        {
+            if (_hasModel && _model != null)
+            {
+                double[] normalized = history.Select(v => (v - last) / last).ToArray();
+                predictedNormalized = _model.Forecast(normalized, request.Horizon);
+            }
+            else
+            {
+                // 简单基线：使用历史最近N均值的相对变化模拟预测
+                int window = Math.Min(10, history.Length);
+                double mean = history.Skip(history.Length - window).Average();
+                double baselineDelta = mean == 0 ? 0 : (mean - last) / last;
+                predictedNormalized = Enumerable.Repeat(baselineDelta, request.Horizon).ToArray();
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[AiForecastService] 预测时模型出错, 使用降级基线预测");
+            double mean = history.Average();
+            double baselineDelta = mean == 0 ? 0 : (mean - last) / last;
+            predictedNormalized = Enumerable.Repeat(baselineDelta, request.Horizon).ToArray();
+        }
+
+        double[] predicted = predictedNormalized.Select(delta => last * (1 + delta)).ToArray();
 
         double[] returns = history.Zip(history.Skip(1), (prev, next) => Math.Log(next / prev)).ToArray();
         double expectedReturn = returns.Length == 0 ? 0 : returns.Average();
         double expectedVolatility = returns.Length == 0 ? 0 : Math.Sqrt(returns.Select(r => Math.Pow(r - expectedReturn, 2)).Average());
-        double predictedRisk = forecastNormalized.Select(Math.Abs).DefaultIfEmpty().Average();
+        double predictedRisk = predictedNormalized.Select(Math.Abs).DefaultIfEmpty().Average();
 
         (IReadOnlyList<double> Upper, IReadOnlyList<double> Lower) confInterval = ComputeConfidenceIntervals(predicted, expectedVolatility);
 

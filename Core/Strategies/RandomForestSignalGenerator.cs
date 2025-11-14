@@ -126,5 +126,5 @@ public class RandomForestSignalGenerator : IMachineLearningSignalGenerator
     {
         public bool Predict(IReadOnlyList<double> features)
             => features[FeatureIndex] >= Threshold;
-    }
+}
 }

@@ -18,7 +18,7 @@ public class StructuredLogger : IDisposable
     private readonly List<ILogOutput> _outputs;
     private readonly Timer _flushTimer;
     private readonly SemaphoreSlim _flushLock;
-    
+
     private const int MaxQueueSize = 10000;
     private const int FlushIntervalMs = 1000;
     private const int MaxBatchSize = 100;
@@ -83,10 +83,12 @@ public class StructuredLogger : IDisposable
         Exception? exception)
     {
         // 检查日志等级
-        if (level < _minimumLevel) return;
+        if (level < _minimumLevel)
+            return;
 
         // 检查队列大小
-        if (_logQueue.Count >= MaxQueueSize) _logQueue.TryDequeue(out _);
+        if (_logQueue.Count >= MaxQueueSize)
+            _logQueue.TryDequeue(out _);
 
         // 获取当前Activity（追踪信息）
         var activity = Activity.Current;
@@ -119,8 +121,10 @@ public class StructuredLogger : IDisposable
     /// </summary>
     private Dictionary<string, object>? ConvertToDict(object? properties)
     {
-        if (properties == null) return null;
-        if (properties is Dictionary<string, object> dict) return dict;
+        if (properties == null)
+            return null;
+        if (properties is Dictionary<string, object> dict)
+            return dict;
 
         // 使用反射转换匿名对象
         var result = new Dictionary<string, object>();
@@ -143,7 +147,8 @@ public class StructuredLogger : IDisposable
     /// </summary>
     private async Task FlushAsync()
     {
-        if (_logQueue.IsEmpty) return;
+        if (_logQueue.IsEmpty)
+            return;
 
         await _flushLock.WaitAsync();
         try
@@ -152,7 +157,8 @@ public class StructuredLogger : IDisposable
             // 批量出队
             while (batch.Count < MaxBatchSize && _logQueue.TryDequeue(out var entry))
                 batch.Add(entry);
-            if (batch.Count == 0) return;
+            if (batch.Count == 0)
+                return;
 
             // 写入所有输出目标
             var tasks = _outputs.Select(output => output.WriteAsync(batch));
@@ -185,7 +191,8 @@ public class StructuredLogger : IDisposable
         _flushLock?.Dispose();
 
         foreach (var output in _outputs)
-            if (output is IDisposable d) d.Dispose();
+            if (output is IDisposable d)
+                d.Dispose();
     }
 
     #endregion
@@ -297,9 +304,11 @@ public class ConsoleLogOutput : ILogOutput
     {
         foreach (var entry in entries)
         {
-            if (_useColors) Console.ForegroundColor = GetColor(entry.Level);
+            if (_useColors)
+                Console.ForegroundColor = GetColor(entry.Level);
             Console.WriteLine(entry.ToText());
-            if (_useColors) Console.ResetColor();
+            if (_useColors)
+                Console.ResetColor();
         }
         return Task.CompletedTask;
     }
@@ -332,13 +341,15 @@ public class FileLogOutput : ILogOutput, IDisposable
         _useJson = useJson;
         _writeLock = new SemaphoreSlim(1, 1);
         var directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+        if (!string.IsNullOrEmpty(directory))
+            Directory.CreateDirectory(directory);
         _writer = new StreamWriter(filePath, append: true) { AutoFlush = true };
     }
 
     public async Task WriteAsync(IEnumerable<LogEntry> entries)
     {
-        if (_writer == null) return;
+        if (_writer == null)
+            return;
         await _writeLock.WaitAsync();
         try
         {
@@ -375,7 +386,8 @@ public class MemoryLogOutput : ILogOutput
         foreach (var entry in entries)
         {
             _entries.Enqueue(entry);
-            while (_entries.Count > _maxEntries) _entries.TryDequeue(out _);
+            while (_entries.Count > _maxEntries)
+                _entries.TryDequeue(out _);
         }
         return Task.CompletedTask;
     }

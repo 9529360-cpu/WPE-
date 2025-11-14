@@ -12,8 +12,24 @@ namespace 币安量化机器人.Modules
 
         protected override Task<UserControl> CreateViewAsync(CancellationToken ct)
         {
-            var view = new PerformanceDashboardView();
-            return Task.FromResult<UserControl>(view);
+            if (OperatingSystem.IsWindows())
+            {
+                var view = new PerformanceDashboardView();
+                return Task.FromResult<UserControl>(view);
+            }
+
+            // Non-Windows fallback: simple placeholder view
+            var placeholder = new UserControl
+            {
+                Content = new TextBlock
+                {
+                    Text = "Performance dashboard is only available on Windows.",
+                    TextWrapping = System.Windows.TextWrapping.Wrap,
+                    Margin = new System.Windows.Thickness(12)
+                }
+            };
+
+            return Task.FromResult<UserControl>(placeholder);
         }
     }
 }

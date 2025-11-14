@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Runtime.Versioning;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -12,6 +13,7 @@ using 币安量化机器人.Services;
 
 namespace 币安量化机器人.Modules.Market;
 
+[SupportedOSPlatform("windows")]
 public partial class FundingView : UserControl, IModuleLifecycle
 {
     private readonly ObservableCollection<FundingRateSnapshot> _items = new();

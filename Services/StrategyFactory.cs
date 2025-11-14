@@ -13,7 +13,9 @@ public sealed class StrategyFactory
 
     public StrategyFactory(IMultiTimeframeAnalyzer analyzer, IMachineLearningSignalGenerator mlGen, IFeatureStore featureStore)
     {
-        _analyzer = analyzer; _mlGen = mlGen; _featureStore = featureStore;
+        _analyzer = analyzer;
+        _mlGen = mlGen;
+        _featureStore = featureStore;
     }
 
     public ITradingStrategy CreateFromInstance(StrategyInstance instance)

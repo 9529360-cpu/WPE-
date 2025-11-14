@@ -87,21 +87,21 @@ public class DeepSeekTradingAgent
 
         try
         {
-            string systemPrompt = """
-            你是一个专业的加密货币交易助手，精通技术分析、风险管理和交易策略。
-            
-            你的职责：
-            1. 回答用户关于交易的问题
-            2. 提供市场分析和建议
-            3. 解释技术指标和交易策略
-            4. 评估风险和收益
-            
-            回答要求：
-            - 简洁明了，重点突出
-            - 使用中文回答
-            - 必要时使用 Emoji 增强表达
-            - 给出可操作的建议
-            """;
+            // Replace problematic raw string literal with StringBuilder to avoid indentation-sensitive triple-quote issues
+            var sb = new StringBuilder();
+            sb.AppendLine("你是一个专业的加密货币交易助手，精通技术分析、风险管理和交易策略。\n");
+            sb.AppendLine("你的职责：");
+            sb.AppendLine("1.回答用户关于交易的问题");
+            sb.AppendLine("2.提供市场分析和建议");
+            sb.AppendLine("3.解释技术指标和交易策略");
+            sb.AppendLine("4.评估风险和收益\n");
+            sb.AppendLine("回答要求：");
+            sb.AppendLine("-简洁明了，重点突出");
+            sb.AppendLine("- 使用中文回答");
+            sb.AppendLine("- 必要时使用 Emoji 增强表达");
+            sb.AppendLine("-给出可操作的建议");
+
+            string systemPrompt = sb.ToString();
 
             var messages = new List<object>
             {
@@ -124,18 +124,16 @@ public class DeepSeekTradingAgent
             };
 
             string json = JsonSerializer.Serialize(request);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var contentBody = new StringContent(json, Encoding.UTF8, "application/json");
 
-            // 🔧 修复：使用 HttpRequestMessage 显式设置请求头
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, BaseUrl);
-            httpRequest.Content = content;
+            httpRequest.Content = contentBody;
 
-            // 🔧 确保 API Key 只包含 ASCII 字符
             string cleanApiKey = ValidateAndCleanApiKey(_apiKey);
             httpRequest.Headers.TryAddWithoutValidation("Authorization", $"Bearer {cleanApiKey}");
             httpRequest.Headers.TryAddWithoutValidation("Accept", "application/json");
 
-            LogService.Info("[DeepSeekTradingAgent] 发送请求到 DeepSeek API, 消息: {Message}", userMessage.Substring(0, Math.Min(50, userMessage.Length)));
+            LogService.Info("[DeepSeekTradingAgent] 发送请求到 DeepSeek API, 消息: {Message}", userMessage.Length > 50 ? userMessage.Substring(0, 50) : userMessage);
 
             HttpResponseMessage response = await _httpClient.SendAsync(httpRequest, ct);
 
@@ -200,43 +198,44 @@ public class DeepSeekTradingAgent
     /// </summary>
     private static string BuildTradingPrompt(MarketDataSnapshot data)
     {
-        return $"""
-        作为量化交易AI，请分析以下市场数据并给出交易建议：
-        
-        【价格数据】
-        - 交易对: {data.Symbol}
-        - 最新价: {data.CurrentPrice:F4} USDT
-        - 24h涨跌: {data.PriceChangePercent:+0.00;-0.00}%
-        - 24h最高: {data.HighPrice:F4}
-        - 24h最低: {data.LowPrice:F4}
-        - 24h成交量: {data.Volume:F2}
-        
-        【技术指标】
-        - RSI(14): {data.RSI:F2}
-        - MACD: {data.MACD:F4}
-        - 信号线: {data.MACDSignal:F4}
-        - 布林带上轨: {data.BBUpper:F4}
-        - 布林带中轨: {data.BBMiddle:F4}
-        - 布林带下轨: {data.BBLower:F4}
-        - 成交量MA(20): {data.VolumeMA:F2}
-        
-        【市场情绪】
-        - 资金费率: {data.FundingRate:P4} (8h)
-        - 持仓量: {data.OpenInterest:F2}
-        - 多空比: {data.LongShortRatio:F2}
-        
-        请严格按照以下格式回复（不要添加其他内容）:
-        
-        SIGNAL: BUY/SELL/HOLD
-        CONFIDENCE: 0.70
-        REASON: 详细分析理由（限200字）
-        ENTRY_PRICE: {data.CurrentPrice:F4}
-        TARGET_PRICE: 目标价格
-        STOP_LOSS: 止损价格
-        POSITION_SIZE: 0.01-0.10 (建议仓位占比)
-        TIMEFRAME: SHORT/MEDIUM/LONG (预期持仓时间)
-        RISK_LEVEL: LOW/MEDIUM/HIGH
-        """;
+        var sb = new StringBuilder();
+        sb.AppendLine("作为量化交易AI，请分析以下市场数据并给出交易建议：");
+        sb.AppendLine("");
+        sb.AppendLine("【价格数据】");
+        sb.AppendLine($"-交易对: {data.Symbol}");
+        sb.AppendLine($"-最新价: {data.CurrentPrice:F4} USDT");
+        sb.AppendLine($"- 24h涨跌: {data.PriceChangePercent:+0.00;-0.00}%");
+        sb.AppendLine($"-24h最高: {data.HighPrice:F4}");
+        sb.AppendLine($"-24h最低: {data.LowPrice:F4}");
+        sb.AppendLine($"-24h成交量: {data.Volume:F2}");
+        sb.AppendLine("");
+        sb.AppendLine("【技术指标】");
+        sb.AppendLine($"-RSI(14): {data.RSI:F2}");
+        sb.AppendLine($"-MACD: {data.MACD:F4}");
+        sb.AppendLine($"-信号线: {data.MACDSignal:F4}");
+        sb.AppendLine($"-布林带上轨: {data.BBUpper:F4}");
+        sb.AppendLine($"-布林带中轨: {data.BBMiddle:F4}");
+        sb.AppendLine($"-布林带下轨: {data.BBLower:F4}");
+        sb.AppendLine($"-成交量MA(20): {data.VolumeMA:F2}");
+        sb.AppendLine("");
+        sb.AppendLine("【市场情绪】");
+        sb.AppendLine($"-资金费率: {data.FundingRate:P4} (8h)");
+        sb.AppendLine($"-持仓量: {data.OpenInterest:F2}");
+        sb.AppendLine($"-多空比: {data.LongShortRatio:F2}");
+        sb.AppendLine("");
+        sb.AppendLine("请严格按照以下格式回复（不要添加其他内容）：");
+        sb.AppendLine("");
+        sb.AppendLine("SIGNAL:\nBUY / SELL / HOLD");
+        sb.AppendLine("CONFIDENCE:\n0.70");
+        sb.AppendLine("REASON:\n详细分析理由（限200字）");
+        sb.AppendLine($"ENTRY_PRICE:\n{data.CurrentPrice:F4}");
+        sb.AppendLine("TARGET_PRICE:\n目标价格");
+        sb.AppendLine("STOP_LOSS:\n止损价格");
+        sb.AppendLine("POSITION_SIZE:\n0.01 - 0.10(建议仓位占比)");
+        sb.AppendLine("TIMEFRAME:\nSHORT / MEDIUM / LONG(预期持仓时间)");
+        sb.AppendLine("RISK_LEVEL:\nLOW / MEDIUM / HIGH");
+
+        return sb.ToString();
     }
 
     /// <summary>
@@ -244,29 +243,29 @@ public class DeepSeekTradingAgent
     /// </summary>
     private static string GetSystemPrompt()
     {
-        return """
-        你是一个专业的量化交易分析师和AI交易系统。你的职责是：
-        
-        1. **技术分析**: 精通K线形态、技术指标（RSI、MACD、布林带等）
-        2. **风险控制**: 严格控制风险，设置合理的止损和止盈
-        3. **市场情绪**: 理解资金费率、持仓量、多空比等市场情绪指标
-        4. **趋势判断**: 准确识别趋势反转和延续信号
-        5. **资金管理**: 根据市场波动性调整仓位大小
-        
-        **交易原则**:
-        - 只在高确信度(>0.70)时给出BUY/SELL信号
-        - 确信度<0.70时建议HOLD
-        - 止损设置不超过3%
-        - 盈亏比至少1:2
-        - 考虑市场流动性和滑点
-        
-        **信号含义**:
-        - BUY: 看涨，建议开多或加仓
-        - SELL: 看跌，建议开空或减仓
-        - HOLD: 观望，不建议操作
-        
-        请务必按照指定格式回复，不要添加额外解释。
-        """;
+        var sb = new StringBuilder();
+        sb.AppendLine("你是一个专业的量化交易分析师和AI交易系统。你的职责是：");
+        sb.AppendLine("");
+        sb.AppendLine("1. 技术分析: 精通K线形态、技术指标（RSI、MACD、布林带等）");
+        sb.AppendLine("2. 风险控制: 严格控制风险，设置合理的止损和止盈");
+        sb.AppendLine("3. 市场情绪: 理解资金费率、持仓量、多空比等市场情绪指标");
+        sb.AppendLine("4. 趋势判断: 准确识别趋势反转和延续信号");
+        sb.AppendLine("5. 资金管理: 根据市场波动性调整仓位大小");
+        sb.AppendLine("");
+        sb.AppendLine("交易原则:");
+        sb.AppendLine("-只在高确信度(> 0.70)时给出BUY / SELL信号");
+        sb.AppendLine("- 确信度 < 0.70时建议HOLD");
+        sb.AppendLine("- 止损设置不超过3 %");
+        sb.AppendLine("- 盈亏比至少1:2");
+        sb.AppendLine("");
+        sb.AppendLine("信号含义:");
+        sb.AppendLine("-BUY: 看涨，建议开多或加仓");
+        sb.AppendLine("-SELL: 看跌，建议开空或减仓");
+        sb.AppendLine("-HOLD: 观望，不建议操作");
+        sb.AppendLine("");
+        sb.AppendLine("请务必按照指定格式回复，不要添加额外解释。");
+
+        return sb.ToString();
     }
 
     /// <summary>

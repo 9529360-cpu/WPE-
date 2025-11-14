@@ -12,43 +12,46 @@ public class SystemState
     public DateTime Timestamp { get; init; }
     public WorkflowStage CurrentStage { get; init; }
     public required MarketCondition MarketCondition { get; init; }
-    public required AccountStatus AccountStatus { get; init; }
-    public required StrategyStatus StrategyStatus { get; init; }
-    public required RiskMetrics RiskMetrics { get; init; }
-    public required SystemResources SystemResources { get; init; }
+public required AccountStatus AccountStatus { get; init; }
+public required StrategyStatus StrategyStatus
+{ get; init; }
+public required RiskMetrics RiskMetrics
+{ get; init; }
+public required SystemResources SystemResources
+{ get; init; }
 
-    // 新增：回测结果历史
-    public List<BacktestSummary> BacktestResults { get; init; } = new();
+// 新增：回测结果历史
+public List<BacktestSummary> BacktestResults { get; init; } = new();
 
-    // 新增：优化结果历史
-    public List<OptimizationSummary> OptimizationResults { get; init; } = new();
+// 新增：优化结果历史
+public List<OptimizationSummary> OptimizationResults { get; init; } = new();
 
-    // 新增：模拟交易开始时间
-    public DateTime SimulationStartTime { get; set; }
+// 新增：模拟交易开始时间
+public DateTime SimulationStartTime { get; set; }
 
-    // 新增：实盘交易开始时间
-    public DateTime LiveTradingStartTime { get; set; }
+// 新增：实盘交易开始时间
+public DateTime LiveTradingStartTime { get; set; }
 
-    /// <summary>
-    /// 克隆状态（用于快照）
-    /// </summary>
-    public SystemState Clone()
+/// <summary>
+/// 克隆状态（用于快照）
+/// </summary>
+public SystemState Clone()
+{
+    return new SystemState
     {
-        return new SystemState
-        {
-            Timestamp = Timestamp,
-            CurrentStage = CurrentStage,
-            MarketCondition = MarketCondition,
-            AccountStatus = AccountStatus,
-            StrategyStatus = StrategyStatus,
-            RiskMetrics = RiskMetrics,
-            SystemResources = SystemResources,
-            BacktestResults = new List<BacktestSummary>(BacktestResults),
-            OptimizationResults = new List<OptimizationSummary>(OptimizationResults),
-            SimulationStartTime = SimulationStartTime,
-            LiveTradingStartTime = LiveTradingStartTime
-        };
-    }
+        Timestamp = Timestamp,
+        CurrentStage = CurrentStage,
+        MarketCondition = MarketCondition,
+        AccountStatus = AccountStatus,
+        StrategyStatus = StrategyStatus,
+        RiskMetrics = RiskMetrics,
+        SystemResources = SystemResources,
+        BacktestResults = new List<BacktestSummary>(BacktestResults),
+        OptimizationResults = new List<OptimizationSummary>(OptimizationResults),
+        SimulationStartTime = SimulationStartTime,
+        LiveTradingStartTime = LiveTradingStartTime
+    };
+}
 }
 
 /// <summary>

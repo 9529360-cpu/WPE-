@@ -229,9 +229,27 @@ public sealed class BinanceStreamClient : IAsyncDisposable
                 await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "stop", CancellationToken.None).ConfigureAwait(false);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // ignore cleanup exceptions
+            // Log cleanup exception instead of silently swallowing it
+            try
+            {
+                ConnectionStatusChanged?.Invoke($"停止连接时发生异常: {ex.Message}");
+            }
+            catch
+            {
+                // ignore any logging/UI update failures
+            }
+
+            // Use LogService.Error to record the exception with message template
+            try
+            {
+                LogService.Error(ex, "[BinanceStreamClient] StopSocketAsync cleanup failed: {Message}", ex.Message);
+            }
+            catch
+            {
+                // ignore logging failures to avoid cascading errors
+            }
         }
         finally
         {

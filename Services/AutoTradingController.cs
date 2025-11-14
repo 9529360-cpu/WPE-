@@ -19,11 +19,11 @@ public sealed class AutoTradingController
     private TradingAccountManager? _accountManager;
     private PositionManager? _positionManager;
     private ParallelScalpingController? _scalpingController;
-    
+
     private bool _isScalpingMode;
 
-    public bool IsRunning => _isScalpingMode 
-        ? _scalpingController?.IsRunning == true 
+    public bool IsRunning => _isScalpingMode
+        ? _scalpingController?.IsRunning == true
         : _automation?.IsRunning == true;
 
     /// <summary>
@@ -69,7 +69,7 @@ public sealed class AutoTradingController
         {
             // 标准模式
             _isScalpingMode = false;
-            
+
             // 组装自动化交易管线
             _accountManager = new TradingAccountManager(ServiceLocator.Cache);
             if (_accountManager.ActiveAccount == null)
@@ -114,7 +114,7 @@ public sealed class AutoTradingController
         {
             await _automation.StopAsync();
         }
-        
+
         _isScalpingMode = false;
     }
 }

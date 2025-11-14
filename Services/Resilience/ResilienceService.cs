@@ -18,7 +18,7 @@ public class ResilienceService : IDisposable
 {
     private readonly AnomalyDetectionSystem _anomalyDetection;
     private readonly AutoRecoveryManager _recoveryManager;
-    
+
     private bool _isInitialized;
 
     public ResilienceService()
@@ -119,7 +119,7 @@ public class ResilienceService : IDisposable
     {
         // 先检测异常
         DetectSystemAnomaly(component, exception);
-        
+
         // 尝试恢复
         return await _recoveryManager.ReportFailureAsync(component, exception, ct);
     }
@@ -182,13 +182,13 @@ public class ResilienceService : IDisposable
     private void OnAnomalyDetected(object? sender, AnomalyDetectedEventArgs e)
     {
         AnomalyEvent anomaly = e.Anomaly;
-        
+
         // 严重异常自动触发恢复
         if (anomaly.Severity == AnomalySeverity.Critical)
         {
             LogService.Warning("[ResilienceService] 检测到严重异常，触发自动恢复: {Source}",
                 anomaly.Source);
-            
+
             // 异步触发恢复
             _ = Task.Run(async () =>
             {
@@ -262,17 +262,17 @@ public class ResilienceService : IDisposable
     public void PrintHealthReport()
     {
         SystemHealthReport report = GetSystemHealth();
-        
+
         LogService.Info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         LogService.Info("🛡️ [ResilienceService] 系统健康报告");
         LogService.Info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        
+
         string healthStatus = report.IsHealthy ? "✅ 健康" : "⚠️ 异常";
         LogService.Info("整体状态: {Status}", healthStatus);
         LogService.Info("组件健康: {Healthy}/{Total}", report.HealthyComponents, report.TotalComponents);
         LogService.Info("最近异常: {Recent} (总计: {Total})", report.RecentAnomalies, report.TotalAnomalies);
         LogService.Info("恢复成功率: {Rate:P2} (总计: {Total})", report.RecoverySuccessRate, report.TotalRecoveries);
-        
+
         LogService.Info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 

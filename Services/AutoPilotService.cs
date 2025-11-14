@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 using 币安量化机器人.Core.Abstractions;
 using 币安量化机器人.Core.Models;
 using 币安量化机器人.Models;
-using 币安量化机器人.Services.AI;
 using 币安量化机器人.Models.Configuration; // ensure BacktestConfig is in scope
+using 币安量化机器人.Services.AI;
 
 namespace 币安量化机器人.Services;
 
@@ -36,7 +36,10 @@ public sealed class AutoPilotService
 
     public AutoPilotService(SystemReadyService ready, AIStrategyGenerator generator, StrategyPortfolioManager portfolio, AutoTradingController autoTrader)
     {
-        _ready = ready; _generator = generator; _portfolio = portfolio; _autoTrader = autoTrader;
+        _ready = ready;
+        _generator = generator;
+        _portfolio = portfolio;
+        _autoTrader = autoTrader;
         _ready.ReadyStateChanged += OnReadyChanged;
         ConfigurationService.ConfigurationChanged += ApplyConfig;
         ApplyConfig();
@@ -195,9 +198,9 @@ public sealed class AutoPilotService
             DateTime start = end.AddDays(-7);
             var paramSpace = new Dictionary<string, IReadOnlyList<double>>
             {
-                ["entry_z_score"] = new List<double> {1.2,1.5,1.8},
-                ["stop_multiplier"] = new List<double> {1.5,2,2.5},
-                ["base_quantity"] = new List<double> {1,2,3}
+                ["entry_z_score"] = new List<double> { 1.2, 1.5, 1.8 },
+                ["stop_multiplier"] = new List<double> { 1.5, 2, 2.5 },
+                ["base_quantity"] = new List<double> { 1, 2, 3 }
             };
             var optimizer = ServiceLocator.WalkForward;
             await foreach (var wf in optimizer.OptimizeAsync(strat, inst.Symbols.First(), start, end, TimeSpan.FromDays(3), TimeSpan.FromDays(1), paramSpace, ct))

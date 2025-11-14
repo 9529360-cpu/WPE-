@@ -3,9 +3,15 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:币安量化机器人.Modules.Strategy"
              mc:Ignorable="d" 
              d:DesignHeight="800" d:DesignWidth="1400">
     
+    <UserControl.Resources>
+        <local:ValueToBrushConverter x:Key="ValueToBrush"/>
+        <local:TimeSpanToShortStringConverter x:Key="TimeSpanToShort"/>
+    </UserControl.Resources>
+
     <Grid Background="#F9FAFB">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -32,35 +38,39 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- 组合统计 -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" 
-                           HorizontalAlignment="Center" Margin="40,0">
-                    <!-- 总收益率 -->
-                    <Border Background="#F0FDF4" CornerRadius="8" Padding="16,12" Margin="0,0,12,0">
-                        <StackPanel>
-                            <TextBlock Text="组合收益" FontSize="11" Foreground="#10B981" FontWeight="SemiBold"/>
-                            <TextBlock x:Name="PortfolioReturnText" Text="0%" 
-                                       FontSize="24" FontWeight="Bold" Foreground="#059669" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Border>
+                <!-- 中部搜索 + 组合统计 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="40,0" VerticalAlignment="Center">
+                    <TextBox Width="280" Margin="0,0,16,0" ToolTip="搜索策略：名称、类型、ID" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
 
-                    <!-- 夏普比率 -->
-                    <Border Background="#EFF6FF" CornerRadius="8" Padding="16,12" Margin="0,0,12,0">
-                        <StackPanel>
-                            <TextBlock Text="夏普比率" FontSize="11" Foreground="#3B82F6" FontWeight="SemiBold"/>
-                            <TextBlock x:Name="PortfolioSharpeText" Text="0.00" 
-                                       FontSize="24" FontWeight="Bold" Foreground="#2563EB" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Border>
+                    <!-- 组合统计 -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- 总收益率 -->
+                        <Border Background="#F0FDF4" CornerRadius="8" Padding="16,12" Margin="0,0,12,0">
+                            <StackPanel>
+                                <TextBlock Text="组合收益" FontSize="11" Foreground="#10B981" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding TotalReturnText}" 
+                                           FontSize="24" FontWeight="Bold" Foreground="{Binding PortfolioTotalReturn, Converter={StaticResource ValueToBrush}}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
 
-                    <!-- 运行中策略 -->
-                    <Border Background="#FEF3C7" CornerRadius="8" Padding="16,12">
-                        <StackPanel>
-                            <TextBlock Text="运行中" FontSize="11" Foreground="#F59E0B" FontWeight="SemiBold"/>
-                            <TextBlock x:Name="RunningCountText" Text="0/0" 
-                                       FontSize="24" FontWeight="Bold" Foreground="#D97706" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Border>
+                        <!-- 夏普比率 -->
+                        <Border Background="#EFF6FF" CornerRadius="8" Padding="16,12" Margin="0,0,12,0">
+                            <StackPanel>
+                                <TextBlock Text="夏普比率" FontSize="11" Foreground="#3B82F6" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding SharpeText}" 
+                                           FontSize="24" FontWeight="Bold" Foreground="#2563EB" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 运行中策略 -->
+                        <Border Background="#FEF3C7" CornerRadius="8" Padding="16,12">
+                            <StackPanel>
+                                <TextBlock Text="运行中" FontSize="11" Foreground="#F59E0B" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding RunningCountText}" 
+                                           FontSize="24" FontWeight="Bold" Foreground="#D97706" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- 操作按钮 -->
@@ -72,28 +82,28 @@
                     </ComboBox>
 
                     <!-- 仅显示合约 开关 -->
-                    <CheckBox x:Name="FuturesOnlyCheck" Content="仅显示合约" Margin="0,0,8,0" IsChecked="True" Checked="FuturesOnlyCheck_Checked" Unchecked="FuturesOnlyCheck_Unchecked" ToolTip="勾选时仅显示 Market=Futures 的策略"/>
+                    <CheckBox x:Name="FuturesOnlyCheck" Content="仅显示合约" Margin="0,0,8,0" IsChecked="{Binding FuturesOnly, Mode=TwoWay}" ToolTip="勾选时仅显示 Market=Futures 的策略"/>
 
                     <Button x:Name="AddButton" Content="➕ 添加策略" 
                             Width="110" Height="36" Margin="0,0,8,0"
                             Background="#10B981" Foreground="White"
                             BorderThickness="0"
                             FontSize="13" FontWeight="Bold"
-                            Click="Add_Click"/>
+                            Command="{Binding AddCommand}"/>
                     
                     <Button x:Name="BalanceButton" Content="⚖️ 平衡权重" 
                             Width="110" Height="36" Margin="0,0,8,0"
                             Background="#F3F4F6" Foreground="#374151"
                             BorderBrush="#D1D5DB" BorderThickness="1"
                             FontSize="13" FontWeight="SemiBold"
-                            Click="Balance_Click"/>
+                            Command="{Binding BalanceCommand}"/>
                     
                     <Button x:Name="RefreshButton" Content="🔄 刷新" 
                             Width="90" Height="36"
                             Background="#3B82F6" Foreground="White"
                             BorderThickness="0"
                             FontSize="13" FontWeight="SemiBold"
-                            Click="Refresh_Click"/>
+                            Command="{Binding RefreshCommand}"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -120,7 +130,7 @@
                             BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
                         <Grid>
                             <TextBlock Text="📊 策略列表" FontSize="16" FontWeight="Bold" Foreground="#111827"/>
-                            <TextBlock x:Name="StrategyCountText" Text="(0 个策略)" 
+                            <TextBlock x:Name="StrategyCountText" Text="{Binding TotalStrategiesText}" 
                                        FontSize="13" Foreground="#6B7280"
                                        HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
@@ -135,7 +145,12 @@
                               HeadersVisibility="Column"
                               RowHeight="60"
                               Background="Transparent"
-                              BorderThickness="0">
+                              BorderThickness="0"
+                              ItemsSource="{Binding StrategiesView}"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Standard"
+                              EnableRowVirtualization="True"
+                              EnableColumnVirtualization="True">
                         <DataGrid.Columns>
                             <!-- 状态 -->
                             <DataGridTemplateColumn Header="状态" Width="80">
@@ -195,7 +210,13 @@
                             </DataGridTemplateColumn>
 
                             <!-- 收益率 -->
-                            <DataGridTextColumn Header="总收益率" Width="100" Binding="{Binding ReturnText}"/>
+                            <DataGridTextColumn Header="总收益率" Width="100" Binding="{Binding ReturnText}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{Binding TotalReturn, Converter={StaticResource ValueToBrush}}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
 
                             <!-- 夏普比率 -->
                             <DataGridTextColumn Header="夏普比率" Width="100" Binding="{Binding SharpeText}"/>
@@ -207,7 +228,7 @@
                             <DataGridTextColumn Header="胜率" Width="80" Binding="{Binding WinRateText}"/>
 
                             <!-- 运行时间 -->
-                            <DataGridTextColumn Header="运行时间" Width="100" Binding="{Binding RunningTimeText}"/>
+                            <DataGridTextColumn Header="运行时间" Width="100" Binding="{Binding RunningTime, Converter={StaticResource TimeSpanToShort}}"/>
 
                             <!-- 操作 -->
                             <DataGridTemplateColumn Header="操作" Width="220">
@@ -218,25 +239,29 @@
                                                     Width="40" Height="32" Margin="0,0,4,0"
                                                     Background="#10B981" Foreground="White"
                                                     BorderThickness="0" FontSize="14"
-                                                    Click="Start_Click"
+                                                    Command="{Binding DataContext.StartCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Id}"
                                                     ToolTip="启动策略"/>
                                             <Button Content="⏹️" Tag="{Binding Id}"
                                                     Width="40" Height="32" Margin="0,0,4,0"
                                                     Background="#EF4444" Foreground="White"
                                                     BorderThickness="0" FontSize="14"
-                                                    Click="Stop_Click"
+                                                    Command="{Binding DataContext.StopCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Id}"
                                                     ToolTip="停止策略"/>
                                             <Button Content="⚙️" Tag="{Binding Id}"
                                                     Width="40" Height="32" Margin="0,0,4,0"
                                                     Background="#3B82F6" Foreground="White"
                                                     BorderThickness="0" FontSize="14"
-                                                    Click="Edit_Click"
+                                                    Command="{Binding DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Id}"
                                                     ToolTip="编辑策略"/>
                                             <Button Content="🗑️" Tag="{Binding Id}"
                                                     Width="40" Height="32"
                                                     Background="#F3F4F6" Foreground="#EF4444"
                                                     BorderBrush="#E5E7EB" BorderThickness="1" FontSize="14"
-                                                    Click="Delete_Click"
+                                                    Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding Id}"
                                                     ToolTip="删除策略"/>
                                         </StackPanel>
                                     </DataTemplate>

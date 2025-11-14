@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -10,11 +11,12 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using 币安量化机器人.Models;
-using 币安量化机器人.Services;
 using 币安量化机器人.Modules;
+using 币安量化机器人.Services;
 
 namespace 币安量化机器人.Modules.Market;
 
+[SupportedOSPlatform("windows")]
 public partial class RealtimeView : UserControl, IModuleLifecycle
 {
     private readonly ObservableCollection<TickerQuote> _quotes = new();
@@ -258,26 +260,32 @@ public partial class RealtimeView : UserControl, IModuleLifecycle
 
     private void RenderHistory(TickerQuote quote)
     {
-        var ctrl = this.FindName("PricePlot");
-        if (ctrl is ScottPlot.WPF.WpfPlot wpfPlot)
+        if (OperatingSystem.IsWindows())
         {
-            var plt = wpfPlot.Plot;
-            plt.Clear();
-
-            if (quote.PriceHistory == null || quote.PriceHistory.Count == 0)
+            if (this.FindName("PricePlot") is ScottPlot.WPF.WpfPlot plot)
             {
-                plt.Title("暂无历史数据");
-                wpfPlot.Refresh();
-                return;
-            }
+                var plt = plot.Plot;
+                plt.Clear();
 
-            double[] prices = quote.PriceHistory.ToArray();
-            var signal = plt.Add.Signal(prices);
-            signal.Color = ScottPlot.Color.FromHex("#3B82F6");
-            plt.Title($"{quote.Symbol} 价格走势");
-            plt.YLabel("价格");
-            plt.XLabel("样本");
-            wpfPlot.Refresh();
+                if (quote.PriceHistory == null || quote.PriceHistory.Count == 0)
+                {
+                    plt.Title("暂无历史数据");
+                    plot.Refresh();
+                    return;
+                }
+
+                double[] prices = quote.PriceHistory.ToArray();
+                var signal = plt.Add.Signal(prices);
+                signal.Color = ScottPlot.Color.FromHex("#3B82F6");
+                plt.Title($"{quote.Symbol} 价格走势");
+                plt.YLabel("价格");
+                plt.XLabel("样本");
+                plot.Refresh();
+            }
+        }
+        else
+        {
+            // No-op on non-Windows
         }
     }
 

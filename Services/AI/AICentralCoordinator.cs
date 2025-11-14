@@ -7,10 +7,10 @@ using 币安量化机器人.Application.Backtesting;
 using 币安量化机器人.Core.Abstractions;
 using 币安量化机器人.Core.Models;
 using 币安量化机器人.Models;
-using 币安量化机器人.Services.Resilience;
-using 币安量化机器人.Services.Performance;
-using 币安量化机器人.Services.Observability;  // 🆕 Phase 4: 可观测性
 using 币安量化机器人.Services.AI; // 🆕 Phase 2: 智能组件
+using 币安量化机器人.Services.Observability;  // 🆕 Phase 4: 可观测性
+using 币安量化机器人.Services.Performance;
+using 币安量化机器人.Services.Resilience;
 
 namespace 币安量化机器人.Services.AI;
 
@@ -27,9 +27,10 @@ public class AICentralCoordinator : IDisposable
     private readonly DecisionFactorLibrary _factorLibrary;
 
     // 🆕 Phase 3: 弹性和性能组件
+    // Make nullable and initialize only on Windows to avoid CA1416 runtime issues on non-Windows platforms
+    private readonly SystemResourceMonitor? _resourceMonitor;
     private readonly ResilienceService _resilienceService;
     private readonly PerformanceOptimizationService _performanceService;
-    private readonly SystemResourceMonitor _resourceMonitor;
 
     // 🆕 Phase 4: 可观测性组件
     private readonly ObservabilityService _observability;
@@ -92,7 +93,14 @@ public class AICentralCoordinator : IDisposable
         // 🆕 Phase 3: 初始化弹性和性能组件
         _resilienceService = new ResilienceService();
         _performanceService = new PerformanceOptimizationService();
-        _resourceMonitor = new SystemResourceMonitor();
+        if (OperatingSystem.IsWindows())
+        {
+            _resourceMonitor = new SystemResourceMonitor();
+        }
+        else
+        {
+            _resourceMonitor = null;
+        }
 
         // 🆕 Phase 4: 初始化可观测性服务
         _observability = new ObservabilityService("AICentralCoordinator");
@@ -105,10 +113,6 @@ public class AICentralCoordinator : IDisposable
         _globalGate = new GlobalTradeGate(_stateManager);
         ServiceLocator.AutoTrader?.ToString(); // no-op keep ref
 
-        // 注入到执行引擎
-        // 通过反射或在 ServiceLocator 构建时设置，这里通过 ServiceLocator 获取执行器并设置更稳妥
-        // 但当前执行器在 tradingAutomation 内部，直接注入在 ServiceLocator 构建已完成
-
         // 订阅事件
         SubscribeToEvents();
 
@@ -117,7 +121,14 @@ public class AICentralCoordinator : IDisposable
         LogService.Info("   ✅ 决策因子库已加载 ({Count}个因子)", _factorLibrary.GetFactors().Count);
         LogService.Info("   ✅ 弹性恢复服务已加载");
         LogService.Info("   ✅ 性能优化服务已加载");
-        LogService.Info("   ✅ 系统资源监控器已加载");
+        if (_resourceMonitor != null)
+        {
+            LogService.Info("   ✅ 系统资源监控器已加载");
+        }
+        else
+        {
+            LogService.Info("   ℹ️ 系统资源监控器未在当前平台初始化（仅在 Windows 上启用）");
+        }
         LogService.Info("   ✅ 可观测性系统已加载");  // 🆕
 
         // 🆕 Phase 4: 记录初始化指标
@@ -185,7 +196,7 @@ public class AICentralCoordinator : IDisposable
     public async Task StartAsync(CancellationToken ct = default)
     {
         using var activity = _observability.StartTrace("AICentralCoordinator.Start");
-        
+
         try
         {
             if (_isRunning)
@@ -223,7 +234,7 @@ public class AICentralCoordinator : IDisposable
     public async Task StopAsync()
     {
         using var activity = _observability.StartTrace("AICentralCoordinator.Stop");
-        
+
         if (!_isRunning)
         {
             return;
@@ -269,7 +280,7 @@ public class AICentralCoordinator : IDisposable
                                 // 2. 计算决策因子得分
                                 var factorScores = await CalculateDecisionFactorsWithObservabilityAsync(systemState, ct);
                                 var weightedScore = _factorLibrary.CalculateWeightedScore(factorScores);
-                                
+
                                 // 🆕 记录指标
                                 _observability.SetGauge("ai_decision_factor_score", (double)weightedScore);
                                 _observability.RecordHistogram("ai_decision_factor_count", factorScores.Count);
@@ -354,7 +365,7 @@ public class AICentralCoordinator : IDisposable
                     if (!recovered)
                     {
                         _resilienceService.DetectSystemAnomaly("AICentralCoordinator", ex);
-                        
+
                         var health = _resilienceService.GetSystemHealth();
                         if (!health.IsHealthy)
                         {
@@ -381,15 +392,15 @@ public class AICentralCoordinator : IDisposable
         {
             _observability.LogCritical("主循环致命异常", ex);
             _observability.IncrementCounter("ai_coordinator_fatal_error_count");
-            
+
             _resilienceService.DetectSystemAnomaly("AICentralCoordinator", ex);
-            
+
             await _observability.TriggerAlert(
                 "MainLoopFatalError",
                 AlertSeverity.Critical,
                 $"主循环致命异常: {ex.Message}"
             );
-            
+
             throw;
         }
     }
@@ -506,13 +517,13 @@ public class AICentralCoordinator : IDisposable
         try
         {
             // 🆕 Phase 3: 实现因子权重的动态调整
-            
+
             // 1. 获取最近的决策结果
             var lastOutcome = await GetLastDecisionOutcomeAsync(ct);
-            
+
             // 2. 获取当前因子权重
             var currentWeights = _factorLibrary.GetFactorWeights();
-            
+
             // 3. 使用学习模块优化权重
             var optimizedWeights = await _learningModule.OptimizeFactorWeightsAsync(
                 currentWeights,
@@ -521,7 +532,7 @@ public class AICentralCoordinator : IDisposable
                 lastOutcome,
                 ct
             );
-            
+
             // 4. 如果权重有变化，更新因子库
             if (!WeightsAreEqual(currentWeights, optimizedWeights))
             {
@@ -543,7 +554,7 @@ public class AICentralCoordinator : IDisposable
         // TODO: 从交易历史获取最近一笔交易的结果
         // 这里返回模拟数据
         await Task.CompletedTask;
-        
+
         var account = _accountManager.ActiveAccount;
         if (account == null || account.TotalTrades == 0)
         {
@@ -775,22 +786,37 @@ public class AICentralCoordinator : IDisposable
         try
         {
             // 🆕 Phase 3: 使用SystemResourceMonitor获取真实数据
-            var snapshot = _resourceMonitor.GetSnapshot();
-            var healthStatus = _resourceMonitor.GetHealthStatus();
-
-            return new SystemResources
+            if (OperatingSystem.IsWindows())
             {
-                CpuUsage = snapshot.CpuUsagePercent / 100.0,  // 转换为0-1范围
-                MemoryUsage = snapshot.MemoryUsageMB / 1024.0,  // MB转GB
-                NetworkLatency = (int)snapshot.NetworkLatencyMs,
-                ActiveTasks = snapshot.ThreadCount,
-                Timestamp = DateTime.UtcNow
-            };
+                var snapshot = _resourceMonitor!.GetSnapshot();
+                var healthStatus = _resourceMonitor.GetHealthStatus();
+
+                return new SystemResources
+                {
+                    CpuUsage = snapshot.CpuUsagePercent / 100.0,  // 转换为0-1范围
+                    MemoryUsage = snapshot.MemoryUsageMB / 1024.0,  // MB转GB
+                    NetworkLatency = (int)snapshot.NetworkLatencyMs,
+                    ActiveTasks = snapshot.ThreadCount,
+                    Timestamp = DateTime.UtcNow
+                };
+            }
+            else
+            {
+                // 非 Windows 环境，返回降级默认值
+                return new SystemResources
+                {
+                    CpuUsage = 0,
+                    MemoryUsage = 0,
+                    NetworkLatency = 0,
+                    ActiveTasks = 0,
+                    Timestamp = DateTime.UtcNow
+                };
+            }
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "[AICentralCoordinator] 收集系统资源失败");
-            
+
             // 返回默认值
             return new SystemResources
             {
@@ -826,7 +852,7 @@ public class AICentralCoordinator : IDisposable
             async () =>
             {
                 var factors = await CalculateDecisionFactorsAsync(systemState, ct);
-                
+
                 // 记录因子计算详情
                 _observability.LogDebug("决策因子计算完成", new
                 {
@@ -836,7 +862,7 @@ public class AICentralCoordinator : IDisposable
                         .Select(f => $"{f.Key}={f.Value:F3}")
                         .ToList()
                 });
-                
+
                 return factors;
             }
         );
@@ -1133,7 +1159,7 @@ public class AICentralCoordinator : IDisposable
     public void Dispose()
     {
         _observability.LogInfo("释放AI协调器资源");
-        
+
         _mainLoopCts?.Cancel();
         _mainLoopCts?.Dispose();
         _eventBus.Dispose();

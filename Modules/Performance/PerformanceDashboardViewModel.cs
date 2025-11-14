@@ -1,11 +1,11 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
+using System.Windows; // for MessageBox
 using System.Windows.Input;
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System;
-using System.Windows; // for MessageBox
-using System.Windows.Media;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 

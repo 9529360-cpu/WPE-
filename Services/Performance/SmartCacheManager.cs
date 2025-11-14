@@ -77,14 +77,14 @@ public class SmartCacheManager : IDisposable
                 // 记录命中
                 Interlocked.Increment(ref _hitCount);
                 RecordAccess(key);
-                
+
                 // 更新元数据
                 if (_metadata.TryGetValue(key, out CacheEntry? entry) && entry != null)
                 {
                     entry.LastAccess = DateTime.UtcNow;
                     entry.AccessCount++;
                 }
-                
+
                 return item.Value as T;
             }
             else
@@ -328,7 +328,7 @@ public class SmartCacheManager : IDisposable
         try
         {
             DateTime now = DateTime.UtcNow;
-            
+
             // 清理过期的缓存项
             var expiredKeys = _cache
                 .Where(kvp => kvp.Value.ExpiresAt < now)

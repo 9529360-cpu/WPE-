@@ -1,8 +1,8 @@
 using System;
 using System.IO;
 using Microsoft.Extensions.Configuration;
-using 币安量化机器人.Models.Configuration;
 using Serilog.Events;
+using 币安量化机器人.Models.Configuration;
 
 namespace 币安量化机器人.Services;
 
@@ -31,7 +31,7 @@ public static class ConfigurationService
             {
                 // 1. 确定配置文件路径
                 _configFilePath = ResolveConfigFilePath(configFilePathOrBaseDir);
-                
+
                 if (!File.Exists(_configFilePath))
                 {
                     LogService.Warning("[ConfigService] 配置文件不存在: {Path}", _configFilePath);
@@ -331,7 +331,7 @@ public static class ConfigurationService
         catch (Exception ex)
         {
             LogService.Error(ex, "[ConfigService] 获取AI配置失败，返回默认值");
-            
+
             return new AIConfig
             {
                 DeepSeekApiKey = string.Empty,

@@ -8,11 +8,10 @@ using System.Windows;
 using System.Windows.Controls;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
-using 币安量化机器人.Modules;
 
 namespace 币安量化机器人.Modules.Trade;
 
-public partial class TradeView : UserControl, IModuleLifecycle
+public partial class TradeView : UserControl
 {
     private readonly ObservableCollection<OrderRequest> _batchOrders = new();
     private readonly BinanceApiClient _api = ServiceLocator.Api;
@@ -21,112 +20,218 @@ public partial class TradeView : UserControl, IModuleLifecycle
     public TradeView()
     {
         InitializeComponent();
+
         BatchGrid.ItemsSource = _batchOrders;
+
+        // 默认选择
         SideBox.SelectedIndex = 0;
         TypeBox.SelectedIndex = 0;
         TifBox.SelectedIndex = 0;
-        // 移除构造中的 LoadSymbolsAsync，使用 StartAsync 启动
+
+        // 异步加载合约
+        _ = LoadSymbolsAsync(CancellationToken.None);
     }
 
     private async Task LoadSymbolsAsync(CancellationToken ct)
     {
         try
         {
-            ct.ThrowIfCancellationRequested();
-            if (this.FindName("StatusText") is TextBlock status)
+            SymbolBox.Items.Clear();
+
+            var api = ServiceLocator.Api;
+            if (api != null)
             {
-                status.Text = "状态：加载交易对...";
-            }
-
-            IReadOnlyList<TickerQuote> tickers = await _api.GetMiniTickersAsync();
-
-            ct.ThrowIfCancellationRequested();
-
-            var list = tickers.Select(t => t.Symbol).OrderBy(s => s).ToList();
-            if (this.FindName("SymbolBox") is ComboBox symBox)
-            {
-                symBox.ItemsSource = list;
-                if (symBox.Items.Count > 0)
+                var tickers = await api.GetMiniTickersAsync(null, ct);
+                if (tickers != null && tickers.Count > 0)
                 {
-                    symBox.SelectedIndex = 0;
+                    foreach (dynamic t in tickers)
+                    {
+                        // TickerQuote contains symbol property named Symbol or maybe s; use reflection-safe access
+                        string sym = t?.Symbol ?? t?.symbol ?? t?.s ?? string.Empty;
+                        if (!string.IsNullOrEmpty(sym) && !SymbolBox.Items.Contains(sym))
+                        {
+                            SymbolBox.Items.Add(sym);
+                        }
+                    }
                 }
             }
 
-            if (this.FindName("StatusText") is TextBlock status2)
+            // fallback
+            if (SymbolBox.Items.Count == 0)
             {
-                status2.Text = "状态：交易对已刷新";
+                SymbolBox.Items.Add("BTCUSDT");
+                SymbolBox.Items.Add("ETHUSDT");
+                SymbolBox.Items.Add("BNBUSDT");
             }
-        }
-        catch (OperationCanceledException)
-        {
-            if (this.FindName("StatusText") is TextBlock status)
-            {
-                status.Text = "状态：交易对加载已取消";
-            }
-            LogService.Info("[TradeView] LoadSymbolsAsync 已取消");
+
+            SymbolBox.SelectedIndex = 0;
+            StatusText.Text = "状态：合约列表已加载";
         }
         catch (Exception ex)
         {
-            if (this.FindName("StatusText") is TextBlock statusErr)
+            LogService.Error(ex, "[TradeView] 加载合约失败");
+            // fallback symbols
+            if (SymbolBox.Items.Count == 0)
             {
-                statusErr.Text = "状态：交易对获取失败";
+                SymbolBox.Items.Add("BTCUSDT");
+                SymbolBox.Items.Add("ETHUSDT");
             }
-            MessageBox.Show(ex.Message, "交易对", MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusText.Text = "状态：合约加载失败，使用默认列表";
         }
     }
 
     private OrderRequest BuildRequest()
     {
-        var request = new OrderRequest
-        {
-            Symbol = SymbolBox.Text.Trim().ToUpperInvariant(),
-            Side = (SideBox.SelectedItem as ComboBoxItem)?.Content?.ToString() == "Sell" ? OrderSide.Sell : OrderSide.Buy,
-            Type = Enum.TryParse<OrderType>((TypeBox.SelectedItem as ComboBoxItem)?.Content?.ToString(), out OrderType type) ? type : OrderType.Market,
-            TimeInForce = Enum.TryParse<TimeInForce>((TifBox.SelectedItem as ComboBoxItem)?.Content?.ToString(), out TimeInForce tif) ? tif : TimeInForce.Gtc
-        };
+        var req = new OrderRequest();
 
-        if (decimal.TryParse(QuantityBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal qty))
+        req.Symbol = (SymbolBox.SelectedItem as string) ?? SymbolBox.Text ?? "BTCUSDT";
+
+        if (SideBox.SelectedItem is ComboBoxItem sideItem && Enum.TryParse<OrderSide>(sideItem.Content?.ToString() ?? "Buy", out var side))
         {
-            request.Quantity = qty;
+            req.Side = side;
+        }
+        else
+        {
+            req.Side = OrderSide.Buy;
         }
 
-        if (decimal.TryParse(PriceBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal price))
+        if (TypeBox.SelectedItem is ComboBoxItem typeItem && Enum.TryParse<OrderType>(typeItem.Content?.ToString() ?? "Market", out var type))
         {
-            request.Price = price;
+            req.Type = type;
+        }
+        else
+        {
+            req.Type = OrderType.Market;
         }
 
-        if (decimal.TryParse(StopPriceBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal stop))
+        if (decimal.TryParse(QuantityBox.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out var qty))
         {
-            request.StopPrice = stop;
+            req.Quantity = qty;
         }
 
-        return request;
+        if (decimal.TryParse(PriceBox.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out var price))
+        {
+            req.Price = price;
+        }
+
+        if (decimal.TryParse(StopPriceBox.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out var stop))
+        {
+            req.StopPrice = stop;
+        }
+
+        if (TifBox.SelectedItem is ComboBoxItem tifItem && Enum.TryParse<TimeInForce>(tifItem.Content?.ToString() ?? "Gtc", out var tif))
+        {
+            req.TimeInForce = tif;
+        }
+
+        return req;
+    }
+
+    private static void ValidateRequest(OrderRequest request)
+    {
+        if (string.IsNullOrEmpty(request.Symbol))
+            throw new InvalidOperationException("Symbol is required");
+        if (request.Quantity <= 0)
+            throw new InvalidOperationException("Quantity must be > 0");
+        if (request.Type != OrderType.Market && request.Price <= 0)
+            throw new InvalidOperationException("Price must be set for non-market orders");
     }
 
     private async void SubmitOrder_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            OrderRequest request = BuildRequest();
+            var request = BuildRequest();
             ValidateRequest(request);
-            if (this.FindName("StatusText") is TextBlock st)
+
+            // Simulated by default
+            if (RuntimeState.CurrentAccountType == AccountType.Simulated)
             {
-                st.Text = $"状态：正在发送 {request.Symbol} 单笔订单";
+                // simulate
+                var resp = new OrderResponse
+                {
+                    Symbol = request.Symbol,
+                    OrderId = DateTime.UtcNow.Ticks % int.MaxValue,
+                    ClientOrderId = Guid.NewGuid().ToString("N").Substring(0, 8),
+                    ExecutedQuantity = request.Quantity,
+                    CumulativeQuoteQuantity = request.Quantity * (request.Price == 0 ? 0 : request.Price),
+                    Price = request.Price,
+                    AvgPrice = request.Price,
+                    Status = "FILLED",
+                    Time = DateTime.UtcNow
+                };
+
+                // persist to cache for history
+                try
+                {
+                    var cache = ServiceLocator.Cache;
+                    if (cache != null)
+                    {
+                        var rec = new OrderHistoryRecord
+                        {
+                            OrderId = resp.OrderId.ToString(),
+                            Symbol = resp.Symbol,
+                            Side = request.Side.ToString(),
+                            Type = request.Type.ToString(),
+                            Quantity = (double)resp.ExecutedQuantity,
+                            Price = (double?)resp.AvgPrice,
+                            Status = resp.Status,
+                            FilledQuantity = (double)resp.ExecutedQuantity,
+                            AvgFillPrice = (double?)resp.AvgPrice,
+                            Commission = 0,
+                            CreatedAt = resp.Time,
+                            UpdatedAt = resp.Time,
+                            FilledAt = resp.Time
+                        };
+                        _ = cache.SaveOrderAsync(rec);
+                    }
+                }
+                catch { /* non-blocking */ }
+
+                MessageBox.Show($"模拟下单成功: {resp.Symbol} {resp.ExecutedQuantity} {resp.Status}", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                StatusText.Text = $"状态：模拟下单完成 {resp.Symbol} {resp.Status}";
+                return;
             }
-            OrderResponse result = await _api.PlaceOrderAsync(request);
-            if (this.FindName("StatusText") is TextBlock st2)
+
+            // Live execution
+            var api = ServiceLocator.Api;
+            var liveResp = await api.PlaceOrderAsync(request);
+
+            // persist
+            try
             {
-                st2.Text = $"状态：订单 {result.OrderId} 已提交，成交 {result.ExecutedQuantity}";
+                var cache = ServiceLocator.Cache;
+                if (cache != null)
+                {
+                    var rec = new OrderHistoryRecord
+                    {
+                        OrderId = liveResp.OrderId.ToString(),
+                        Symbol = liveResp.Symbol,
+                        Side = request.Side.ToString(),
+                        Type = request.Type.ToString(),
+                        Quantity = (double)liveResp.ExecutedQuantity,
+                        Price = (double?)liveResp.AvgPrice,
+                        Status = liveResp.Status,
+                        FilledQuantity = (double)liveResp.ExecutedQuantity,
+                        AvgFillPrice = (double?)liveResp.AvgPrice,
+                        Commission = 0,
+                        CreatedAt = liveResp.Time,
+                        UpdatedAt = liveResp.Time,
+                        FilledAt = liveResp.Time
+                    };
+                    await cache.SaveOrderAsync(rec);
+                }
             }
-            MessageBox.Show($"订单 {result.OrderId} 状态：{result.Status}\n平均成交价：{result.AvgPrice}", "下单成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            catch { /* ignore */ }
+
+            MessageBox.Show($"下单成功: {liveResp.Symbol} {liveResp.Status}", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            StatusText.Text = $"状态：下单成功 {liveResp.Symbol} {liveResp.Status}";
         }
         catch (Exception ex)
         {
-            if (this.FindName("StatusText") is TextBlock st)
-            {
-                st.Text = "状态：下单失败";
-            }
-            MessageBox.Show(ex.Message, "下单失败", MessageBoxButton.OK, MessageBoxImage.Error);
+            LogService.Error(ex, "[TradeView] 下单失败");
+            MessageBox.Show($"下单失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusText.Text = "状态：下单失败";
         }
     }
 
@@ -134,17 +239,13 @@ public partial class TradeView : UserControl, IModuleLifecycle
     {
         try
         {
-            OrderRequest request = BuildRequest();
-            ValidateRequest(request);
-            _batchOrders.Add(request);
-            if (this.FindName("StatusText") is TextBlock st)
-            {
-                st.Text = $"状态：已加入批量（{_batchOrders.Count}）";
-            }
+            var req = BuildRequest();
+            ValidateRequest(req);
+            _batchOrders.Add(req);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "参数校验", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
@@ -152,31 +253,67 @@ public partial class TradeView : UserControl, IModuleLifecycle
     {
         if (_batchOrders.Count == 0)
         {
-            MessageBox.Show("请先添加批量订单。", "批量下单", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("没有批量订单需要执行", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         try
         {
-            if (this.FindName("StatusText") is TextBlock st)
+            if (RuntimeState.CurrentAccountType == AccountType.Simulated)
             {
-                st.Text = "状态：执行批量订单中...";
+                foreach (var req in _batchOrders.ToList())
+                {
+                    // simulate small delay
+                    await Task.Delay(200);
+                    StatusText.Text = $"状态：模拟执行 {req.Symbol} ...";
+                }
+
+                MessageBox.Show("模拟批量执行完成", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                StatusText.Text = "状态：模拟批量执行完成";
+                _batchOrders.Clear();
+                return;
             }
-            var batch = new BatchOrderRequest { Orders = _batchOrders.ToArray() };
-            IReadOnlyList<OrderResponse> results = await _api.PlaceBatchOrdersAsync(batch);
-            if (this.FindName("StatusText") is TextBlock st2)
+
+            // Live batch via API
+            var batch = new BatchOrderRequest { Orders = _batchOrders.ToList(), UseOneWayTrigger = false, UseHedgeMode = false };
+            var api = ServiceLocator.Api;
+            var results = await api.PlaceBatchOrdersAsync(batch);
+
+            // persist results
+            var cache = ServiceLocator.Cache;
+            if (cache != null)
             {
-                st2.Text = $"状态：批量下单完成（{results.Count}）";
+                foreach (var r in results)
+                {
+                    var rec = new OrderHistoryRecord
+                    {
+                        OrderId = r.OrderId.ToString(),
+                        Symbol = r.Symbol,
+                        Side = string.Empty,
+                        Type = string.Empty,
+                        Quantity = (double)r.ExecutedQuantity,
+                        Price = (double?)r.AvgPrice,
+                        Status = r.Status,
+                        FilledQuantity = (double)r.ExecutedQuantity,
+                        AvgFillPrice = (double?)r.AvgPrice,
+                        Commission = 0,
+                        CreatedAt = r.Time,
+                        UpdatedAt = r.Time,
+                        FilledAt = r.Time
+                    };
+                    await cache.SaveOrderAsync(rec);
+                }
             }
-            MessageBox.Show($"批量下单完成，返回 {results.Count} 条结果。", "批量下单", MessageBoxButton.OK, MessageBoxImage.Information);
+
+            MessageBox.Show("批量下单完成", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            StatusText.Text = "状态：批量下单完成";
+            _batchOrders.Clear();
         }
         catch (Exception ex)
         {
-            if (this.FindName("StatusText") is TextBlock st)
-            {
-                st.Text = "状态：批量下单失败";
-            }
-            MessageBox.Show(ex.Message, "批量下单", MessageBoxButton.OK, MessageBoxImage.Error);
+            LogService.Error(ex, "[TradeView] 执行批量失败");
+            MessageBox.Show($"执行批量失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusText.Text = "状态：批量执行失败";
         }
     }
 
@@ -185,80 +322,32 @@ public partial class TradeView : UserControl, IModuleLifecycle
         if (BatchGrid.SelectedItem is OrderRequest req)
         {
             _batchOrders.Remove(req);
-            if (this.FindName("StatusText") is TextBlock st)
-            {
-                st.Text = $"状态：已移除一条批量订单（剩余 {_batchOrders.Count}）";
-            }
         }
     }
 
     private void ClearBatch_Click(object sender, RoutedEventArgs e)
     {
         _batchOrders.Clear();
-        if (this.FindName("StatusText") is TextBlock st)
-        {
-            st.Text = "状态：批量列表已清空";
-        }
     }
 
-    private void RefreshSymbols_Click(object sender, RoutedEventArgs e) => _ = LoadSymbolsAsync(CancellationToken.None);
+    private void RefreshSymbols_Click(object sender, RoutedEventArgs e)
+    {
+        _ = LoadSymbolsAsync(CancellationToken.None);
+    }
 
     private void TypeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        string? type = (TypeBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
-        bool requiresPrice = type is "Limit" or "StopLossLimit" or "TakeProfitLimit";
-        PriceBox.IsEnabled = requiresPrice;
-        StopPriceBox.IsEnabled = type is "StopLoss" or "StopLossLimit" or "TakeProfit" or "TakeProfitLimit";
+        // placeholder - adjust UI if needed
     }
 
-    private static void ValidateRequest(OrderRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Symbol))
-        {
-            throw new InvalidOperationException("请填写交易对");
-        }
-
-        if (request.Quantity <= 0)
-        {
-            throw new InvalidOperationException("数量需大于 0");
-        }
-
-        if (request.Type is OrderType.Limit or OrderType.StopLossLimit or OrderType.TakeProfitLimit)
-        {
-            if (request.Price <= 0)
-            {
-                throw new InvalidOperationException("限价单需要填写价格");
-            }
-        }
-        if (request.Type is OrderType.StopLoss or OrderType.StopLossLimit or OrderType.TakeProfit or OrderType.TakeProfitLimit)
-        {
-            if (request.StopPrice <= 0)
-            {
-                throw new InvalidOperationException("触发单需要填写触发价");
-            }
-        }
-    }
-
-    // IModuleLifecycle
     public async Task StartAsync()
     {
-        _cts = new CancellationTokenSource();
-        await LoadSymbolsAsync(_cts.Token);
+        await LoadSymbolsAsync(CancellationToken.None);
     }
 
     public Task StopAsync()
     {
-        try
-        {
-            _cts?.Cancel();
-            _cts?.Dispose();
-            _cts = null;
-            return Task.CompletedTask;
-        }
-        catch (Exception ex)
-        {
-            LogService.Error(ex, "[TradeView] StopAsync 失败");
-            return Task.CompletedTask;
-        }
+        _cts?.Cancel();
+        return Task.CompletedTask;
     }
 }

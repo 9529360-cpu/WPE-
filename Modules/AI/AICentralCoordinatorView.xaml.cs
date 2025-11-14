@@ -1,14 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
-using System.Collections.Generic;
+using 币安量化机器人.Modules;
 using 币安量化机器人.Services;
 using 币安量化机器人.Services.AI;
-using 币安量化机器人.Modules;
 
 namespace 币安量化机器人.Modules.AI
 {

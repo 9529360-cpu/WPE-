@@ -258,9 +258,9 @@ public class WorkflowOrchestrator
 public class WorkflowExecutedEvent
 {
     public required AIDecision Decision { get; init; }
-    public DateTime Timestamp { get; init; }
-    public bool Success { get; init; }
-    public string? Error { get; init; }
+public DateTime Timestamp { get; init; }
+public bool Success { get; init; }
+public string? Error { get; init; }
 }
 
 /// <summary>

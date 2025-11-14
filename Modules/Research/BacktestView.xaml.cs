@@ -1,16 +1,17 @@
 using System;
 using System.Linq;
+using System.Runtime.Versioning;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using ScottPlot;
-// using System.Drawing; // removed to avoid ambiguity with ScottPlot.Color
-using 币安量化机器人.Services;
 using 币安量化机器人.Application.Backtesting;
 using 币安量化机器人.Core.Models;
+using 币安量化机器人.Services;
 
 namespace 币安量化机器人.Modules.Research;
 
+[SupportedOSPlatform("windows")]
 public partial class BacktestView : UserControl
 {
     public BacktestView()
@@ -70,7 +71,8 @@ public partial class BacktestView : UserControl
 
             BacktestResult result = await engine.RunAsync(request);
 
-            await Dispatcher.InvokeAsync(() => {
+            await Dispatcher.InvokeAsync(() =>
+            {
                 ResultText.Text = $"策略: {result.Strategy} · 净利润: {result.NetProfit:F2} · 最大回撤: {result.MaxDrawdown:P2} · 胜率: {result.WinRate:P2}";
                 // Render equity if available in result (currently not provided)
             });

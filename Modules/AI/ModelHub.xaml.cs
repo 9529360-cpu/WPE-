@@ -8,9 +8,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using 币安量化机器人.Models;
+using 币安量化机器人.Modules;
 using 币安量化机器人.Services;
 using 币安量化机器人.Services.AI;
-using 币安量化机器人.Modules;
 
 namespace 币安量化机器人.Modules.AI
 {
@@ -18,7 +18,7 @@ namespace 币安量化机器人.Modules.AI
     {
         private readonly ObservableCollection<ModelRow> _all = new();
         private readonly ICollectionView _view;
-        private readonly AiForecastService _aiService = ServiceLocator.Ai;
+        private AiForecastService? _aiService;
 
         // 🆕 DeepSeek AI组件
         private AITradingBot? _aiBot;
@@ -32,19 +32,6 @@ namespace 币安量化机器人.Modules.AI
         {
             InitializeComponent();
 
-            foreach (ModelArtifact artifact in _aiService.Models)
-            {
-                _all.Add(new ModelRow
-                {
-                    Name = artifact.Name,
-                    Version = Version.Parse(artifact.Version).Major,
-                    Stage = artifact.Stage,
-                    Metric = artifact.Metric,
-                    UpdatedAt = artifact.UpdatedAt.ToString("yyyy-MM-dd HH:mm"),
-                    Description = artifact.Description
-                });
-            }
-
             _view = CollectionViewSource.GetDefaultView(_all);
             GridModels.ItemsSource = _view;
 
@@ -52,6 +39,54 @@ namespace 币安量化机器人.Modules.AI
             AISignalsGrid.ItemsSource = _aiSignals;
 
             GridModels.SelectionChanged += (_, __) => UpdateDetail();
+
+            // lazy load models into UI
+            try
+            {
+                _aiService = SafeGetAiService();
+                if (_aiService != null)
+                {
+                    foreach (ModelArtifact artifact in _aiService.Models)
+                    {
+                        _all.Add(new ModelRow
+                        {
+                            Name = artifact.Name,
+                            Version = int.TryParse(artifact.Version.Split('.')[0], out var v) ? v : 1,
+                            Stage = artifact.Stage,
+                            Metric = artifact.Metric,
+                            UpdatedAt = artifact.UpdatedAt.ToString("yyyy-MM-dd HH:mm"),
+                            Description = artifact.Description
+                        });
+                    }
+                }
+                else
+                {
+                    // show placeholder entry to indicate AI 未配置
+                    _all.Add(new ModelRow
+                    {
+                        Name = "(未配置模型)",
+                        Version = 0,
+                        Stage = "NA",
+                        Metric = "N/A",
+                        UpdatedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
+                        Description = "未检测到本地模型, 使用降级预测或按需接入 DeepSeek。"
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "[ModelHub] 初始化模型列表失败");
+                _all.Add(new ModelRow
+                {
+                    Name = "(模型加载失败)",
+                    Version = 0,
+                    Stage = "Error",
+                    Metric = "N/A",
+                    UpdatedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
+                    Description = "加载模型时发生异常, 请查看日志。"
+                });
+            }
+
             if (_all.Any())
             {
                 GridModels.SelectedIndex = 0;
@@ -64,7 +99,21 @@ namespace 币安量化机器人.Modules.AI
                 DeepSeekApiKeyBox.Text = deepSeekKey;
             }
 
-            StatusText.Text = $"状态：已加载 {_all.Count} 个上线模型 + DeepSeek AI交易系统";
+            StatusText.Text = $"状态：已加载 {_all.Count} 个模型条目 + DeepSeek AI交易系统";
+        }
+
+        private AiForecastService? SafeGetAiService()
+        {
+            try
+            {
+                // ServiceLocator.Ai lazy factory may throw at construction; catch and return null
+                return ServiceLocator.Ai;
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "[ModelHub] 获取 AiForecastService 失败");
+                return null;
+            }
         }
 
         public Task StartAsync()

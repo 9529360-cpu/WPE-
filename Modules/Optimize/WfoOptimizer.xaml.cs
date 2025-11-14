@@ -3,11 +3,11 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using 币安量化机器人.Services;
 using 币安量化机器人.Core.Models;
+using 币安量化机器人.Services;
+using BacktestResultModel = 币安量化机器人.Core.Models.BacktestResult;
 using ProgressModel = 币安量化机器人.Core.Models.OptimizationProgress;
 using WFOptimizationResult = 币安量化机器人.Core.Models.OptimizationResult;
-using BacktestResultModel = 币安量化机器人.Core.Models.BacktestResult;
 
 namespace 币安量化机器人.Modules.Optimize;
 
@@ -21,41 +21,7 @@ public partial class WfoOptimizer : UserControl
 
         ResultsGrid.ItemsSource = _results;
 
-        // 生成示例数据
-        GenerateMockResults();
-    }
-
-    /// <summary>
-    /// 生成模拟结果
-    /// </summary>
-    private void GenerateMockResults()
-    {
-        var random = new Random();
-
-        for (int i = 0; i < 20; i++)
-        {
-            _results.Add(new OptimizationResult
-            {
-                Rank = i + 1,
-                FastMa = 5 + i * 5,
-                SlowMa = 80 + i * 20,
-                SharpeRatio = 2.5 - i * 0.1 + random.NextDouble() * 0.2,
-                AnnualReturn = 0.35 - i * 0.015 + random.NextDouble() * 0.05,
-                MaxDrawdown = -(0.08 + i * 0.005 + random.NextDouble() * 0.02),
-                WinRate = 0.6 - i * 0.01 + random.NextDouble() * 0.05,
-                TotalTrades = 150 - i * 5
-            });
-        }
-
-        // 更新最佳参数显示
-        if (_results.Count > 0)
-        {
-            OptimizationResult best = _results[0];
-            BestFastMaText.Text = best.FastMa.ToString();
-            BestSlowMaText.Text = best.SlowMa.ToString();
-            BestSharpeText.Text = best.SharpeRatio.ToString("F2");
-            OosPerformanceText.Text = "稳定";
-        }
+        // 不再在构造中使用模拟数据，UI 将在 StartOptimization_Click 中展示真实优化结果
     }
 
     /// <summary>

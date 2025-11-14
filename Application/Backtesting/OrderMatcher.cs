@@ -267,30 +267,30 @@ public class SimulatedOrder
     /// </summary>
     public required OrderSide Side { get; init; }
 
-    /// <summary>
-    /// 订单类型
-    /// </summary>
-    public required SimulatedOrderType Type { get; init; }
+/// <summary>
+/// 订单类型
+/// </summary>
+public required SimulatedOrderType Type { get; init; }
 
-    /// <summary>
-    /// 订单数量
-    /// </summary>
-    public double Quantity { get; init; }
+/// <summary>
+/// 订单数量
+/// </summary>
+public double Quantity { get; init; }
 
-    /// <summary>
-    /// 限价 (限价单和止损限价单必填)
-    /// </summary>
-    public double? Price { get; init; }
+/// <summary>
+/// 限价 (限价单和止损限价单必填)
+/// </summary>
+public double? Price { get; init; }
 
-    /// <summary>
-    /// 止损触发价 (止损单和止损限价单必填)
-    /// </summary>
-    public double? StopPrice { get; init; }
+/// <summary>
+/// 止损触发价 (止损单和止损限价单必填)
+/// </summary>
+public double? StopPrice { get; init; }
 
-    /// <summary>
-    /// 订单下单时间
-    /// </summary>
-    public DateTime PlacedAt { get; init; }
+/// <summary>
+/// 订单下单时间
+/// </summary>
+public DateTime PlacedAt { get; init; }
 }
 
 /// <summary>

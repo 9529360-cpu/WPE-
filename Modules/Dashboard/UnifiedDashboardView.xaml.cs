@@ -69,12 +69,16 @@ public partial class UnifiedDashboardView : UserControl
     {
         try
         {
-            var orders = await ServiceLocator.Cache.LoadOrdersAsync(limit: 20); // recent orders
-            _recentOrders.Clear();
-            foreach (var o in orders.Take(20))
+            // load orders on background thread, then update ObservableCollection on UI thread
+            var orders = await Task.Run(() => ServiceLocator.Cache.LoadOrdersAsync(limit: 20)); // recent orders
+            Dispatcher.Invoke(() =>
             {
-                _recentOrders.Add(new OrderItem { Symbol = o.Symbol, ShortInfo = $"{o.Side} {o.Quantity} @{o.AvgFillPrice}", TimeText = o.UpdatedAt.ToLocalTime().ToString("HH:mm:ss") });
-            }
+                _recentOrders.Clear();
+                foreach (var o in orders.Take(20))
+                {
+                    _recentOrders.Add(new OrderItem { Symbol = o.Symbol, ShortInfo = $"{o.Side} {o.Quantity} @{o.AvgFillPrice}", TimeText = o.UpdatedAt.ToLocalTime().ToString("HH:mm:ss") });
+                }
+            });
         }
         catch (Exception ex)
         {
@@ -100,22 +104,42 @@ public partial class UnifiedDashboardView : UserControl
             var lm = ServiceLocator.LearningModule;
             if (lm == null)
             {
-                if (statusText != null) statusText.Text = "LearningModule 未就绪";
+                if (statusText != null)
+                {
+                    statusText.Text = "LearningModule 未就绪";
+                }
                 return;
             }
 
-            string folder = await lm.ExportTrainingDataAsync().ConfigureAwait(false);
+            // run export on background thread
+            string folder = string.Empty;
+            try
+            {
+                folder = await Task.Run(() => lm.ExportTrainingDataAsync());
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "导出训练数据失败(后台任务)");
+                Dispatcher.Invoke(() =>
+                {
+                    if (statusText != null)
+                    {
+                        statusText.Text = "导出失败";
+                    }
+                });
+                return;
+            }
 
             if (statusText != null)
             {
-                statusText.Text = $"导出完成: {folder}";
+                Dispatcher.Invoke(() => statusText.Text = $"导出完成: {folder}");
             }
         }
         catch (Exception ex)
         {
             if (statusText != null)
             {
-                statusText.Text = "导出失败";
+                Dispatcher.Invoke(() => statusText.Text = "导出失败");
             }
             LogService.Error(ex, "导出训练数据失败");
         }
@@ -153,23 +177,39 @@ public partial class UnifiedDashboardView : UserControl
             var lm = ServiceLocator.LearningModule;
             if (lm == null)
             {
-                if (statusText != null) statusText.Text = "LearningModule 未就绪";
+                if (statusText != null)
+                {
+                    statusText.Text = "LearningModule 未就绪";
+                }
                 return;
             }
 
             using var cts = new System.Threading.CancellationTokenSource();
 
-            string folder = await lm.ExportTrainingDataAsync().ConfigureAwait(false);
+            string folder = string.Empty;
             string model = string.Empty;
+
             try
             {
-                model = await lm.StartTrainingAsync(folder, cts.Token).ConfigureAwait(false);
+                // run export + training on background thread to keep UI responsive
+                folder = await Task.Run(() => lm.ExportTrainingDataAsync());
+                model = await Task.Run(() => lm.StartTrainingAsync(folder, cts.Token));
             }
             catch (OperationCanceledException)
             {
                 if (statusText != null)
                 {
-                    statusText.Text = "训练已取消";
+                    Dispatcher.Invoke(() => statusText.Text = "训练已取消");
+                }
+
+                return;
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "训练失败(后台任务)");
+                if (statusText != null)
+                {
+                    Dispatcher.Invoke(() => statusText.Text = "训练失败");
                 }
 
                 return;
@@ -177,7 +217,7 @@ public partial class UnifiedDashboardView : UserControl
 
             if (statusText != null)
             {
-                statusText.Text = $"训练完成，模型: {model}";
+                Dispatcher.Invoke(() => statusText.Text = $"训练完成，模型: {model}");
             }
             MessageBox.Show("训练已完成。模型路径已生成。", "训练完成", MessageBoxButton.OK, MessageBoxImage.Information);
         }
@@ -185,7 +225,7 @@ public partial class UnifiedDashboardView : UserControl
         {
             if (statusText != null)
             {
-                statusText.Text = "训练失败";
+                Dispatcher.Invoke(() => statusText.Text = "训练失败");
             }
             LogService.Error(ex, "训练失败");
         }
@@ -204,30 +244,63 @@ public partial class UnifiedDashboardView : UserControl
         {
             var btn = this.FindName("SaveLearningStateButton") as Button;
             var status = this.FindName("TrainingStatusText") as TextBlock;
-            if (btn != null) btn.IsEnabled = false;
-            if (status != null) status.Text = "保存学习状态...";
+            if (btn != null)
+            {
+                btn.IsEnabled = false;
+            }
+            if (status != null)
+            {
+                status.Text = "保存学习状态...";
+            }
 
             var lm = ServiceLocator.LearningModule;
             if (lm == null)
             {
-                if (status != null) status.Text = "LearningModule 未就绪";
+                if (status != null)
+                {
+                    status.Text = "LearningModule 未就绪";
+                }
                 return;
             }
 
-            await lm.SaveStateAsync().ConfigureAwait(false);
+            try
+            {
+                await Task.Run(() => lm.SaveStateAsync());
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "保存学习状态失败(后台任务)");
+                Dispatcher.Invoke(() =>
+                {
+                    if (status != null)
+                    {
+                        status.Text = "保存失败";
+                    }
+                });
+                return;
+            }
 
-            if (status != null) status.Text = "已保存学习状态";
+            if (status != null)
+            {
+                Dispatcher.Invoke(() => status.Text = "已保存学习状态");
+            }
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "保存学习状态失败");
             var status = this.FindName("TrainingStatusText") as TextBlock;
-            if (status != null) status.Text = "保存失败";
+            if (status != null)
+            {
+                Dispatcher.Invoke(() => status.Text = "保存失败");
+            }
         }
         finally
         {
             var btn = this.FindName("SaveLearningStateButton") as Button;
-            if (btn != null) btn.IsEnabled = true;
+            if (btn != null)
+            {
+                btn.IsEnabled = true;
+            }
         }
     }
 
@@ -237,32 +310,66 @@ public partial class UnifiedDashboardView : UserControl
         {
             var btn = this.FindName("LoadLearningStateButton") as Button;
             var status = this.FindName("TrainingStatusText") as TextBlock;
-            if (btn != null) btn.IsEnabled = false;
-            if (status != null) status.Text = "加载学习状态...";
+            if (btn != null)
+            {
+                btn.IsEnabled = false;
+            }
+            if (status != null)
+            {
+                status.Text = "加载学习状态...";
+            }
 
             var lm = ServiceLocator.LearningModule;
             if (lm == null)
             {
-                if (status != null) status.Text = "LearningModule 未就绪";
+                if (status != null)
+                {
+                    status.Text = "LearningModule 未就绪";
+                }
                 return;
             }
 
-            await lm.LoadStateAsync().ConfigureAwait(false);
+            try
+            {
+                await Task.Run(() => lm.LoadStateAsync());
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "加载学习状态失败(后台任务)");
+                Dispatcher.Invoke(() =>
+                {
+                    if (status != null)
+                    {
+                        status.Text = "加载失败";
+                    }
+                });
+                return;
+            }
 
-            if (status != null) status.Text = "加载完成";
+            if (status != null)
+            {
+                Dispatcher.Invoke(() => status.Text = "加载完成");
+            }
 
-            RefreshFactorStats();
+            // RefreshFactorStats touches UI; ensure it runs on UI thread
+            Dispatcher.Invoke(RefreshFactorStats);
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "加载学习状态失败");
             var status = this.FindName("TrainingStatusText") as TextBlock;
-            if (status != null) status.Text = "加载失败";
+            if (status != null)
+            {
+                Dispatcher.Invoke(() => status.Text = "加载失败");
+            }
         }
         finally
         {
             var btn = this.FindName("LoadLearningStateButton") as Button;
-            if (btn != null) btn.IsEnabled = true;
+            if (btn != null)
+            {
+                btn.IsEnabled = true;
+            }
         }
     }
 
@@ -271,19 +378,28 @@ public partial class UnifiedDashboardView : UserControl
         try
         {
             var confirm = MessageBox.Show("确认重置学习状态？此操作不可逆。", "确认", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (confirm != MessageBoxResult.Yes) return;
+            if (confirm != MessageBoxResult.Yes)
+            {
+                return;
+            }
 
             var lm = ServiceLocator.LearningModule;
             if (lm == null)
             {
                 var status = this.FindName("TrainingStatusText") as TextBlock;
-                if (status != null) status.Text = "LearningModule 未就绪";
+                if (status != null)
+                {
+                    status.Text = "LearningModule 未就绪";
+                }
                 return;
             }
 
             lm.ResetFactorLearning();
             var status2 = this.FindName("TrainingStatusText") as TextBlock;
-            if (status2 != null) status2.Text = "学习状态已重置";
+            if (status2 != null)
+            {
+                status2.Text = "学习状态已重置";
+            }
 
             RefreshFactorStats();
         }
@@ -298,10 +414,16 @@ public partial class UnifiedDashboardView : UserControl
         try
         {
             var lm = ServiceLocator.LearningModule;
-            if (lm == null) return;
+            if (lm == null)
+            {
+                return;
+            }
             var stats = lm.GetFactorPerformanceStats();
             var list = this.FindName("FactorStatsList") as ListView;
-            if (list == null) return;
+            if (list == null)
+            {
+                return;
+            }
             list.Items.Clear();
             foreach (var kv in stats)
             {

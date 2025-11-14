@@ -471,7 +471,7 @@ public class DecisionRule
     public required string Name { get; init; }
     public required Func<SystemState, bool> Condition { get; init; }
     public required DecisionAction Action { get; init; }
-    public int Priority { get; init; } // 0 = 最高优先级
+public int Priority { get; init; } // 0 = 最高优先级
 }
 
 /// <summary>

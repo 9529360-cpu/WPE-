@@ -6,9 +6,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using 币安量化机器人.Models;
+using 币安量化机器人.Modules;
 using 币安量化机器人.Services;
 using 币安量化机器人.Services.AI;
-using 币安量化机器人.Modules;
 
 namespace 币安量化机器人.Modules.Paper;
 

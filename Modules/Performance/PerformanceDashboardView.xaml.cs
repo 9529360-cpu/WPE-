@@ -1,13 +1,14 @@
 using System;
 using System.Linq;
+using System.Runtime.Versioning;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using 币安量化机器人.Models;
-using 币安量化机器人.Services;
-using System.Threading;
-using System.Threading.Tasks;
-using WpfColor = System.Windows.Media.Color;
 using 币安量化机器人.Modules;
+using 币安量化机器人.Services;
+using WpfColor = System.Windows.Media.Color;
 
 namespace 币安量化机器人.Modules.Performance;
 
@@ -15,6 +16,7 @@ namespace 币安量化机器人.Modules.Performance;
 /// 绩效分析仪表盘
 /// 展示完整的交易绩效统计和可视化
 /// </summary>
+[SupportedOSPlatform("windows")]
 public partial class PerformanceDashboardView : UserControl, IModuleLifecycle
 {
     private readonly TradingAccountManager _accountManager;

@@ -161,7 +161,8 @@ public class AutoRecoveryManager : IDisposable
 
         Interlocked.Increment(ref _totalRecoveries);
         _recoveryHistory.Enqueue(recoveryAttempt);
-        while (_recoveryHistory.Count > 1000) _recoveryHistory.TryDequeue(out _);
+        while (_recoveryHistory.Count > 1000)
+            _recoveryHistory.TryDequeue(out _);
 
         RecoveryAttempted?.Invoke(this, new RecoveryEventArgs(recoveryAttempt));
 
@@ -201,7 +202,8 @@ public class AutoRecoveryManager : IDisposable
 
     private TimeSpan CalculateRetryDelay(RecoveryPolicy policy, int attempt)
     {
-        if (!policy.UseExponentialBackoff) return policy.RetryDelay;
+        if (!policy.UseExponentialBackoff)
+            return policy.RetryDelay;
         double multiplier = Math.Pow(2, attempt - 1);
         double delaySeconds = policy.RetryDelay.TotalSeconds * multiplier;
         double maxDelay = Math.Min(delaySeconds, 60);
@@ -233,14 +235,17 @@ public class AutoRecoveryManager : IDisposable
 
     private bool ShouldAttemptRecovery(string component, ComponentHealth health)
     {
-        if (health.State == HealthState.CircuitOpen) return false;
-        if (!_policies.TryGetValue(component, out RecoveryPolicy? policy) || policy == null) return false;
+        if (health.State == HealthState.CircuitOpen)
+            return false;
+        if (!_policies.TryGetValue(component, out RecoveryPolicy? policy) || policy == null)
+            return false;
         return health.RecoveryAttempts < policy.MaxRetries;
     }
 
     private bool ShouldCircuitBreak(string component, ComponentHealth health)
     {
-        if (!_policies.TryGetValue(component, out RecoveryPolicy? policy) || policy == null) return false;
+        if (!_policies.TryGetValue(component, out RecoveryPolicy? policy) || policy == null)
+            return false;
         return health.ConsecutiveFailures >= policy.CircuitBreakerThreshold;
     }
 

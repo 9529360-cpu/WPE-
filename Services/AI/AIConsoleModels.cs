@@ -5,11 +5,11 @@ namespace 币安量化机器人.Services.AI
 {
     public record AITradingSignalRecord
     {
-        public string Symbol { get; init; }
-        public string Action { get; init; }
+        public string Symbol { get; init; } = string.Empty;
+        public string Action { get; init; } = string.Empty;
         public double Confidence { get; init; }
-        public string Reason { get; init; }
-        public DateTime Timestamp { get; init; }
+        public string Reason { get; init; } = string.Empty;
+        public DateTime Timestamp { get; init; } = DateTime.UtcNow;
 
         public AITradingSignalRecord(AITradingSignal s)
         {
@@ -23,8 +23,8 @@ namespace 币安量化机器人.Services.AI
 
     public record TradingEventRecord
     {
-        public string Summary { get; init; }
-        public DateTime Timestamp { get; init; }
+        public string Summary { get; init; } = string.Empty;
+        public DateTime Timestamp { get; init; } = DateTime.UtcNow;
 
         public TradingEventRecord() { }
         public TradingEventRecord(AITradingSignal s, OrderExecutionResult r)
@@ -36,26 +36,43 @@ namespace 币安量化机器人.Services.AI
 
     public record GateRejectionRecord
     {
-        public string Reason { get; init; }
-        public DateTime Timestamp { get; init; }
+        public string Reason { get; init; } = string.Empty;
+        public DateTime Timestamp { get; init; } = DateTime.UtcNow;
     }
 
     public record StrategyChangeRecord
     {
-        public string Summary { get; init; }
-        public DateTime Timestamp { get; init; }
+        public string Summary { get; init; } = string.Empty;
+        public DateTime Timestamp { get; init; } = DateTime.UtcNow;
     }
 
     public record ParameterAdjustmentRecord
     {
-        public string Summary { get; init; }
-        public DateTime Timestamp { get; init; }
+        public string Summary { get; init; } = string.Empty;
+        public DateTime Timestamp { get; init; } = DateTime.UtcNow;
     }
 
-    // Market stream events
-    public record MarketFundingRateUpdateEvent(string Symbol, double FundingRate, DateTime Timestamp = default);
-    public record MarketOpenInterestUpdateEvent(string Symbol, double OpenInterest, DateTime Timestamp = default);
-    public record MarketLongShortRatioUpdateEvent(string Symbol, double LongShortRatio, DateTime Timestamp = default);
+    // Market stream events - use property-style records to ensure Timestamp is initialized
+    public record MarketFundingRateUpdateEvent
+    {
+        public string Symbol { get; init; } = string.Empty;
+        public double FundingRate { get; init; }
+        public DateTime Timestamp { get; init; } = DateTime.UtcNow;
+    }
+
+    public record MarketOpenInterestUpdateEvent
+    {
+        public string Symbol { get; init; } = string.Empty;
+        public double OpenInterest { get; init; }
+        public DateTime Timestamp { get; init; } = DateTime.UtcNow;
+    }
+
+    public record MarketLongShortRatioUpdateEvent
+    {
+        public string Symbol { get; init; } = string.Empty;
+        public double LongShortRatio { get; init; }
+        public DateTime Timestamp { get; init; } = DateTime.UtcNow;
+    }
 
     // Market stream subscription request
     public record MarketStreamSubscriptionRequestEvent

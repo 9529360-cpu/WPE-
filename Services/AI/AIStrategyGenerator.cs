@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 using 币安量化机器人.Core.Abstractions;
 using 币安量化机器人.Core.Models;
 using 币安量化机器人.Models;
-using 币安量化机器人.Services.AI;
 using 币安量化机器人.Models.Configuration;
+using 币安量化机器人.Services.AI;
 using 币安量化机器人.Services.Observability;
 
 namespace 币安量化机器人.Services.AI;

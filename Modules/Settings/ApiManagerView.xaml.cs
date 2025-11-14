@@ -574,7 +574,7 @@ public partial class ApiManagerView : UserControl
             try
             {
                 LogService.Info("[ApiManagerView] 开始自动初始化AI服务...");
-                
+
                 // 获取主窗口并初始化AI相关组件
                 if (Window.GetWindow(this) is MainWindow mainWindow)
                 {
@@ -601,7 +601,7 @@ public partial class ApiManagerView : UserControl
                 {
                     successMessage += $"🚀 AI服务已自动初始化并就绪\n";
                 }
-                
+
                 successMessage += $"💡 现在可以在 [💬 AI智能助手] 中使用真实AI分析\n" +
                     $"🎯 返回主界面，点击左侧 [💬 AI智能助手] 开始对话\n\n" +
                     $"📝 输入框已保留 API Key，方便您修改\n" +

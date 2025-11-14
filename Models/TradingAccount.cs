@@ -240,15 +240,26 @@ public class TradingAccount : INotifyPropertyChanged
     public string GetSummary()
     {
         return $"""
-            {Name} ({Type})
-            ├─ 净值: {NetValue:F2} USDT
-            ├─ 可用: {AvailableBalance:F2} USDT
-            ├─ 持仓: {PositionValue:F2} USDT ({OpenPositionCount}个)
-            ├─ 总盈亏: {TotalPnL:F2} ({TotalReturnPercent:P2})
-            ├─ 今日盈亏: {TodayPnL:F2} ({TodayReturnPercent:P2})
-            ├─ 交易次数: {TotalTrades} (胜率 {WinRate:P0})
-            └─ 盈亏比: {ProfitFactor:F2}
-            """;
+            { Name} ({ Type})
+            ├─ 净值:
+        { NetValue: F2}
+        USDT
+            ├─ 可用:
+        { AvailableBalance: F2}
+        USDT
+            ├─ 持仓:
+        { PositionValue: F2}
+        USDT({ OpenPositionCount}
+        个)
+            ├─ 总盈亏:
+        { TotalPnL: F2} ({ TotalReturnPercent: P2})
+            ├─ 今日盈亏:
+        { TodayPnL: F2} ({ TodayReturnPercent: P2})
+            ├─ 交易次数:
+        { TotalTrades} (胜率 { WinRate: P0})
+            └─ 盈亏比:
+        { ProfitFactor: F2}
+        """;
     }
 
     #endregion

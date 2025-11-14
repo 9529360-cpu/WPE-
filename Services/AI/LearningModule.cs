@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Text.Json;
 using 币安量化机器人.Services;
 using 币安量化机器人.Services.AI;
 
@@ -36,7 +36,7 @@ public class LearningModule
     private readonly Dictionary<string, FactorPerformance> _factorPerformance;
     private readonly object _lock = new();
     private const int MaxHistorySize = 1000;
-    
+
     // 🆕 Phase 3: 因子权重学习参数
     private double _learningRate = 0.01; // 学习率
     private int _optimizationCycle = 0;  // 优化周期计数
@@ -925,8 +925,8 @@ public class DecisionRecord
 {
     public DateTime Timestamp { get; set; }
     public required SystemState State { get; init; }
-    public required AIDecision Decision { get; init; }
-    public DecisionOutcome? Outcome { get; set; }
+public required AIDecision Decision { get; init; }
+public DecisionOutcome? Outcome { get; set; }
 }
 
 /// <summary>

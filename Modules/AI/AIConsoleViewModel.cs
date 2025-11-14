@@ -1,9 +1,9 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Reflection;
 using 币安量化机器人.Services.AI;
 
 namespace 币安量化机器人.Modules.AI
@@ -87,7 +87,8 @@ namespace 币安量化机器人.Modules.AI
                                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                                 {
                                     Signals.Insert(0, new AITradingSignalRecord(e.Signal));
-                                    if (Signals.Count > 500) { Signals.RemoveAt(Signals.Count - 1); }
+                                    if (Signals.Count > 500)
+                                    { Signals.RemoveAt(Signals.Count - 1); }
                                 });
                                 await Task.CompletedTask;
                             });
@@ -97,7 +98,8 @@ namespace 币安量化机器人.Modules.AI
                                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                                 {
                                     TradingEvents.Insert(0, new TradingEventRecord(e.Signal, e.Result));
-                                    if (TradingEvents.Count > 500) { TradingEvents.RemoveAt(TradingEvents.Count - 1); }
+                                    if (TradingEvents.Count > 500)
+                                    { TradingEvents.RemoveAt(TradingEvents.Count - 1); }
                                 });
                                 await Task.CompletedTask;
                             });
@@ -107,7 +109,8 @@ namespace 币安量化机器人.Modules.AI
                                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                                 {
                                     GateRejections.Insert(0, new GateRejectionRecord { Reason = e.Reason, Timestamp = e.Timestamp });
-                                    if (GateRejections.Count > 200) { GateRejections.RemoveAt(GateRejections.Count - 1); }
+                                    if (GateRejections.Count > 200)
+                                    { GateRejections.RemoveAt(GateRejections.Count - 1); }
                                 });
                                 await Task.CompletedTask;
                             });
@@ -117,7 +120,8 @@ namespace 币安量化机器人.Modules.AI
                                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                                 {
                                     StrategyChanges.Insert(0, new StrategyChangeRecord { Summary = e.Summary, Timestamp = e.Timestamp });
-                                    if (StrategyChanges.Count > 200) { StrategyChanges.RemoveAt(StrategyChanges.Count - 1); }
+                                    if (StrategyChanges.Count > 200)
+                                    { StrategyChanges.RemoveAt(StrategyChanges.Count - 1); }
                                 });
                                 await Task.CompletedTask;
                             });
@@ -127,7 +131,8 @@ namespace 币安量化机器人.Modules.AI
                                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                                 {
                                     ParameterAdjustments.Insert(0, new ParameterAdjustmentRecord { Summary = e.Summary, Timestamp = e.Timestamp });
-                                    if (ParameterAdjustments.Count > 200) { ParameterAdjustments.RemoveAt(ParameterAdjustments.Count - 1); }
+                                    if (ParameterAdjustments.Count > 200)
+                                    { ParameterAdjustments.RemoveAt(ParameterAdjustments.Count - 1); }
                                 });
                                 await Task.CompletedTask;
                             });
@@ -137,7 +142,8 @@ namespace 币安量化机器人.Modules.AI
                                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                                 {
                                     TradingEvents.Insert(0, new TradingEventRecord { Summary = $"Funding {e.Symbol}: {e.FundingRate:P6}", Timestamp = e.Timestamp == default ? DateTime.UtcNow : e.Timestamp });
-                                    if (TradingEvents.Count > 500) { TradingEvents.RemoveAt(TradingEvents.Count - 1); }
+                                    if (TradingEvents.Count > 500)
+                                    { TradingEvents.RemoveAt(TradingEvents.Count - 1); }
                                 });
                                 return Task.CompletedTask;
                             });
@@ -147,7 +153,8 @@ namespace 币安量化机器人.Modules.AI
                                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                                 {
                                     TradingEvents.Insert(0, new TradingEventRecord { Summary = $"OI {e.Symbol}: {e.OpenInterest}", Timestamp = e.Timestamp == default ? DateTime.UtcNow : e.Timestamp });
-                                    if (TradingEvents.Count > 500) { TradingEvents.RemoveAt(TradingEvents.Count - 1); }
+                                    if (TradingEvents.Count > 500)
+                                    { TradingEvents.RemoveAt(TradingEvents.Count - 1); }
                                 });
                                 return Task.CompletedTask;
                             });
@@ -157,7 +164,8 @@ namespace 币安量化机器人.Modules.AI
                                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                                 {
                                     TradingEvents.Insert(0, new TradingEventRecord { Summary = $"LSR {e.Symbol}: {e.LongShortRatio:F2}", Timestamp = e.Timestamp == default ? DateTime.UtcNow : e.Timestamp });
-                                    if (TradingEvents.Count > 500) { TradingEvents.RemoveAt(TradingEvents.Count - 1); }
+                                    if (TradingEvents.Count > 500)
+                                    { TradingEvents.RemoveAt(TradingEvents.Count - 1); }
                                 });
                                 return Task.CompletedTask;
                             });

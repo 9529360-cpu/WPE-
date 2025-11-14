@@ -1,12 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic;
-using 币安量化机器人.Models;
 using 币安量化机器人.Application.Backtesting;
 using 币安量化机器人.Core.Abstractions;
 using 币安量化机器人.Core.Models; // for BacktestRequest
+using 币安量化机器人.Models;
 
 namespace 币安量化机器人.Services.AI;
 

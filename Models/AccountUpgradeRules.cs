@@ -285,24 +285,25 @@ public class AccountUpgradeResult
     /// </summary>
     public string GetReport()
     {
-        string report = $"""
-            账户升级检查报告
-            ==================
-            
-            总体结果: {(CanUpgrade ? "✅ 通过" : "❌ 未通过")}
-            完成度: {CompletionPercent:P0} ({PassedChecks}/{TotalChecks})
-            
-            详细检查:
-            """;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("账户升级检查报告");
+        sb.AppendLine("==================");
+        sb.AppendLine();
+        sb.AppendLine($"总体结果: {(CanUpgrade ? "✅ 通过" : "❌ 未通过")}");
+        sb.AppendLine($"完成度: {CompletionPercent:P0} ({PassedChecks}/{TotalChecks})");
+        sb.AppendLine();
+        sb.AppendLine("详细检查:");
 
         foreach (UpgradeCheckItem item in CheckItems)
         {
-            report += $"\n{item.Name}: {item.Value}\n  {item.Message}\n";
+            sb.AppendLine($"{item.Name}: {item.Value}");
+            sb.AppendLine($"  {item.Message}");
         }
 
-        report += $"\n\n{Message}";
+        sb.AppendLine();
+        sb.AppendLine(Message);
 
-        return report;
+        return sb.ToString();
     }
 
     /// <summary>

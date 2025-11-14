@@ -5,8 +5,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using 币安量化机器人.Services;
 using 币安量化机器人.Modules;
+using 币安量化机器人.Services;
 
 namespace 币安量化机器人.Modules.Dashboard
 {

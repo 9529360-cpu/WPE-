@@ -74,7 +74,7 @@ public sealed class AIStrategySuggestionService
                     Type: instance.Type,
                     Symbols: instance.Symbols.AsReadOnly(),
                     AccountType: instance.AccountType,
-                    Parameters: instance.Parameters as IReadOnlyDictionary<string, double> ?? new System.Collections.ObjectModel.ReadOnlyDictionary<string,double>(instance.Parameters),
+                    Parameters: instance.Parameters as IReadOnlyDictionary<string, double> ?? new System.Collections.ObjectModel.ReadOnlyDictionary<string, double>(instance.Parameters),
                     Metrics: new TemplateMetrics(WinRate: 0, MaxDrawdown: 0, Sharpe: 0, ProfitFactor: 0),
                     Timestamp: DateTime.UtcNow,
                     Audit: new TemplateAudit { Source = "AI", ModelVersion = "deepseek-chat", CreatedUtc = DateTime.UtcNow }

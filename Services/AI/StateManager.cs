@@ -136,13 +136,19 @@ public class StateManager
     {
         SystemState state = CurrentState;
 
-        return $"""
-            当前阶段: {CurrentStage.GetIcon()} {CurrentStage.GetDisplayName()}
-            市场状况: 波动率={state.MarketCondition.Volatility:P0}, 趋势={state.MarketCondition.TrendDirection}
-            账户状态: 净值={state.AccountStatus.NetValue:N2} USDT, 盈亏={state.AccountStatus.TodayPnL:+N2;-N2} USDT
-            风险指标: 回撤={state.RiskMetrics.MaxDrawdown:P2}, 安全性={state.RiskMetrics.IsSafe}
-            策略状态: 激活={state.StrategyStatus.IsActive}, 表现={state.StrategyStatus.PerformanceScore:P0}
-            """;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"当前阶段:");
+        sb.AppendLine($"{CurrentStage.GetIcon()}");
+        sb.AppendLine($"{CurrentStage.GetDisplayName()}");
+        sb.AppendLine("市场状况:");
+        sb.AppendLine($"  波动率 = {state.MarketCondition.Volatility:P0}, 趋势 = {state.MarketCondition.TrendDirection}");
+        sb.AppendLine("账户状态:");
+        sb.AppendLine($"  净值 = {state.AccountStatus.NetValue:N2} USDT, 盈亏 = {state.AccountStatus.TodayPnL:+N2;-N2} USDT");
+        sb.AppendLine($"风险指标: 回撤 = {state.RiskMetrics.MaxDrawdown:P2}, 安全性 = {state.RiskMetrics.IsSafe}");
+        sb.AppendLine("策略状态:");
+        sb.AppendLine($"  激活 = {state.StrategyStatus.IsActive}, 表现 = {state.StrategyStatus.PerformanceScore:P0}");
+
+        return sb.ToString();
     }
 
     /// <summary>

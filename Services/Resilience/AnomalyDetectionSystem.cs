@@ -30,10 +30,10 @@ public class AnomalyDetectionSystem : IDisposable
     private readonly ConcurrentQueue<AnomalyEvent> _recentAnomalies;
     private readonly ConcurrentDictionary<string, AnomalyPattern> _patterns;
     private readonly Timer _analysisTimer;
-    
+
     // 异常阈值配置
     private readonly AnomalyThresholds _thresholds;
-    
+
     // 统计信息
     private long _totalAnomalies;
     private long _criticalAnomalies;
@@ -44,10 +44,10 @@ public class AnomalyDetectionSystem : IDisposable
         _thresholds = thresholds ?? AnomalyThresholds.Default;
         _recentAnomalies = new ConcurrentQueue<AnomalyEvent>();
         _patterns = new ConcurrentDictionary<string, AnomalyPattern>();
-        
+
         // 每分钟分析一次
         _analysisTimer = new Timer(AnalysisCallback, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
-        
+
         LogService.Info("[AnomalyDetectionSystem] 异常检测系统已启动");
     }
 
@@ -64,7 +64,7 @@ public class AnomalyDetectionSystem : IDisposable
     public void DetectApiAnomaly(string endpoint, Exception exception, TimeSpan responseTime)
     {
         AnomalySeverity severity = DetermineApiSeverity(exception, responseTime);
-        
+
         AnomalyEvent anomaly = new AnomalyEvent
         {
             Id = Guid.NewGuid().ToString(),
@@ -91,7 +91,7 @@ public class AnomalyDetectionSystem : IDisposable
     public void DetectTradingAnomaly(string symbol, string reason, Dictionary<string, object>? details = null)
     {
         AnomalySeverity severity = DetermineTradingSeverity(reason);
-        
+
         AnomalyEvent anomaly = new AnomalyEvent
         {
             Id = Guid.NewGuid().ToString(),
@@ -117,7 +117,7 @@ public class AnomalyDetectionSystem : IDisposable
         }
 
         AnomalySeverity severity = value > threshold * 2 ? AnomalySeverity.High : AnomalySeverity.Medium;
-        
+
         AnomalyEvent anomaly = new AnomalyEvent
         {
             Id = Guid.NewGuid().ToString(),
@@ -197,7 +197,7 @@ public class AnomalyDetectionSystem : IDisposable
     {
         // 添加到队列
         _recentAnomalies.Enqueue(anomaly);
-        
+
         // 限制队列大小
         while (_recentAnomalies.Count > 1000)
         {
@@ -227,7 +227,7 @@ public class AnomalyDetectionSystem : IDisposable
     private void UpdatePattern(AnomalyEvent anomaly)
     {
         string patternKey = $"{anomaly.Type}:{anomaly.Source}";
-        
+
         AnomalyPattern pattern = _patterns.GetOrAdd(patternKey, _ => new AnomalyPattern
         {
             Type = anomaly.Type,
@@ -239,7 +239,7 @@ public class AnomalyDetectionSystem : IDisposable
 
         pattern.Count++;
         pattern.LastOccurrence = anomaly.Timestamp;
-        
+
         // 检测频繁异常
         if (pattern.Count > _thresholds.FrequentAnomalyThreshold)
         {
@@ -257,10 +257,10 @@ public class AnomalyDetectionSystem : IDisposable
         {
             // 分析异常趋势
             AnalyzeTrends();
-            
+
             // 识别相关异常
             IdentifyCorrelations();
-            
+
             // 清理旧的模式
             CleanupOldPatterns();
         }
@@ -284,9 +284,9 @@ public class AnomalyDetectionSystem : IDisposable
         // 计算最近1小时的异常率
         DateTime oneHourAgo = DateTime.UtcNow.AddHours(-1);
         int recentCount = recent.Count(a => a.Timestamp > oneHourAgo);
-        
+
         double anomalyRate = recentCount / 60.0; // 每分钟异常数
-        
+
         if (anomalyRate > _thresholds.AnomalyRateThreshold)
         {
             LogService.Warning("[AnomalyDetectionSystem] 异常率过高: {Rate:F2}/分钟 (阈值={Threshold})",
@@ -328,7 +328,7 @@ public class AnomalyDetectionSystem : IDisposable
     private void CleanupOldPatterns()
     {
         DateTime threshold = DateTime.UtcNow.AddHours(-24);
-        
+
         var oldPatterns = _patterns
             .Where(kvp => kvp.Value.LastOccurrence < threshold)
             .Select(kvp => kvp.Key)
@@ -382,7 +382,7 @@ public class AnomalyDetectionSystem : IDisposable
     private AnomalySeverity DetermineTradingSeverity(string reason)
     {
         string lowerReason = reason.ToLowerInvariant();
-        
+
         // 资金不足
         if (lowerReason.Contains("insufficient") || lowerReason.Contains("余额"))
         {
@@ -434,7 +434,7 @@ public class AnomalyDetectionSystem : IDisposable
     {
         AnomalyEvent[] recent = _recentAnomalies.ToArray();
         DateTime oneHourAgo = DateTime.UtcNow.AddHours(-1);
-        
+
         return new AnomalyStatistics
         {
             TotalAnomalies = Interlocked.Read(ref _totalAnomalies),

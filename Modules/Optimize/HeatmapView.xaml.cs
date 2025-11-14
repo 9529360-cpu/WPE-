@@ -1,10 +1,13 @@
+using System.Runtime.Versioning;
 using System.Windows.Controls;
 using ScottPlot;
+
 // using ScottPlot.Plottable; // removed for v5 migration compatibility
 // using ScottPlot.Colormaps; // removed to avoid type resolution issues
 
 namespace 币安量化机器人.Modules.Optimize
 {
+    [SupportedOSPlatform("windows")]
     public partial class HeatmapView : UserControl
     {
         public HeatmapView()

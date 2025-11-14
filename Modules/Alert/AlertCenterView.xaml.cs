@@ -1,9 +1,11 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using 币安量化机器人.Services;
 
 namespace 币安量化机器人.Modules.Alert;
 
@@ -27,8 +29,9 @@ public partial class AlertCenterView : UserControl
 
         // 初始化
         InitializePositionAlerts();
-        GenerateMockData();
-        UpdateStatistics();
+
+        // 异步加载真实通知数据
+        _ = LoadNotificationsAsync();
     }
 
     private void InitializePositionAlerts()
@@ -56,39 +59,42 @@ public partial class AlertCenterView : UserControl
         });
     }
 
-    private void GenerateMockData()
+    private async Task LoadNotificationsAsync()
     {
-        _priceAlerts.Add(new PriceAlertItem
+        try
         {
-            Symbol = "BTCUSDT",
-            Condition = "价格突破",
-            TriggerPrice = 50000,
-            CurrentPrice = 48500,
-            Distance = "+3.09%",
-            Status = "活跃",
-            CreateTime = DateTime.Now.AddHours(-2)
-        });
+            var cache = ServiceLocator.Cache;
+            if (cache != null)
+            {
+                var signals = await cache.LoadSignalsAsync(limit: 200);
+                foreach (var s in signals)
+                {
+                    _allNotifications.Add(new NotificationHistoryItem
+                    {
+                        Timestamp = s.Timestamp,
+                        NotificationType = s.Action,
+                        Level = "信息",
+                        Title = s.Symbol,
+                        Message = s.Reason ?? ""
+                    });
+                }
+            }
 
-        _allNotifications.Add(new NotificationHistoryItem
+            FilterNotifications();
+            UpdateStatistics();
+        }
+        catch (Exception ex)
         {
-            Timestamp = DateTime.Now.AddMinutes(-10),
-            NotificationType = "价格预警",
-            Level = "信息",
-            Title = "BTCUSDT价格变动",
-            Message = "当前价格48500,距离触发价50000还有3.09%"
-        });
-
-        FilterNotifications();
+            LogService.Error(ex, "[AlertCenterView] 加载通知失败");
+            MessageBox.Show("加载通知失败，请查看日志", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void UpdateStatistics()
     {
         ActiveAlertsText.Text = $"{_priceAlerts.Count(a => a.Status == "活跃")} 个";
 
-        int todayTriggered = _allNotifications.Count(n =>
-            n.Timestamp.Date == DateTime.Today &&
-            (n.NotificationType == "价格预警" || n.NotificationType == "持仓预警")
-        );
+        int todayTriggered = _allNotifications.Count(n => n.Timestamp.Date == DateTime.Today);
         TodayTriggeredText.Text = $"{todayTriggered} 次";
 
         NotificationMethodsText.Text = "系统通知";
@@ -104,7 +110,7 @@ public partial class AlertCenterView : UserControl
             filter = item.Content.ToString() ?? "全部";
         }
 
-        IEnumerable<NotificationHistoryItem> filtered = filter switch
+        var filtered = filter switch
         {
             "价格预警" => _allNotifications.Where(n => n.NotificationType == "价格预警"),
             "持仓预警" => _allNotifications.Where(n => n.NotificationType == "持仓预警"),
@@ -112,7 +118,7 @@ public partial class AlertCenterView : UserControl
             _ => _allNotifications
         };
 
-        foreach (NotificationHistoryItem? notification in filtered.OrderByDescending(n => n.Timestamp))
+        foreach (var notification in filtered.OrderByDescending(n => n.Timestamp))
         {
             _filteredNotifications.Add(notification);
         }
@@ -160,7 +166,7 @@ public partial class AlertCenterView : UserControl
         FilterNotifications();
     }
 
-    private void SendTestEmail_Click(object sender, RoutedEventArgs e)
+    private async void SendTestEmail_Click(object sender, RoutedEventArgs e)
     {
         string email = EmailAddressInput.Text;
         if (string.IsNullOrEmpty(email))
@@ -169,12 +175,35 @@ public partial class AlertCenterView : UserControl
             return;
         }
 
-        MessageBox.Show($"测试邮件已发送到 {email}", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+        try
+        {
+            var ns = ServiceLocator.Notification;
+            await ns.SendDingTalkAsync(email, "测试消息");
+            MessageBox.Show($"测试消息已发送到 {email}", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[AlertCenterView] 发送测试邮件失败");
+            MessageBox.Show($"发送失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
-    private void SendTestTelegram_Click(object sender, RoutedEventArgs e)
+    private async void SendTestTelegram_Click(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show("Telegram测试消息已发送", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+        try
+        {
+            var ns = ServiceLocator.Notification;
+            var settings = AppSettingsService.Current;
+            string bot = settings.TelegramBotToken ?? string.Empty;
+            string chat = settings.TelegramChatId ?? string.Empty;
+            await ns.SendTelegramAsync(bot, chat, "测试消息");
+            MessageBox.Show("Telegram测试消息已发送", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "[AlertCenterView] 发送测试 Telegram 失败");
+            MessageBox.Show($"发送失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 }
 
