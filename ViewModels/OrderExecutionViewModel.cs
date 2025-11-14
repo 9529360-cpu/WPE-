@@ -20,7 +20,11 @@ namespace 币安量化机器人.ViewModels
             _orderService = orderService;
             CancelOrderCommand = new RelayCommand<string>(async id => await CancelOrderAsync(id));
 
-            // 占位：添加一些测试数据
+            // 占位：加载所有待处理的订单
+            // 尝试初始化服务，以恢复未完成的订单
+            _ = _orderService.InitializeAsync();
+
+            // 测试数据
             Orders.Add(new Order { Id = "o1", Symbol = "BTCUSDT", Side = "BUY", Quantity = 0.01, Status = "NEW" });
             Orders.Add(new Order { Id = "o2", Symbol = "ETHUSDT", Side = "SELL", Quantity = 0.1, Status = "FILLED" });
         }

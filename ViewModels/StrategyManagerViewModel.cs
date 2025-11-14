@@ -32,14 +32,28 @@ namespace 币安量化机器人.ViewModels
             StopAllCommand = new RelayCommand(async () => await StopAllAsync());
             BacktestCommand = new RelayCommand(async () => await BacktestAsync());
 
-            // 占位：添加示例策略条目
-            Strategies.Add(new StrategyItem { Name = "ExampleStrategy", Status = "Stopped" });
+            RefreshStrategyList();
         }
 
-        private Task LoadStrategyAsync()
+        private void RefreshStrategyList()
         {
-            // TODO: 实现文件选择并调用 StrategyHost.LoadStrategyFromAssemblyAsync
-            return Task.CompletedTask;
+            Strategies.Clear();
+            var infos = _strategyHost?.GetStrategyInfos();
+            if (infos != null)
+            {
+                foreach (var i in infos)
+                {
+                    Strategies.Add(new StrategyItem { Name = i.Name, Status = i.Status });
+                }
+            }
+        }
+
+        private async Task LoadStrategyAsync()
+        {
+            // For now load ExampleStrategy from current assembly
+            var example = new Services.ExampleStrategy();
+            await _strategyHost.LoadStrategyAsync(example, App.ServiceProvider);
+            RefreshStrategyList();
         }
 
         private async Task StartAllAsync()
@@ -47,8 +61,7 @@ namespace 币安量化机器人.ViewModels
             if (_strategyHost != null)
             {
                 await _strategyHost.StartAllAsync(System.Threading.CancellationToken.None);
-                foreach (var s in Strategies) s.Status = "Running";
-                RaisePropertyChanged(nameof(Strategies));
+                RefreshStrategyList();
             }
         }
 
@@ -57,14 +70,13 @@ namespace 币安量化机器人.ViewModels
             if (_strategyHost != null)
             {
                 await _strategyHost.StopAllAsync();
-                foreach (var s in Strategies) s.Status = "Stopped";
-                RaisePropertyChanged(nameof(Strategies));
+                RefreshStrategyList();
             }
         }
 
         private Task BacktestAsync()
         {
-            // TODO: 启动回测流程（调用 Backtest 服务或模块）
+            // TODO: 启动回测流程（调用 Backtest service）
             return Task.CompletedTask;
         }
     }

@@ -136,7 +136,7 @@ namespace 币安量化机器人.Services
                 var check = await _riskManager.CheckOrderAsync(new OrderRequestEvent { Quantity = qty, Symbol = doc.GetProperty("Symbol").GetString(), Side = doc.GetProperty("Side").GetString() });
                 if (!check.Passed)
                 {
-                    // 拒单：发布告警或日志（TODO: 集成 Observability）
+                    Services.Observability.ObservabilityService.Instance.AddLog($"风控拒单: {check.Reason}");
                     return null;
                 }
             }

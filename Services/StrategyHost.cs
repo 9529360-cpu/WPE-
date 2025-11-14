@@ -77,5 +77,17 @@ namespace 币安量化机器人.Services
             }
             _strategies.Clear();
         }
+
+        // New helper to return simple strategy info for UI
+        public IReadOnlyList<(string Name, string Status)> GetStrategyInfos()
+        {
+            var list = new List<(string, string)>();
+            foreach (var s in _strategies)
+            {
+                // status is not tracked per strategy; default to "Loaded"
+                list.Add((s.Name, "Loaded"));
+            }
+            return list.AsReadOnly();
+        }
     }
 }
