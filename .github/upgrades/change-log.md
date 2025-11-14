@@ -94,3 +94,13 @@
   状态: `Done`
   提交: `local`
   备注: `无`
+
+- ID: `CHG-20251114-09`
+  日期: `2025-11-14`
+  任务关联: `U3, U4`
+  文件路径: `Services/Observability/ObservabilityService.cs`, `Modules/Observability/ObservabilityView.xaml`, `Modules/Observability/ObservabilityView.xaml.cs`, `ViewModels/MainWindowViewModel.cs`
+  类型: `新增`
+  目的: `增加内存日志缓冲与导出功能；添加 Observability 面板并将行情接收记录到日志。`
+  状态: `Done`
+  提交: `local`
+  备注: `无`

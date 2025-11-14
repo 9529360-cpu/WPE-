@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using 币安量化机器人.Models;
 using 币安量化机器人.Services;
 using System;
+using System.Windows.Input;
 
 namespace 币安量化机器人.ViewModels
 {
@@ -31,6 +32,9 @@ namespace 币安量化机器人.ViewModels
                 MarketStatus = _marketDataService.IsConnected ? "已连接" : "已断开";
                 RaisePropertyChanged(nameof(LastTick));
                 RaisePropertyChanged(nameof(MarketStatus));
+
+                // 记录到 Observability
+                Services.Observability.ObservabilityService.Instance.AddLog($"接收行情: {m.ReceivedAt:HH:mm:ss}");
             });
         }
     }

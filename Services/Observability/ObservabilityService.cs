@@ -1,5 +1,8 @@
 using System;
-using System.Diagnostics;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace 币安量化机器人.Services.Observability;
@@ -19,11 +22,14 @@ public class ObservabilityService : IDisposable
     private readonly StructuredLogger _logger;
     private readonly MetricsCollector _metrics;
     private readonly AlertManager _alerts;
+    private readonly ConcurrentQueue<string> _logs = new ConcurrentQueue<string>();
+    private readonly int _maxBuffer = 1000;
     /// <summary>
     /// Event forwarded when an alert is raised. UI and other components should subscribe to this
     /// to receive real-time alerts without accessing internal AlertManager.
     /// </summary>
     public event Action<AlertEvent>? AlertRaised;
+    public event Action<string> LogAppended;
 
     public ObservabilityService(string loggerName = "System")
     {
@@ -34,9 +40,9 @@ public class ObservabilityService : IDisposable
         // Ensure logs directory exists under application base directory so runtime will always write logs there
         try
         {
-            string logsDir = Path.Combine(AppContext.BaseDirectory, "Logs");
+            string logsDir = System.IO.Path.Combine(AppContext.BaseDirectory, "Logs");
             Directory.CreateDirectory(logsDir);
-            string logFile = Path.Combine(logsDir, $"{DateTime.Now:yyyy-MM-dd}.log");
+            string logFile = System.IO.Path.Combine(logsDir, $"{DateTime.Now:yyyy-MM-dd}.log");
             _logger.AddOutput(new FileLogOutput(logFile, useJson: true));
             _logger.Info("ObservabilityService initialized. Log file: {LogFile}", logFile);
         }
@@ -256,6 +262,55 @@ public class ObservabilityService : IDisposable
             {
                 LogService.Error(ex, "BinanceNotifier 发送告警失败");
             }
+        }
+    }
+}
+
+/// <summary>
+/// 轻量可观测性服务：内存日志缓冲、事件通知、导出到文件。
+/// 单例模式供应用内任意处记录结构化字符串日志。
+/// </summary>
+public class ObservabilityService
+{
+    private readonly ConcurrentQueue<string> _logs = new ConcurrentQueue<string>();
+    private readonly int _maxBuffer = 1000;
+
+    public static ObservabilityService Instance { get; } = new ObservabilityService();
+
+    public event Action<string> LogAppended;
+
+    private ObservabilityService() { }
+
+    public void AddLog(string message)
+    {
+        var entry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}";
+        _logs.Enqueue(entry);
+        while (_logs.Count > _maxBuffer && _logs.TryDequeue(out _)) { }
+        try { LogAppended?.Invoke(entry); } catch { }
+    }
+
+    public IEnumerable<string> GetRecentLogs(int max = 200)
+    {
+        return _logs.Reverse().Take(max);
+    }
+
+    public string ExportToFile(string filePath = null)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(filePath))
+            {
+                var dir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+                System.IO.Directory.CreateDirectory(dir);
+                filePath = System.IO.Path.Combine(dir, $"logs_{DateTime.Now:yyyyMMdd_HHmmss}.log");
+            }
+
+            System.IO.File.WriteAllLines(filePath, GetRecentLogs().Reverse());
+            return filePath;
+        }
+        catch
+        {
+            return null;
         }
     }
 }
