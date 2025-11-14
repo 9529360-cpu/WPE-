@@ -81,38 +81,18 @@
                     <TextBlock Text="核心功能" FontWeight="Bold" FontSize="16" Margin="0,0,0,12"/>
 
                     <!-- Navigation bound list -->
-                    <ItemsControl x:Name="NavItemsControl" ItemsSource="{Binding NavItems}">
-                        <ItemsControl.ItemTemplate>
+                    <ListBox x:Name="NavList" ItemsSource="{Binding NavItems}" SelectedValuePath="Tag" SelectionChanged="NavList_SelectionChanged">
+                        <ListBox.ItemTemplate>
                             <DataTemplate DataType="{x:Type models:NavMenuItem}">
-                                <Button Tag="{Binding Tag}" Height="44" Margin="0,4,0,0" Click="NavButton_Click">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Grid Width="20" Height="20" VerticalAlignment="Center">
-                                            <ctrl:Icon Geometry="{Binding GeometryData}" Fill="{Binding Icon, FallbackValue={StaticResource IconDashboard}}" Width="20" Height="20"/>
-                                        </Grid>
-                                        <TextBlock Style="{StaticResource NavLabelStyle}" Text="{Binding Title}" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                                    </StackPanel>
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsChecked, ElementName=NavCollapseToggle}" Value="True">
-                                                    <Setter Property="Template" Value="{StaticResource CondensedNavButton}"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <Grid Width="20" Height="20" VerticalAlignment="Center">
+                                        <ctrl:Icon Geometry="{Binding GeometryData}" Fill="{Binding Icon, FallbackValue={StaticResource IconDashboard}}" Width="20" Height="20"/>
+                                    </Grid>
+                                    <TextBlock Style="{StaticResource NavLabelStyle}" Text="{Binding Title}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                </StackPanel>
                             </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                        <ItemsControl.GroupStyle>
-                            <GroupStyle>
-                                <GroupStyle.HeaderTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,12,0,6"/>
-                                    </DataTemplate>
-                                </GroupStyle.HeaderTemplate>
-                            </GroupStyle>
-                        </ItemsControl.GroupStyle>
-                    </ItemsControl>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
 
                     <Separator Margin="0,8,0,12"/>
 
