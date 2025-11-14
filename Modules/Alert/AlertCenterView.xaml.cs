@@ -210,15 +210,48 @@ public partial class AlertCenterView : UserControl
 
     private void RealtimeToggle_Changed(object sender, RoutedEventArgs e)
     {
-        bool on = RealtimeToggle.IsChecked == true;
-        if (!on)
+        try
         {
-            PendingBadge.Visibility = System.Windows.Visibility.Collapsed;
+            // Determine new toggle state using sender if possible to avoid depending on named control being non-null
+            bool on = false;
+            if (sender is System.Windows.Controls.Primitives.ToggleButton tb)
+            {
+                on = tb.IsChecked == true;
+            }
+            else
+            {
+                on = RealtimeToggle?.IsChecked == true;
+            }
+
+            int pendingCount = 0;
+            if (_allNotifications != null)
+            {
+                pendingCount = _allNotifications.Count(n => !n.IsResolved);
+            }
+
+            if (!on)
+            {
+                if (PendingBadge != null)
+                {
+                    PendingBadge.Visibility = System.Windows.Visibility.Collapsed;
+                }
+            }
+            else
+            {
+                if (PendingCountText != null)
+                {
+                    PendingCountText.Text = pendingCount.ToString();
+                }
+
+                if (PendingBadge != null)
+                {
+                    PendingBadge.Visibility = pendingCount > 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+                }
+            }
         }
-        else
+        catch (Exception ex)
         {
-            PendingCountText.Text = (_allNotifications.Count(n => !n.IsResolved)).ToString();
-            PendingBadge.Visibility = _allNotifications.Any(n => !n.IsResolved) ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+            LogService.Error(ex, "[AlertCenterView] RealtimeToggle_Changed error");
         }
     }
 
