@@ -31,6 +31,14 @@
             <DockPanel LastChildFill="True">
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
                     <TextBlock Text="Alpha Arena 智能量化终端" Foreground="White" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+                    <!-- 快捷操作按钮 -->
+                    <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
+                        <Button Content="策略" Margin="6,0,0,0" Click="QuickStrategy_Click" Style="{StaticResource SecondaryButton}"/>
+                        <Button Content="委托" Margin="6,0,0,0" Click="QuickOrders_Click" Style="{StaticResource SecondaryButton}"/>
+                        <Button Content="回测" Margin="6,0,0,0" Click="QuickBacktest_Click" Style="{StaticResource SecondaryButton}"/>
+                        <Button Content="日志" Margin="6,0,0,0" Click="QuickLogs_Click" Style="{StaticResource SecondaryButton}"/>
+                        <Button Content="告警" Margin="6,0,0,0" Click="QuickAlerts_Click" Style="{StaticResource SecondaryButton}"/>
+                    </StackPanel>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <!-- Collapse nav -->

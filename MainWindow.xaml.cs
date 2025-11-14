@@ -444,5 +444,35 @@ namespace 币安量化机器人
                     break;
             }
         }
+
+        private void QuickStrategy_Click(object sender, RoutedEventArgs e)
+        {
+            MainContentHost.Children.Clear();
+            MainContentHost.Children.Add(new Modules.Strategy.StrategyManagerView());
+        }
+
+        private void QuickOrders_Click(object sender, RoutedEventArgs e)
+        {
+            MainContentHost.Children.Clear();
+            MainContentHost.Children.Add(new Controls.OrderExecutionControl());
+        }
+
+        private void QuickBacktest_Click(object sender, RoutedEventArgs e)
+        {
+            MainContentHost.Children.Clear();
+            MainContentHost.Children.Add(new Modules.Backtest.BacktestView());
+        }
+
+        private void QuickLogs_Click(object sender, RoutedEventArgs e)
+        {
+            MainContentHost.Children.Clear();
+            MainContentHost.Children.Add(new Modules.Observability.ObservabilityView());
+        }
+
+        private void QuickAlerts_Click(object sender, RoutedEventArgs e)
+        {
+            MainContentHost.Children.Clear();
+            MainContentHost.Children.Add(new Modules.Alert.AlertCenterView());
+        }
     }
 }
