@@ -74,3 +74,13 @@
   状态: `Done`
   提交: `branch: upgrade-to-NET10, commit: 8f3f164 (本地提交)`
   备注: `LiteDB 作为轻量嵌入式存储；后续需完善持久化数据结构与事务保证。`
+
+- ID: `CHG-20251114-07`
+  日期: `2025-11-14`
+  任务关联: `A5`
+  文件路径: `Core/IRiskManager.cs`, `Services/RiskManager.cs`, `Services/OrderExecutionService.cs`
+  类型: `新增/修改`
+  目的: `添加简单风控实现并在 OrderExecutionService 中集成风控检查，后续需将风控规则持久化并接入 UI。`
+  状态: `Done`
+  提交: `branch: upgrade-to-NET10, commit: <待推送>`
+  备注: `风控规则当前为内存配置，后续需持久化并添加告警/审计。`

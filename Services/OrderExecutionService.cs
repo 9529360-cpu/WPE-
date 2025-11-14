@@ -11,21 +11,24 @@ namespace 币安量化机器人.Services
     /// <summary>
     /// 下单服务：实现幂等ID处理、简单重试机制，并订阅 OrderRequestEvent。
     /// 增加对 IRepository 的持久化支持，将未完成订单写入仓库，并在后台恢复与处理。
+    /// 集成简单风控检查，在下单前调用 IRiskManager。
     /// </summary>
     public class OrderExecutionService : IOrderExecutionService, IDisposable
     {
         private readonly ConcurrentDictionary<string, object> _orders = new ConcurrentDictionary<string, object>();
         private readonly IEventBus _eventBus;
         private readonly IRepository _repository;
+        private readonly IRiskManager _riskManager;
 
         private readonly ConcurrentQueue<(string OrderId, string Payload)> _processingQueue = new ConcurrentQueue<(string, string)>();
         private CancellationTokenSource _processingCts;
         private Task _processingTask;
 
-        public OrderExecutionService(IEventBus eventBus, IRepository repository)
+        public OrderExecutionService(IEventBus eventBus, IRepository repository, IRiskManager riskManager)
         {
             _eventBus = eventBus;
             _repository = repository;
+            _riskManager = riskManager;
             _eventBus.Subscribe<OrderRequestEvent>(async req => await HandleOrderRequestAsync(req));
         }
 
@@ -117,31 +120,47 @@ namespace 币安量化机器人.Services
             }
         }
 
-        public Task<string> PlaceOrderAsync(object order)
+        public async Task<string> PlaceOrderAsync(object order)
         {
             // 生成占位订单ID
             var id = Guid.NewGuid().ToString("N");
+
+            // 在实际下单前执行风控检查（如有）
+            if (_riskManager != null)
+            {
+                // 假设 order 为匿名对象 { Symbol, Side, Quantity }
+                var json = JsonSerializer.Serialize(order);
+                var doc = JsonSerializer.Deserialize<JsonElement>(json);
+                double qty = doc.GetProperty("Quantity").GetDouble();
+
+                var check = await _riskManager.CheckOrderAsync(new OrderRequestEvent { Quantity = qty, Symbol = doc.GetProperty("Symbol").GetString(), Side = doc.GetProperty("Side").GetString() });
+                if (!check.Passed)
+                {
+                    // 拒单：发布告警或日志（TODO: 集成 Observability）
+                    return null;
+                }
+            }
+
             _orders[id] = order;
 
             // 序列化订单 payload 简单存储
             var payload = JsonSerializer.Serialize(order);
             // 持久化未完成订单
-            _repository.SavePendingOrderAsync(id, payload);
+            await _repository.SavePendingOrderAsync(id, payload);
 
             // 将订单加入处理队列，由后台处理器完成实际执行
             _processingQueue.Enqueue((id, payload));
 
             // 立即发布一个本地事件表示已接收下单请求（注意：非交易所已成交事件）
             _eventBus.Publish(new OrderPlacedEvent { OrderId = id });
-            return Task.FromResult(id);
+            return id;
         }
 
-        public Task CancelOrderAsync(string orderId)
+        public async Task CancelOrderAsync(string orderId)
         {
             _orders.TryRemove(orderId, out _);
-            _repository.RemovePendingOrderAsync(orderId);
+            await _repository.RemovePendingOrderAsync(orderId);
             _eventBus.Publish(new OrderCancelledEvent { OrderId = orderId });
-            return Task.CompletedTask;
         }
 
         private async Task HandleOrderRequestAsync(OrderRequestEvent req)
@@ -167,7 +186,7 @@ namespace 币安量化机器人.Services
                 }
             }
 
-            // 将请求转为内部下单并入队列处理
+            // 将请求转为内部下单并入队处理
             await PlaceOrderAsync(new { Symbol = req.Symbol, Side = req.Side, Quantity = req.Quantity });
         }
 

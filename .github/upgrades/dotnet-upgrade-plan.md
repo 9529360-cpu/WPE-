@@ -240,9 +240,9 @@ This section captures the project's folder layout, important files and the high-
   - 验收标准：服务重启后能从 DB 恢复未完成订单并继续处理；关键事件有持久化记录。
 
 - A5: 风控服务（优先级：高）
-  - 子任务 A5.1: 定义 `RiskManager` 接口与基本规则（最大持仓、单笔限额、日损阈值）（预计：0.5d）
-  - 子任务 A5.2: 在 OrderExecutionService 下单前执行风控检查（预计：0.5d）
-  - 验收标准：不满足规则的下单请求被拒绝并产生日志/告警。
+  - 子任务 A5.1: 定义 `RiskManager` 接口与基本规则（最大持仓、单笔限额、日损阈值）（已完成）
+  - 子任务 A5.2: 在 `OrderExecutionService` 下单前执行风控检查（已完成）
+  - 验收标准：不满足规则的下单请求被拒绝并产生日志/告警（部分完成，后续需集成 Observability 与 UI 界面）
 
 - A6: 策略宿主与插件（优先级：中）
   - 子任务 A6.1: 定义 `IStrategy` 接口（Init, OnMarketData, OnOrderUpdate, Dispose）（预计：0.5d）
