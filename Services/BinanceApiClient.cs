@@ -188,8 +188,20 @@ public class BinanceApiClient : IDisposable
         string raw = await SendPublicAsync<string>(HttpMethod.Get, "/fapi/v1/klines", query, cancellationToken).ConfigureAwait(false);
         using var doc = JsonDocument.Parse(raw);
         return doc.RootElement.EnumerateArray()
-            .Select(k => decimal.Parse(k[4].GetString()!, CultureInfo.InvariantCulture))
+            .Select(k => ParseDecimalElement(k[4]))
             .ToArray();
+    }
+
+    private static decimal ParseDecimalElement(JsonElement element)
+    {
+        try
+        {
+            return element.ValueKind == JsonValueKind.Number ? element.GetDecimal() : decimal.Parse(element.GetString() ?? "0", CultureInfo.InvariantCulture);
+        }
+        catch
+        {
+            return 0m;
+        }
     }
 
     /// <summary>
@@ -207,7 +219,7 @@ public class BinanceApiClient : IDisposable
         string raw = await SendPublicAsync<string>(HttpMethod.Get, "/fapi/v1/klines", query, cancellationToken).ConfigureAwait(false);
         using var doc = JsonDocument.Parse(raw);
         return doc.RootElement.EnumerateArray()
-            .Select(k => decimal.Parse(k[2].GetString()!, CultureInfo.InvariantCulture)) // 索引2是High
+            .Select(k => ParseDecimalElement(k[2])) // 索引2是High
             .ToArray();
     }
 
@@ -226,7 +238,7 @@ public class BinanceApiClient : IDisposable
         string raw = await SendPublicAsync<string>(HttpMethod.Get, "/fapi/v1/klines", query, cancellationToken).ConfigureAwait(false);
         using var doc = JsonDocument.Parse(raw);
         return doc.RootElement.EnumerateArray()
-            .Select(k => decimal.Parse(k[3].GetString()!, CultureInfo.InvariantCulture)) // 索引3是Low
+            .Select(k => ParseDecimalElement(k[3])) // 索引3是Low
             .ToArray();
     }
 
@@ -245,7 +257,7 @@ public class BinanceApiClient : IDisposable
         string raw = await SendPublicAsync<string>(HttpMethod.Get, "/fapi/v1/klines", query, cancellationToken).ConfigureAwait(false);
         using var doc = JsonDocument.Parse(raw);
         return doc.RootElement.EnumerateArray()
-            .Select(k => decimal.Parse(k[5].GetString()!, CultureInfo.InvariantCulture)) // 索引5是Volume
+            .Select(k => ParseDecimalElement(k[5])) // 索引5是Volume
             .ToArray();
     }
 
