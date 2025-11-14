@@ -112,10 +112,18 @@ namespace 币安量化机器人
                     services.AddSingleton<PerformanceOptimizationService>();
 
                     // AI 与策略相关（具体实现类）
-                    services.AddSingleton<AIStrategySuggestionService>();
-                    services.AddSingleton<AIStrategyGenerator>();
-                    services.AddSingleton<AICentralCoordinator>();
-                    services.AddSingleton<WorkflowEngine>();
+                    if (OperatingSystem.IsWindows())
+                    {
+                        services.AddSingleton<AIStrategySuggestionService>();
+                        services.AddSingleton<AIStrategyGenerator>();
+                        services.AddSingleton<AICentralCoordinator>();
+                        services.AddSingleton<WorkflowEngine>();
+                    }
+                    else
+                    {
+                        // Register lightweight stubs or skip heavy AI services on non-Windows environments
+                        services.AddSingleton<WorkflowEngine>();
+                    }
 
                     // 交易网关（接口实现）
                     services.AddSingleton<ITradeGate, GlobalTradeGate>();

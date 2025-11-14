@@ -15,7 +15,7 @@ public partial class TradeView : UserControl
 {
     private readonly ObservableCollection<OrderRequest> _batchOrders = new();
     private readonly BinanceApiClient _api = ServiceLocator.Api;
-    private CancellationTokenSource? _cts;
+    private CancellationTokenSource _cts = new();
 
     public TradeView()
     {
@@ -28,7 +28,7 @@ public partial class TradeView : UserControl
         TypeBox.SelectedIndex = 0;
         TifBox.SelectedIndex = 0;
 
-        // 异步加载合约
+        // 异步加载合约（安全的 fire-and-forget，内部已处理异常）
         _ = LoadSymbolsAsync(CancellationToken.None);
     }
 
@@ -41,7 +41,7 @@ public partial class TradeView : UserControl
             var api = ServiceLocator.Api;
             if (api != null)
             {
-                var tickers = await api.GetMiniTickersAsync(null, ct);
+                var tickers = await api.GetMiniTickersAsync(null, ct).ConfigureAwait(false);
                 if (tickers != null && tickers.Count > 0)
                 {
                     foreach (dynamic t in tickers)
@@ -342,12 +342,18 @@ public partial class TradeView : UserControl
 
     public async Task StartAsync()
     {
-        await LoadSymbolsAsync(CancellationToken.None);
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        await LoadSymbolsAsync(_cts.Token).ConfigureAwait(false);
     }
 
     public Task StopAsync()
     {
-        _cts?.Cancel();
+        try
+        {
+            _cts?.Cancel();
+        }
+        catch { }
         return Task.CompletedTask;
     }
 }

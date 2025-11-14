@@ -138,7 +138,7 @@ public class ObservabilityService : IDisposable
         return _logs.Reverse().Take(max);
     }
 
-    public string ExportToFile(string filePath = null)
+    public string? ExportToFile(string? filePath = null)
     {
         try
         {
@@ -219,7 +219,7 @@ public class ObservabilityService : IDisposable
                 break;
         }
 
-        // forward
-        TriggerAlert(ev.RuleName, coreSev, ev.Message);
+        // forward explicitly (avoid unawaited task warning)
+        _ = TriggerAlert(ev.RuleName, coreSev, ev.Message); // intentionally fire-and-forget (forwarding compatibility)
     }
 }

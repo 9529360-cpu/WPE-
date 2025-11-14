@@ -26,7 +26,9 @@ namespace 币安量化机器人.Services
         }
 
         // Core.Risk.IRiskManager implementation
-        public event EventHandler<global::币安量化机器人.Core.Risk.RiskEvent>? RiskTriggered;
+        #pragma warning disable CS0067
+                public event EventHandler<global::币安量化机器人.Core.Risk.RiskEvent>? RiskTriggered; // reserved for subscribers
+        #pragma warning restore CS0067
 
         // Add explicit properties to RiskProfile mapping so Service assignment compiles
         public global::币安量化机器人.Core.Risk.RiskProfile CurrentProfile { get; private set; } = new global::币安量化机器人.Core.Risk.RiskProfile();

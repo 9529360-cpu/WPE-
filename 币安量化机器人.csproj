@@ -13,7 +13,7 @@
 		<!-- Prevent SDK from emitting TargetFrameworkAttribute (duplicate when WPF temp project also emits it) -->
 		<GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
 		<!-- Suppress raw string literal indentation compiler error when mixed content exists in legacy files -->
-		<NoWarn>8999</NoWarn>
+		<NoWarn>8999;CS0067;CS0414;CS1998;CS0649</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -43,9 +43,6 @@
       <PackageReference Include="Serilog.Extensions.Logging" Version="9.0.2" />
       <PackageReference Include="Polly" Version="8.6.4" />
 	<PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
-      <!-- 可选：SourceLink（如果你需要）
-  <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
-  -->
     </ItemGroup>
 
     <ItemGroup>

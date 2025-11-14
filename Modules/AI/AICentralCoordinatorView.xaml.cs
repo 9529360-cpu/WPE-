@@ -9,12 +9,14 @@ using System.Windows.Threading;
 using 币安量化机器人.Modules;
 using 币安量化机器人.Services;
 using 币安量化机器人.Services.AI;
+using System.Runtime.Versioning;
 
 namespace 币安量化机器人.Modules.AI
 {
     /// <summary>
     /// 中央AI协调器视图
     /// </summary>
+    [SupportedOSPlatform("windows")]
     public partial class AICentralCoordinatorView : UserControl, IModuleLifecycle
     {
         private readonly AICentralCoordinator _coordinator;

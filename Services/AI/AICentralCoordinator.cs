@@ -12,8 +12,11 @@ using 币安量化机器人.Services.Observability;  // 🆕 Phase 4: 可观测�
 using 币安量化机器人.Services.Performance;
 using 币安量化机器人.Services.Resilience;
 
+using System.Runtime.Versioning;
+
 namespace 币安量化机器人.Services.AI;
 
+[SupportedOSPlatform("windows")]
 public class AICentralCoordinator : IDisposable
 {
     private readonly StateManager _stateManager;
@@ -68,18 +71,19 @@ public class AICentralCoordinator : IDisposable
         BinanceApiClient apiClient,
         DataCacheService cacheService)
     {
-        _backtestEngine = backtestEngine;
-        _tradingAutomation = tradingAutomation;
-        _accountManager = accountManager;
-        _positionManager = positionManager;
-        _apiClient = apiClient;
-        _cacheService = cacheService;
+        // Validate required dependencies early to avoid nullability warnings at call sites
+        _backtestEngine = backtestEngine ?? throw new ArgumentNullException(nameof(backtestEngine));
+        _tradingAutomation = tradingAutomation ?? throw new ArgumentNullException(nameof(tradingAutomation));
+        _accountManager = accountManager ?? throw new ArgumentNullException(nameof(accountManager));
+        _positionManager = positionManager ?? throw new ArgumentNullException(nameof(positionManager));
+        _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
+        _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
 
         // 初始化核心组件
         _stateManager = new StateManager();
         _eventBus = new EventBus();
         _resourceManager = new ResourceManager();
-        _learningModule = new LearningModule(cacheService);
+        _learningModule = new LearningModule(_cacheService);
         _decisionEngine = new DecisionEngine(_learningModule, _stateManager);
         _workflowOrchestrator = new WorkflowOrchestrator(
             _stateManager,
@@ -323,8 +327,9 @@ public class AICentralCoordinator : IDisposable
                         "MainControlLoopIteration",
                         async () =>
                         {
-                            // 使用性能监控记录操作
-                            using (_performanceService.RecordOperation("MainControlLoop"))
+                            // 使用性能监控记录操作（防御式以避免 null 引发的分析器警告）
+                            var __perfScope = _performanceService?.RecordOperation("MainControlLoop");
+                            try
                             {
                                 // 1. 收集全系统状态
                                 var systemState = await CollectSystemStateWithObservabilityAsync(ct).ConfigureAwait(false);
@@ -373,6 +378,10 @@ public class AICentralCoordinator : IDisposable
 
                                 // 8. 定期清理
                                 _workflowEngine.CleanupHistory(100);
+                            }
+                            finally
+                            {
+                                try { __perfScope?.Dispose(); } catch { }
                             }
 
                             return true; // 成功完成一次循环

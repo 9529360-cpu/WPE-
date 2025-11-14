@@ -6,8 +6,11 @@ using System.Windows.Controls;
 using 币安量化机器人.Services;
 using 币安量化机器人.Services.Performance;
 
+using System.Runtime.Versioning;
+
 namespace 币安量化机器人.Modules.Diagnostics;
 
+[SupportedOSPlatform("windows")]
 public partial class DiagnosticsView : UserControl
 {
     private readonly DateTime _startTime = DateTime.Now;

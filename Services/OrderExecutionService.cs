@@ -21,8 +21,8 @@ namespace 币安量化机器人.Services
         private readonly IRiskManager _riskManager;
 
         private readonly ConcurrentQueue<(string OrderId, string Payload)> _processingQueue = new ConcurrentQueue<(string, string)>();
-        private CancellationTokenSource _processingCts;
-        private Task _processingTask;
+        private CancellationTokenSource? _processingCts;
+        private Task? _processingTask;
 
         public OrderExecutionService(IEventBus eventBus, IRepository repository, IRiskManager riskManager)
         {
@@ -144,7 +144,7 @@ namespace 币安量化机器人.Services
                 if (!check.Passed)
                 {
                     Services.Observability.ObservabilityService.Instance.LogInfo($"风控拒单: {check.Reason}");
-                    return null;
+                    return string.Empty; // rejected by risk manager
                 }
             }
 

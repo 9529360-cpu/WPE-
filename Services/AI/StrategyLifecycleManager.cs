@@ -65,6 +65,14 @@ public sealed class StrategyLifecycleManager
             return;
         }
 
+        // ensure backtest and factory are available before performing replacements
+        var backtestEngine = ServiceLocator.EnhancedBacktest;
+        var strategyFactory = ServiceLocator.StrategyFactory;
+        if (backtestEngine == null || strategyFactory == null)
+        {
+            LogService.Warning("[StrategyLifecycle] EnhancedBacktest or StrategyFactory not available, skipping replacements");
+        }
+
         foreach (var inst in running.ToList())
         {
             ct.ThrowIfCancellationRequested();
@@ -91,12 +99,18 @@ public sealed class StrategyLifecycleManager
 
                 candidate.AccountType = inst.AccountType;
 
+                if (backtestEngine == null || strategyFactory == null)
+                {
+                    LogService.Warning("[StrategyLifecycle] 无法执行回测/部署，因为运行时组件缺失");
+                    continue;
+                }
+
                 // 回测最近14天
                 DateTime end = DateTime.UtcNow;
                 DateTime start = end.AddDays(-14);
-                var strat = ServiceLocator.StrategyFactory.CreateFromInstance(candidate);
+                var strat = strategyFactory.CreateFromInstance(candidate);
                 var req = new BacktestRequest(symbol, start, end, strat);
-                var res = await ServiceLocator.EnhancedBacktest.RunAsync(req, ct).ConfigureAwait(false);
+                var res = await backtestEngine.RunAsync(req, ct).ConfigureAwait(false);
 
                 if (res == null)
                 {

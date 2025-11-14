@@ -506,6 +506,12 @@ public class DecisionFactorLibrary
     {
         var scores = new Dictionary<string, decimal>();
 
+        if (data == null)
+        {
+            LogService.Warning("[DecisionFactorLibrary] CalculateAllFactors called with null MarketData");
+            return scores;
+        }
+
         foreach (KeyValuePair<string, DecisionFactor> kvp in _factors)
         {
             try
