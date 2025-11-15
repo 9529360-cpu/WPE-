@@ -30,6 +30,24 @@ public partial class TradeView : UserControl
 
         // 异步加载合约（安全的 fire-and-forget，内部已处理异常）
         _ = LoadSymbolsAsync(CancellationToken.None);
+
+        // 订阅全局运行状态
+        Services.RuntimeState.IsRunningChanged += RuntimeState_IsRunningChanged;
+        this.Unloaded += TradeView_Unloaded;
+    }
+
+    private void TradeView_Unloaded(object? sender, RoutedEventArgs e)
+    {
+        Services.RuntimeState.IsRunningChanged -= RuntimeState_IsRunningChanged;
+    }
+
+    private void RuntimeState_IsRunningChanged(object? sender, EventArgs e)
+    {
+        // TradeView does not automatically start background tasks, but could respond to state
+        Dispatcher.InvokeAsync(() =>
+        {
+            StatusText.Text = Services.RuntimeState.IsRunning ? "状态：系统运行中" : "状态：系统已停止";
+        });
     }
 
     private async Task LoadSymbolsAsync(CancellationToken ct)
@@ -143,11 +161,19 @@ public partial class TradeView : UserControl
     private static void ValidateRequest(OrderRequest request)
     {
         if (string.IsNullOrEmpty(request.Symbol))
+        {
             throw new InvalidOperationException("Symbol is required");
+        }
+
         if (request.Quantity <= 0)
+        {
             throw new InvalidOperationException("Quantity must be > 0");
+        }
+
         if (request.Type != OrderType.Market && request.Price <= 0)
+        {
             throw new InvalidOperationException("Price must be set for non-market orders");
+        }
     }
 
     private async void SubmitOrder_Click(object sender, RoutedEventArgs e)

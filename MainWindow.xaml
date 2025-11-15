@@ -33,16 +33,19 @@
                     <TextBlock Text="Alpha Arena 智能量化终端" Foreground="White" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
                     <!-- 快捷操作按钮 -->
                     <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
-                        <Button Content="策略" Margin="6,0,0,0" Click="QuickStrategy_Click" Style="{StaticResource SecondaryButton}"/>
-                        <Button Content="委托" Margin="6,0,0,0" Click="QuickOrders_Click" Style="{StaticResource SecondaryButton}"/>
-                        <Button Content="回测" Margin="6,0,0,0" Click="QuickBacktest_Click" Style="{StaticResource SecondaryButton}"/>
-                        <Button Content="日志" Margin="6,0,0,0" Click="QuickLogs_Click" Style="{StaticResource SecondaryButton}"/>
-                        <Button Content="告警" Margin="6,0,0,0" Click="QuickAlerts_Click" Style="{StaticResource SecondaryButton}"/>
+                        <Button Content="策略" Margin="6,0,0,0" Click="QuickStrategy_Click"/>
+                        <Button Content="委托" Margin="6,0,0,0" Click="QuickOrders_Click"/>
+                        <Button Content="回测" Margin="6,0,0,0" Click="QuickBacktest_Click"/>
+                        <Button Content="日志" Margin="6,0,0,0" Click="QuickLogs_Click"/>
+                        <Button Content="告警" Margin="6,0,0,0" Click="QuickAlerts_Click"/>
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <!-- Collapse nav -->
                     <ToggleButton x:Name="NavCollapseToggle" Width="36" Height="28" Margin="0,0,8,0" Click="NavCollapseToggle_Click">≡</ToggleButton>
+                    <!-- Start/Stop application -->
+                    <ToggleButton x:Name="StartToggle" Width="88" Height="28" Margin="0,0,8,0"
+                                  Checked="StartToggle_Checked" Unchecked="StartToggle_Unchecked">启动</ToggleButton>
                     <TextBlock Text="💎 专业版" Foreground="{StaticResource WarningBrush}" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,16,0"/>
                     <Button Content="帮助" Margin="0,0,0,0" Height="28" MinWidth="72"/>
                 </StackPanel>
@@ -105,10 +108,10 @@
                     <Separator Margin="0,8,0,12"/>
 
                     <!-- 提示信息 -->
-                    <Border Background="#DBEAFE" CornerRadius="6" Padding="12,10" Margin="0,8,0,0">
+                    <Border Background="{StaticResource InfoBackgroundBrush}" CornerRadius="6" Padding="12,10" Margin="0,8,0,0">
                         <StackPanel>
-                            <TextBlock Text="💡 使用提示" FontWeight="Bold" FontSize="12" Foreground="#1E40AF" Margin="0,0,0,6"/>
-                            <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#1E3A8A" LineHeight="16">
+                            <TextBlock Text="💡 使用提示" FontWeight="Bold" FontSize="12" Foreground="{StaticResource InfoPrimaryBrush}" Margin="0,0,0,6"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource InfoSecondaryBrush}" LineHeight="16">
                                 • 仪表盘已集成日常交易所需的所有核心功能
                                 <LineBreak/>
                                 • 点击仪表盘内的Tab标签页快速切换子模块

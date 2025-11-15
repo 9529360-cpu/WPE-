@@ -302,8 +302,8 @@ public class BinanceApiClient : IDisposable
     private async Task<T> SendPublicAsync<T>(HttpMethod method, string path, IDictionary<string, string?>? query, CancellationToken cancellationToken)
     {
         await _rateLimiter.WaitForRestApiAsync(weight: 1, cancellationToken);
-        var request = new HttpRequestMessage(method, BuildUri(path, query));
-        return await SendWithResilienceAsync<T>(request, path, cancellationToken).ConfigureAwait(false);
+        Func<HttpRequestMessage> reqFactory = () => new HttpRequestMessage(method, BuildUri(path, query));
+        return await SendWithResilienceAsync<T>(reqFactory, path, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<T> SendSignedAsync<T>(HttpMethod method, string path, IDictionary<string, string?>? query, CancellationToken cancellationToken)
@@ -325,20 +325,28 @@ public class BinanceApiClient : IDisposable
             await _rateLimiter.WaitForRestApiAsync(weight: 1, cancellationToken);
         }
 
-        var request = new HttpRequestMessage(method, BuildUri(path, query));
-        request.Headers.Add("X-MBX-APIKEY", _apiKey);
-        return await SendWithResilienceAsync<T>(request, path, cancellationToken).ConfigureAwait(false);
+        Func<HttpRequestMessage> reqFactory = () =>
+        {
+            var request = new HttpRequestMessage(method, BuildUri(path, query));
+            if (!string.IsNullOrEmpty(_apiKey))
+            {
+                request.Headers.Add("X-MBX-APIKEY", _apiKey);
+            }
+            return request;
+        };
+
+        return await SendWithResilienceAsync<T>(reqFactory, path, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
     /// 使用 ResilienceService 执行 HTTP 请求并根据状态码抛出异常以触发重试/熔断
     /// </summary>
-    private async Task<T> SendWithResilienceAsync<T>(HttpRequestMessage request, string endpoint, CancellationToken cancellationToken)
+    private async Task<T> SendWithResilienceAsync<T>(Func<HttpRequestMessage> requestFactory, string endpoint, CancellationToken cancellationToken)
     {
-        DateTime start = DateTime.UtcNow;
-
         return await _resilience.ExecuteAsync(async ct =>
         {
+            DateTime start = DateTime.UtcNow;
+            using var request = requestFactory();
             using HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             TimeSpan duration = DateTime.UtcNow - start;
 

@@ -502,7 +502,7 @@ public class DecisionFactorLibrary
     /// <summary>
     /// 计算所有因子得分
     /// </summary>
-    public Dictionary<string, decimal> CalculateAllFactors(MarketData data)
+    public Dictionary<string, decimal> CalculateAllFactors(MarketData? data)
     {
         var scores = new Dictionary<string, decimal>();
 

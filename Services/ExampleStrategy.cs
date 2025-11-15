@@ -9,11 +9,15 @@ namespace 币安量化机器人.Services
     {
         public string Name => "ExampleStrategy";
 
-        private IEventBus _eventBus;
+        private IEventBus? _eventBus;
 
         public async Task InitializeAsync(IServiceProvider services)
         {
-            _eventBus = (IEventBus)services.GetService(typeof(IEventBus));
+            _eventBus = services.GetService(typeof(IEventBus)) as IEventBus;
+            if (_eventBus == null)
+            {
+                LogService.Warning("[ExampleStrategy] IEventBus not available during Initialize");
+            }
             await Task.CompletedTask;
         }
 

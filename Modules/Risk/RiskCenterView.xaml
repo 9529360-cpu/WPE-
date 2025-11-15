@@ -11,7 +11,7 @@
         </Grid.RowDefinitions>
 
         <!-- 标题栏 -->
-        <Border Grid.Row="0" Background="#1F2937" Padding="16" CornerRadius="8" Margin="0,0,0,12">
+        <Border Grid.Row="0" Background="{StaticResource HeaderBackgroundBrush}" Padding="16" CornerRadius="8" Margin="0,0,0,12">
             <DockPanel>
                 <TextBlock Text="🧮 风险控制中心" 
                            FontSize="20" FontWeight="Bold" 
@@ -22,7 +22,7 @@
                 <Button Content="🔄 刷新风控数据"
                         Height="36"
                         Padding="16,0"
-                        Background="#10B981"
+                        Background="{StaticResource SuccessBrush}"
                         Foreground="White"
                         BorderThickness="0"
                         HorizontalAlignment="Right"
@@ -65,16 +65,16 @@
             </Grid.ColumnDefinitions>
 
             <!-- 账户风险度 -->
-            <Border Grid.Column="0" Background="White" 
-                    BorderBrush="#E5E7EB" BorderThickness="1" 
+            <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}" 
+                    BorderBrush="{StaticResource BorderBrushValue}" BorderThickness="1" 
                     CornerRadius="8" Padding="16">
                 <StackPanel>
-                    <TextBlock Text="账户风险度" FontSize="12" Foreground="#6B7280"/>
+                    <TextBlock Text="账户风险度" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
                     <TextBlock x:Name="AccountRiskText" 
                                Text="低" 
                                FontSize="24" 
                                FontWeight="Bold"
-                               Foreground="#22C55E"
+                               Foreground="{StaticResource SuccessBrush}"
                                Margin="0,4,0,0"/>
                     <TextBlock x:Name="RiskScoreText"
                                Text="风险评分: 0/100" 
@@ -85,11 +85,11 @@
             </Border>
 
             <!-- 仓位利用率 -->
-            <Border Grid.Column="2" Background="White" 
-                    BorderBrush="#E5E7EB" BorderThickness="1" 
+            <Border Grid.Column="2" Background="{StaticResource SurfaceBrush}" 
+                    BorderBrush="{StaticResource BorderBrushValue}" BorderThickness="1" 
                     CornerRadius="8" Padding="16">
                 <StackPanel>
-                    <TextBlock Text="仓位利用率" FontSize="12" Foreground="#6B7280"/>
+                    <TextBlock Text="仓位利用率" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
                     <TextBlock x:Name="PositionUsageText" 
                                Text="0%" 
                                FontSize="24" 
@@ -104,11 +104,11 @@
             </Border>
 
             <!-- 今日触发次数 -->
-            <Border Grid.Column="4" Background="White" 
-                    BorderBrush="#E5E7EB" BorderThickness="1" 
+            <Border Grid.Column="4" Background="{StaticResource SurfaceBrush}" 
+                    BorderBrush="{StaticResource BorderBrushValue}" BorderThickness="1" 
                     CornerRadius="8" Padding="16">
                 <StackPanel>
-                    <TextBlock Text="今日风控触发" FontSize="12" Foreground="#6B7280"/>
+                    <TextBlock Text="今日风控触发" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
                     <TextBlock x:Name="TodayTriggersText" 
                                Text="0 次" 
                                FontSize="24" 
@@ -122,11 +122,11 @@
             </Border>
 
             <!-- 风险暴露 -->
-            <Border Grid.Column="6" Background="White" 
-                    BorderBrush="#E5E7EB" BorderThickness="1" 
+            <Border Grid.Column="6" Background="{StaticResource SurfaceBrush}" 
+                    BorderBrush="{StaticResource BorderBrushValue}" BorderThickness="1" 
                     CornerRadius="8" Padding="16">
                 <StackPanel>
-                    <TextBlock Text="风险暴露" FontSize="12" Foreground="#6B7280"/>
+                    <TextBlock Text="风险暴露" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
                     <TextBlock x:Name="RiskExposureText" 
                                Text="0 USDT" 
                                FontSize="24" 
@@ -281,7 +281,7 @@
 
                             <TextBlock Text="基于历史模拟法计算,置信度95%" 
                                        FontSize="12" 
-                                       Foreground="#6B7280"
+                                       Foreground="{StaticResource MutedBrush}"
                                        Margin="0,0,0,16"/>
 
                             <!-- VaR指标卡片 -->
@@ -349,7 +349,7 @@
                                                FontWeight="Bold" 
                                                Margin="0,0,0,12"/>
                                     
-                                    <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#6B7280">
+                                    <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource MutedBrush}">
                                         <Run Text="• VaR: 在正常市场条件下,未来1日内账户可能损失的最大金额(95%置信度)"/>
                                         <LineBreak/>
                                         <LineBreak/>

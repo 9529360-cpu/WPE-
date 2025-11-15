@@ -78,6 +78,19 @@ namespace 币安量化机器人
             DataContext = this;
 
             StartHeartbeat();
+            // Ensure StartToggle reflects current global runtime state
+            try
+            {
+                if (this.FindName("StartToggle") is System.Windows.Controls.Primitives.ToggleButton tb)
+                {
+                    tb.IsChecked = Services.RuntimeState.IsRunning;
+                    tb.Content = Services.RuntimeState.IsRunning ? "停止" : "启动";
+                }
+            }
+            catch { }
+
+            // Update UI when runtime state changes
+            Services.RuntimeState.IsRunningChanged += RuntimeState_IsRunningChanged;
 
             // Try load from config first
             try
@@ -168,9 +181,40 @@ namespace 币安量化机器人
             _heartbeat = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _heartbeat.Tick += (_, __) =>
             {
-                StatusText.Text = $"状态：就绪 · {DateTime.Now:HH:mm:ss}";
+                // Do not overwrite '运行中' status when system is running
+                if (Services.RuntimeState.IsRunning)
+                {
+                    StatusText.Text = $"状态：运行中 · {DateTime.Now:HH:mm:ss}";
+                }
+                else
+                {
+                    StatusText.Text = $"状态：就绪 · {DateTime.Now:HH:mm:ss}";
+                }
             };
             _heartbeat.Start();
+        }
+
+        private void RuntimeState_IsRunningChanged(object? sender, EventArgs e)
+        {
+            try
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    if (this.FindName("StartToggle") is System.Windows.Controls.Primitives.ToggleButton tb)
+                    {
+                        // update toggle without triggering Checked/Unchecked handlers
+                        if (tb.IsChecked != Services.RuntimeState.IsRunning)
+                        {
+                            tb.IsChecked = Services.RuntimeState.IsRunning;
+                            tb.Content = Services.RuntimeState.IsRunning ? "停止" : "启动";
+                        }
+                    }
+
+                    // Update status text immediately
+                    StatusText.Text = Services.RuntimeState.IsRunning ? "状态：运行中 · 系统已启动" : "状态：已停止 · 系统就绪";
+                });
+            }
+            catch { }
         }
 
         private void NavButton_Click(object sender, RoutedEventArgs e)
@@ -473,6 +517,21 @@ namespace 币安量化机器人
         {
             MainContentHost.Children.Clear();
             MainContentHost.Children.Add(new Modules.Alert.AlertCenterView());
+        }
+
+        // Start/Stop toggle handlers
+        private void StartToggle_Checked(object sender, RoutedEventArgs e)
+        {
+            RuntimeState.IsRunning = true;
+            StatusText.Text = "状态：运行中 · 系统已启动";
+            StartToggle.Content = "停止";
+        }
+
+        private void StartToggle_Unchecked(object sender, RoutedEventArgs e)
+        {
+            RuntimeState.IsRunning = false;
+            StatusText.Text = "状态：已停止 · 系统就绪";
+            StartToggle.Content = "启动";
         }
     }
 }

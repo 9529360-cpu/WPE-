@@ -32,6 +32,41 @@ public partial class RealtimeView : UserControl, IModuleLifecycle
     public RealtimeView()
     {
         InitializeComponent();
+
+        // react to global runtime start/stop
+        Services.RuntimeState.IsRunningChanged += RuntimeState_IsRunningChanged;
+        this.Unloaded += RealtimeView_Unloaded;
+    }
+
+    private void RealtimeView_Unloaded(object? sender, RoutedEventArgs e)
+    {
+        Services.RuntimeState.IsRunningChanged -= RuntimeState_IsRunningChanged;
+    }
+
+    private void RuntimeState_IsRunningChanged(object? sender, EventArgs e)
+    {
+        // marshal to UI thread
+        Dispatcher.InvokeAsync(async () =>
+        {
+            try
+            {
+                if (Services.RuntimeState.IsRunning)
+                {
+                    if (!_initialized)
+                    {
+                        await StartAsync().ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    await StopAsync().ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "[RealtimeView] Error handling runtime state change");
+            }
+        });
     }
 
     public async Task StartAsync()

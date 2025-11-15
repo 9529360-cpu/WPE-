@@ -93,7 +93,7 @@ namespace 币安量化机器人
                     // 将 Serilog 与 Microsoft.Extensions.Logging 集成
                     services.AddLogging(builder => builder.AddSerilog(dispose: false));
 
-                    // 仅注册实际存在的具体服务类型，按需后续再调整为接口映射
+                    // Minimal registrations for single-app mode
                     services.AddSingleton<DataCacheService>();
 
                     services.AddSingleton<BinanceApiClient>();
@@ -101,56 +101,19 @@ namespace 币安量化机器人
                     services.AddSingleton<ApiHealthMonitor>();
 
                     services.AddSingleton<ResilienceService>();
-                    services.AddSingleton<AutoRecoveryManager>();
 
-                    services.AddSingleton<ObservabilityService>();
-                    services.AddSingleton<MetricsCollector>();
-                    services.AddSingleton<StructuredLogger>();
+                    // Lightweight execution: simulator + simple order execution service
+                    services.AddSingleton<SimulatedOrderExecutor>();
+                    services.AddSingleton<IOrderExecutionService, SimpleOrderExecutionService>();
 
-                    services.AddSingleton<SmartCacheManager>();
-                    services.AddSingleton<PerformanceMonitor>();
-                    services.AddSingleton<PerformanceOptimizationService>();
-
-                    // AI 与策略相关（具体实现类）
-                    if (OperatingSystem.IsWindows())
-                    {
-                        services.AddSingleton<AIStrategySuggestionService>();
-                        services.AddSingleton<AIStrategyGenerator>();
-                        services.AddSingleton<AICentralCoordinator>();
-                        services.AddSingleton<WorkflowEngine>();
-                    }
-                    else
-                    {
-                        // Register lightweight stubs or skip heavy AI services on non-Windows environments
-                        services.AddSingleton<WorkflowEngine>();
-                    }
-
-                    // 交易网关（接口实现）
-                    services.AddSingleton<ITradeGate, GlobalTradeGate>();
-
-                    services.AddSingleton<AutoTradingController>();
-                    services.AddSingleton<LiveOrderExecutor>();
-                    services.AddSingleton<OrderHistoryService>();
-
-                    services.AddSingleton<StrategyFactory>();
-                    services.AddSingleton<StrategyPortfolioManager>();
-                    services.AddSingleton<StrategyTemplateLibrary>();
-
-                    // 注册主窗口（其他窗口按需延迟解析）
-                    services.AddSingleton<MainWindow>();
-
-                    // 注册核心服务 - 使用完全限定名以避免命名冲突
+                    // Core services
                     services.AddSingleton<币安量化机器人.Core.IEventBus, 币安量化机器人.Services.LegacyEventBus>();
-                    services.AddSingleton<币安量化机器人.Core.IMarketDataService, 币安量化机器人.Services.MarketDataService>();
-                    services.AddSingleton<币安量化机器人.Services.IOrderExecutionService, 币安量化机器人.Services.OrderExecutionService>();
-                    services.AddSingleton<币安量化机器人.Persistence.IRepository, 币安量化机器人.Persistence.LiteDbRepository>();
-                    services.AddSingleton<币安量化机器人.Core.Risk.IRiskManager, 币安量化机器人.Services.RiskManager>();
                     services.AddSingleton<币安量化机器人.Services.StrategyHost>();
 
-                    // ViewModels
+                    // UI and ViewModels
+                    services.AddSingleton<MainWindow>();
                     services.AddSingleton<ViewModels.MainWindowViewModel>();
                     services.AddSingleton<ViewModels.StrategyManagerViewModel>();
-                    services.AddSingleton<ViewModels.OrderExecutionViewModel>();
                 })
                 .Build();
 

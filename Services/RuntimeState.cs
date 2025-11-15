@@ -7,6 +7,7 @@ namespace 币安量化机器人.Services
     public static class RuntimeState
     {
         private static AccountType _currentAccountType = AccountType.Simulated;
+        private static bool _isRunning;
 
         public static AccountType CurrentAccountType
         {
@@ -21,6 +22,20 @@ namespace 币安量化机器人.Services
             }
         }
 
+        public static bool IsRunning
+        {
+            get => _isRunning;
+            set
+            {
+                if (_isRunning != value)
+                {
+                    _isRunning = value;
+                    IsRunningChanged?.Invoke(null, EventArgs.Empty);
+                }
+            }
+        }
+
         public static event Action<AccountType>? OnAccountTypeChanged;
+        public static event EventHandler? IsRunningChanged;
     }
 }

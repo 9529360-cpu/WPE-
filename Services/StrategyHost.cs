@@ -20,13 +20,19 @@ namespace 币安量化机器人.Services
 
         public StrategyHost(IEventBus eventBus)
         {
-            _eventBus = eventBus;
-            _eventBus.Subscribe<MarketDataRawMessage>(async m => await BroadcastMarketDataAsync(m));
-            _eventBus.Subscribe<OrderPlacedEvent>(async e => await BroadcastOrderUpdateAsync(e));
+            _eventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
+            // Use synchronous Action<T> handlers that explicitly discard the Task returned by the async helpers
+            _eventBus.Subscribe<MarketDataRawMessage>(m => { _ = BroadcastMarketDataAsync(m); });
+            _eventBus.Subscribe<OrderPlacedEvent>(e => { _ = BroadcastOrderUpdateAsync(e); });
         }
 
         public async Task LoadStrategyAsync(IStrategy strategy, IServiceProvider services)
         {
+            if (strategy == null)
+            {
+                throw new ArgumentNullException(nameof(strategy));
+            }
+
             await strategy.InitializeAsync(services);
             _strategies.Add(strategy);
         }
@@ -50,13 +56,16 @@ namespace 币安量化机器人.Services
                 throw new InvalidOperationException("类型未实现 IStrategy: " + typeName);
             }
 
-            var strat = (IStrategy)Activator.CreateInstance(type);
+            // Use 'as' cast to avoid converting a possible null to a non-nullable reference
+            var strat = Activator.CreateInstance(type) as IStrategy ?? throw new InvalidOperationException($"无法创建策略实例: {typeName}");
             await LoadStrategyAsync(strat, services);
         }
 
         private async Task BroadcastMarketDataAsync(MarketDataRawMessage m)
         {
-            foreach (var s in _strategies)
+            // Snapshot to avoid enumeration issues if strategies are added/removed concurrently
+            var snapshot = _strategies.ToArray();
+            foreach (var s in snapshot)
             {
                 try { await s.OnMarketDataAsync(m); } catch { }
             }
@@ -64,7 +73,8 @@ namespace 币安量化机器人.Services
 
         private async Task BroadcastOrderUpdateAsync(OrderPlacedEvent e)
         {
-            foreach (var s in _strategies)
+            var snapshot = _strategies.ToArray();
+            foreach (var s in snapshot)
             {
                 try { await s.OnOrderUpdateAsync(e); } catch { }
             }

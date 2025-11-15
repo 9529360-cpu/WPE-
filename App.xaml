@@ -13,44 +13,7 @@
                 <ResourceDictionary Source="Themes/Controls.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Global control styles -->
-            <Style TargetType="Button">
-                <Setter Property="FontFamily" Value="Microsoft YaHei"/>
-                <Setter Property="Padding" Value="8,6"/>
-                <Setter Property="Margin" Value="2"/>
-                <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource BorderBrushValue}"/>
-                <Setter Property="BorderThickness" Value="1"/>
-                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-            </Style>
-
-            <Style TargetType="TextBlock">
-                <Setter Property="FontFamily" Value="Microsoft YaHei"/>
-                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-            </Style>
-
-            <!-- Left navigation button with icon slot -->
-            <Style x:Key="LeftNavButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                <Setter Property="Height" Value="44"/>
-                <Setter Property="HorizontalContentAlignment" Value="Left"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="Button">
-                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="8">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Rectangle Width="20" Height="20" Fill="{Binding Tag, RelativeSource={RelativeSource AncestorType=Button}}" VerticalAlignment="Center" HorizontalAlignment="Center" Grid.Column="0"/>
-                                    <ContentPresenter Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                                </Grid>
-                            </Border>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-
+            <!-- Control styles are centralized in Themes/Controls.xaml -->
         </ResourceDictionary>
     </Application.Resources>
 </Application>

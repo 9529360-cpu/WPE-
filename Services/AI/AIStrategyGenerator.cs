@@ -183,7 +183,7 @@ public sealed class AIStrategyGenerator
         };
     }
 
-    private static string? TryExtractJson(string text)
+    private static string? TryExtractJson(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
         {

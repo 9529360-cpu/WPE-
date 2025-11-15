@@ -68,10 +68,41 @@ public partial class PaperTradeView : UserControl, IModuleLifecycle
 
         // 不在构造中启动定时器或 AI
 
+        // 订阅全局运行状态变更以支持一键启动/停止
+        Services.RuntimeState.IsRunningChanged += RuntimeState_IsRunningChanged;
+        this.Unloaded += PaperTradeView_Unloaded;
+
         // 初始更新
         UpdateUI();
 
         AddLog("AI模拟交易中心已就绪（等待启动）");
+    }
+
+    private void PaperTradeView_Unloaded(object? sender, RoutedEventArgs e)
+    {
+        Services.RuntimeState.IsRunningChanged -= RuntimeState_IsRunningChanged;
+    }
+
+    private void RuntimeState_IsRunningChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.InvokeAsync(async () =>
+        {
+            try
+            {
+                if (Services.RuntimeState.IsRunning)
+                {
+                    await StartAsync();
+                }
+                else
+                {
+                    await StopAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "[PaperTradeView] Error handling runtime state change");
+            }
+        });
     }
 
     /// <summary>

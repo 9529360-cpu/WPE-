@@ -30,6 +30,32 @@
   <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}"/>
   <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}"/>
 
+  <!-- Additional semantic colors -->
+  <Color x:Key="HeaderBackgroundColor">#1F2937</Color>
+  <SolidColorBrush x:Key="HeaderBackgroundBrush" Color="{StaticResource HeaderBackgroundColor}"/>
+
+  <Color x:Key="InfoBackgroundColor">#DBEAFE</Color>
+  <SolidColorBrush x:Key="InfoBackgroundBrush" Color="{StaticResource InfoBackgroundColor}"/>
+
+  <Color x:Key="InfoPrimaryColor">#1E40AF</Color>
+  <SolidColorBrush x:Key="InfoPrimaryBrush" Color="{StaticResource InfoPrimaryColor}"/>
+
+  <Color x:Key="InfoSecondaryColor">#1E3A8A</Color>
+  <SolidColorBrush x:Key="InfoSecondaryBrush" Color="{StaticResource InfoSecondaryColor}"/>
+
+  <!-- Button state colors (centralized) -->
+  <Color x:Key="ButtonHoverColor">#0F66C2</Color>
+  <SolidColorBrush x:Key="ButtonHoverBrush" Color="{StaticResource ButtonHoverColor}"/>
+
+  <Color x:Key="ButtonPressedColor">#0B57A6</Color>
+  <SolidColorBrush x:Key="ButtonPressedBrush" Color="{StaticResource ButtonPressedColor}"/>
+
+  <Color x:Key="ButtonDisabledColor">#E5E7EB</Color>
+  <SolidColorBrush x:Key="ButtonDisabledBrush" Color="{StaticResource ButtonDisabledColor}"/>
+
+  <Color x:Key="ButtonCheckedColor">#055A8C</Color>
+  <SolidColorBrush x:Key="ButtonCheckedBrush" Color="{StaticResource ButtonCheckedColor}"/>
+
   <!-- Common styles -->
   <Style TargetType="TextBlock" x:Key="HeadingText">
     <Setter Property="FontFamily" Value="Microsoft YaHei"/>
