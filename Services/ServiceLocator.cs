@@ -47,6 +47,7 @@ public static class ServiceLocator
     private static readonly Lazy<StrategyOrchestrator> StrategyOrchestratorFactory = new(() => new StrategyOrchestrator(MarketDataFactory.Value, AdvancedRiskFactory.Value, FeatureStoreFactory.Value, MonitoringHubFactory.Value));
     private static readonly Lazy<GridSearchStrategyOptimizer> OptimizerFactory = new(() => new GridSearchStrategyOptimizer());
     private static readonly Lazy<WalkForwardOptimizer> WalkForwardFactory = new(() => new WalkForwardOptimizer(OptimizerFactory.Value, new DefaultBacktestEngine()));
+    private static readonly Lazy<HealthCheckService> HealthCheckFactory = new(() => new HealthCheckService(CacheFactory.Value, ApiFactory.Value));
 
     public static DataCacheService Cache => CacheFactory.Value;
     public static BinanceApiClient Api => ApiFactory.Value;
@@ -63,6 +64,7 @@ public static class ServiceLocator
     public static StrategyOrchestrator StrategyOrchestrator => StrategyOrchestratorFactory.Value;
     public static WalkForwardOptimizer WalkForward => WalkForwardFactory.Value;
     public static ITradeMonitoringHub MonitoringHub => MonitoringHubFactory.Value;
+    public static HealthCheckService HealthCheck => HealthCheckFactory.Value;
 
     private static RealTimeDataPipeline CreatePipeline()
     {
