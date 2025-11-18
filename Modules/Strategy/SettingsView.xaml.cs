@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using 币安量化机器人.Models;
+using 币安量化机器人.Services;
 
 namespace 币安量化机器人.Modules.Strategy;
 
@@ -16,6 +17,7 @@ public partial class SettingsView : UserControl
 {
     private readonly ObservableCollection<StrategyParameterRow> _parameters = new();
     private readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
+    private readonly ILogger _logger = LoggerFactory.CreateLogger<SettingsView>();
     
     // 使用用户数据目录而非程序目录，避免权限问题
     private readonly string _configDirectory = Path.Combine(
@@ -132,6 +134,7 @@ public partial class SettingsView : UserControl
         try
         {
             StatusText.Text = "状态：正在验证配置...";
+            _logger.Info("开始验证策略配置");
             
             // 在后台线程进行验证，避免阻塞UI
             var config = await Task.Run(() =>
@@ -141,11 +144,13 @@ public partial class SettingsView : UserControl
                 return cfg;
             });
             
+            _logger.Info($"配置验证成功: {config.StrategyName}");
             StatusText.Text = "状态：配置校验通过";
             MessageBox.Show("策略配置已校验，可导出或提交到后端。", "保存配置", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
+            _logger.Error($"配置验证失败: {ex.Message}", ex);
             StatusText.Text = "状态：保存失败";
             MessageBox.Show(ex.Message, "保存配置", MessageBoxButton.OK, MessageBoxImage.Error);
         }
@@ -171,6 +176,7 @@ public partial class SettingsView : UserControl
         try
         {
             StatusText.Text = "状态：正在导出配置...";
+            _logger.Info("开始导出策略配置");
             
             var config = BuildConfig();
             ValidateConfig(config);
@@ -186,11 +192,13 @@ public partial class SettingsView : UserControl
                 return filePath;
             });
 
+            _logger.Info($"配置导出成功: {path}");
             StatusText.Text = $"状态：已导出到用户数据目录";
             MessageBox.Show($"配置已导出到:\n{path}\n\n提示：配置保存在用户数据目录，便于备份和迁移。", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
+            _logger.Error($"配置导出失败: {ex.Message}", ex);
             StatusText.Text = "状态：导出失败";
             MessageBox.Show($"导出失败：{ex.Message}\n\n请检查磁盘空间和权限。", "导出配置", MessageBoxButton.OK, MessageBoxImage.Error);
         }

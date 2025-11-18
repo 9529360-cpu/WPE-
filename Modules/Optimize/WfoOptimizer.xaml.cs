@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using 币安量化机器人.Services;
 
 namespace 币安量化机器人.Modules.Optimize
 {
@@ -24,6 +25,7 @@ namespace 币安量化机器人.Modules.Optimize
         
         private readonly Random _rng;
         private readonly DataTable _table = new();
+        private readonly ILogger _logger = LoggerFactory.CreateLogger<WfoOptimizer>();
         private CancellationTokenSource? _cts;
 
         public WfoOptimizer()
@@ -110,9 +112,11 @@ namespace 币安量化机器人.Modules.Optimize
                 // 限制搜索空间大小，防止内存溢出
                 if (p1Vals.Length * p2Vals.Length > MaxGridSize)
                 {
+                    _logger.Warning($"搜索空间过大: {p1Vals.Length}×{p2Vals.Length} = {p1Vals.Length * p2Vals.Length}");
                     throw new ArgumentException($"搜索空间过大 ({p1Vals.Length}×{p2Vals.Length} = {p1Vals.Length * p2Vals.Length})，请减小范围或增大步长。\n建议不超过{MaxGridSize}个组合。");
                 }
 
+                _logger.Info($"开始WFO优化: IS={isLen}, OOS={oosLen}, 网格={p1Vals.Length}×{p2Vals.Length}");
                 StatusText.Text = $"状态：开始优化 ({p1Vals.Length}×{p2Vals.Length} 组合)...";
 
                 // 在后台线程执行计算密集型操作
@@ -129,15 +133,18 @@ namespace 币安量化机器人.Modules.Optimize
                 PlotHeatmap(result.Heatmap, p1Vals, p2Vals);
                 PlotEquityCurve(result.EquityCurve);
 
+                _logger.Info($"WFO优化完成: {result.TableRows.Count} 个窗口");
                 StatusText.Text = $"状态：已完成 {result.TableRows.Count} 个滚动窗口的优化。";
                 Tabs.SelectedIndex = 0;
             }
             catch (OperationCanceledException)
             {
+                _logger.Info("WFO优化被用户取消");
                 StatusText.Text = "状态：优化已取消";
             }
             catch (Exception ex)
             {
+                _logger.Error($"WFO优化失败: {ex.Message}", ex);
                 StatusText.Text = "状态：运行出错";
                 MessageBox.Show($"优化失败：{ex.Message}\n\n请检查参数设置。", "运行错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
