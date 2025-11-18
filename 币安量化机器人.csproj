@@ -8,9 +8,12 @@
 		<!-- 代码质量（按需留） -->
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
-		
+
 		<!-- 防止与手动 AssemblyInfo.cs 冲突 -->
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+		<!-- 项目仅在 Windows 上运行，忽略 Windows 平台互操作性规则 CA1416 -->
+		<NoWarn>$(NoWarn);CA1416</NoWarn>
 	</PropertyGroup>
 
     <ItemGroup>
