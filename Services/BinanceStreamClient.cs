@@ -126,20 +126,78 @@ public class BinanceStreamClient : IAsyncDisposable
 
     private void HandleMessage(string json)
     {
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("data", out var data))
-            return;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("data", out var data))
+                return;
 
-        var symbol = data.GetProperty("s").GetString() ?? string.Empty;
-        var last = double.Parse(data.GetProperty("c").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
-        var index = double.Parse(data.GetProperty("p").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
-        var change = double.Parse(data.GetProperty("P").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
-        var volume = double.Parse(data.GetProperty("v").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
-        var high = double.Parse(data.GetProperty("h").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
-        var low = double.Parse(data.GetProperty("l").GetString() ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+            // Safely read properties using TryGetProperty to avoid exceptions when fields are missing
+            if (!TryGetString(data, "s", out var symbol) || string.IsNullOrEmpty(symbol))
+            {
+                ConnectionStatusChanged?.Invoke("行情流异常：data.symbol 缺失");
+                return;
+            }
 
-        var update = new MiniTickerUpdate(symbol, last, index, change, volume, high, low);
-        MiniTickerReceived?.Invoke(update);
+            var last = TryGetDouble(data, "c");
+            var index = TryGetDouble(data, "p");
+            var change = TryGetDouble(data, "P");
+            var volume = TryGetDouble(data, "v");
+            var high = TryGetDouble(data, "h");
+            var low = TryGetDouble(data, "l");
+
+            var update = new MiniTickerUpdate(symbol, last, index, change, volume, high, low);
+            MiniTickerReceived?.Invoke(update);
+        }
+        catch (JsonException je)
+        {
+            ConnectionStatusChanged?.Invoke($"行情流异常（JSON 解析）: {je.Message}");
+        }
+        catch (Exception ex)
+        {
+            ConnectionStatusChanged?.Invoke($"行情流异常：{ex.Message}");
+        }
+
+        static bool TryGetString(JsonElement el, string name, out string? value)
+        {
+            value = null;
+            if (!el.TryGetProperty(name, out var prop))
+                return false;
+            if (prop.ValueKind == JsonValueKind.String)
+            {
+                value = prop.GetString();
+                return true;
+            }
+            // try convert number to string
+            if (prop.ValueKind == JsonValueKind.Number)
+            {
+                value = prop.GetRawText();
+                return true;
+            }
+            return false;
+        }
+
+        static double TryGetDouble(JsonElement el, string name)
+        {
+            if (!el.TryGetProperty(name, out var prop))
+                return 0d;
+            try
+            {
+                if (prop.ValueKind == JsonValueKind.Number)
+                    return prop.GetDouble();
+                if (prop.ValueKind == JsonValueKind.String)
+                {
+                    var s = prop.GetString();
+                    if (double.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v))
+                        return v;
+                }
+            }
+            catch
+            {
+                // ignore parse errors and return 0
+            }
+            return 0d;
+        }
     }
 
     public async Task StopAsync()
