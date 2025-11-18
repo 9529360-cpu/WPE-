@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using 币安量化机器人.Core.Data;
@@ -22,7 +23,7 @@ public class ApiDataSource : IDataSource
 
     public string Name => "Api";
 
-    public async IAsyncEnumerable<RawDataFrame> ReadAsync(DataQuery query, CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<RawDataFrame> ReadAsync(DataQuery query, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var url = $"{_endpoint}/marketdata?symbol={query.Symbol}&start={query.Start:o}&end={query.End:o}";
         var frames = await _httpClient.GetFromJsonAsync<List<ApiCandle>>(url, cancellationToken) ?? new List<ApiCandle>();

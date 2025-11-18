@@ -8,6 +8,9 @@
 		<!-- 代码质量（按需留） -->
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
+		
+		<!-- 防止与手动 AssemblyInfo.cs 冲突 -->
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 	</PropertyGroup>
 
     <ItemGroup>
