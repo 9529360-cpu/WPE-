@@ -84,13 +84,8 @@ public class WalkForwardOptimizer
             => strategy.GetType().GetField("_analyzer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(strategy) as IMultiTimeframeAnalyzer
                ?? throw new InvalidOperationException("Analyzer unavailable");
 
-        static IMachineLearningSignalGenerator GetMlGeneratorForMomentum(Core.Strategies.MomentumStrategy strategy)
-            => strategy.GetType().GetField("_mlSignalGenerator", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(strategy) as IMachineLearningSignalGenerator
-               ?? throw new InvalidOperationException("ML generator unavailable");
-
-        static IFeatureStore GetFeatureStoreForMomentum(Core.Strategies.MomentumStrategy strategy)
-            => strategy.GetType().GetField("_featureStore", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(strategy) as IFeatureStore
-               ?? throw new InvalidOperationException("Feature store unavailable");
+        // Momentum strategy does not expose ML generator/feature store in its constructor.
+        // Helper functions intentionally omitted to avoid unused-local-function warnings.
     }
 }
 
