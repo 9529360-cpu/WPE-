@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using 币安量化机器人.Application.Backtesting;
+using Serilog;
 using 币安量化机器人.Application.Services;
 using 币安量化机器人.Core.Abstractions;
 using 币安量化机器人.Core.Models;
@@ -35,14 +36,14 @@ public static class ServiceLocator
     private static readonly Lazy<RiskEngine> RiskFactory = new(() => new RiskEngine(Cache));
     private static readonly Lazy<BinanceStreamClient> StreamFactory = new(() => new BinanceStreamClient());
     private static readonly Lazy<NotificationService> NotificationFactory = new(() => new NotificationService());
-    private static readonly Lazy<ILogger> LoggerFactory = new(() =>
+    private static readonly Lazy<Serilog.ILogger> LoggerFactory = new(() =>
     {
         // Simple Serilog-based logger for services to use
         var logger = new LoggerConfiguration()
             .MinimumLevel.Information()
             .WriteTo.File("logs\\services.log", rollingInterval: RollingInterval.Day)
             .CreateLogger();
-        return new Serilog.Extensions.Logging.SerilogLoggerFactory(logger).CreateLogger("ServiceLocator");
+        return logger;
     });
     private static readonly Lazy<AppSettings> SettingsFactory = new(() => AppSettingsService.Current);
     private static readonly Lazy<RiskManager> AdvancedRiskFactory = new(() => new RiskManager());
@@ -72,7 +73,7 @@ public static class ServiceLocator
     public static StrategyOrchestrator StrategyOrchestrator => StrategyOrchestratorFactory.Value;
     public static WalkForwardOptimizer WalkForward => WalkForwardFactory.Value;
     public static ITradeMonitoringHub MonitoringHub => MonitoringHubFactory.Value;
-    public static ILogger Logger => LoggerFactory.Value;
+    public static Serilog.ILogger Logger => LoggerFactory.Value;
 
     private static RealTimeDataPipeline CreatePipeline()
     {
