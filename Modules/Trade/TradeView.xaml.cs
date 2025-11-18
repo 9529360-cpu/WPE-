@@ -14,6 +14,7 @@ public partial class TradeView : UserControl
 {
     private readonly ObservableCollection<OrderRequest> _batchOrders = new();
     private readonly BinanceApiClient _api = ServiceLocator.Api;
+    private readonly ILogger _logger = LoggerFactory.CreateLogger<TradeView>();
 
     public TradeView()
     {
@@ -29,15 +30,18 @@ public partial class TradeView : UserControl
     {
         try
         {
+            _logger.Info("开始加载交易对列表");
             StatusText.Text = "状态：加载交易对...";
             var tickers = await _api.GetMiniTickersAsync();
             SymbolBox.ItemsSource = tickers.Select(t => t.Symbol).OrderBy(s => s).ToList();
             if (SymbolBox.Items.Count > 0)
                 SymbolBox.SelectedIndex = 0;
             StatusText.Text = "状态：交易对已刷新";
+            _logger.Info($"交易对加载成功，共 {SymbolBox.Items.Count} 个");
         }
         catch (Exception ex)
         {
+            _logger.Error("交易对加载失败", ex);
             StatusText.Text = "状态：交易对获取失败";
             MessageBox.Show(ex.Message, "交易对", MessageBoxButton.OK, MessageBoxImage.Error);
         }
@@ -69,14 +73,16 @@ public partial class TradeView : UserControl
         {
             var request = BuildRequest();
             ValidateRequest(request);
+            _logger.Info($"提交订单：{request.Symbol} {request.Side} {request.Quantity} @ {request.Type}");
             StatusText.Text = $"状态：正在发送 {request.Symbol} 单笔订单";
             var result = await _api.PlaceOrderAsync(request);
             StatusText.Text = $"状态：订单 {result.OrderId} 已提交，成交 {result.ExecutedQuantity}";
-            MessageBox.Show($"订单 {result.OrderId} 状态：{result.Status}
-平均成交价：{result.AvgPrice}", "下单成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            _logger.Info($"订单成功：{result.OrderId} 状态={result.Status} 成交={result.ExecutedQuantity}");
+            MessageBox.Show($"订单 {result.OrderId} 状态：{result.Status}\n平均成交价：{result.AvgPrice}", "下单成功", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
+            _logger.Error($"订单提交失败", ex);
             StatusText.Text = "状态：下单失败";
             MessageBox.Show(ex.Message, "下单失败", MessageBoxButton.OK, MessageBoxImage.Error);
         }
@@ -107,14 +113,17 @@ public partial class TradeView : UserControl
 
         try
         {
+            _logger.Info($"执行批量订单，共 {_batchOrders.Count} 个订单");
             StatusText.Text = "状态：执行批量订单中...";
             var batch = new BatchOrderRequest { Orders = _batchOrders.ToArray() };
             var results = await _api.PlaceBatchOrdersAsync(batch);
             StatusText.Text = $"状态：批量下单完成（{results.Count}）";
+            _logger.Info($"批量下单完成，返回 {results.Count} 条结果");
             MessageBox.Show($"批量下单完成，返回 {results.Count} 条结果。", "批量下单", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
+            _logger.Error("批量下单失败", ex);
             StatusText.Text = "状态：批量下单失败";
             MessageBox.Show(ex.Message, "批量下单", MessageBoxButton.OK, MessageBoxImage.Error);
         }
