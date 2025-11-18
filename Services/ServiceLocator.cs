@@ -35,6 +35,15 @@ public static class ServiceLocator
     private static readonly Lazy<RiskEngine> RiskFactory = new(() => new RiskEngine(Cache));
     private static readonly Lazy<BinanceStreamClient> StreamFactory = new(() => new BinanceStreamClient());
     private static readonly Lazy<NotificationService> NotificationFactory = new(() => new NotificationService());
+    private static readonly Lazy<ILogger> LoggerFactory = new(() =>
+    {
+        // Simple Serilog-based logger for services to use
+        var logger = new LoggerConfiguration()
+            .MinimumLevel.Information()
+            .WriteTo.File("logs\\services.log", rollingInterval: RollingInterval.Day)
+            .CreateLogger();
+        return new Serilog.Extensions.Logging.SerilogLoggerFactory(logger).CreateLogger("ServiceLocator");
+    });
     private static readonly Lazy<AppSettings> SettingsFactory = new(() => AppSettingsService.Current);
     private static readonly Lazy<RiskManager> AdvancedRiskFactory = new(() => new RiskManager());
     private static readonly Lazy<IMultiTimeframeAnalyzer> AnalyzerFactory = new(() => new MultiTimeframeAnalyzer());
@@ -63,6 +72,7 @@ public static class ServiceLocator
     public static StrategyOrchestrator StrategyOrchestrator => StrategyOrchestratorFactory.Value;
     public static WalkForwardOptimizer WalkForward => WalkForwardFactory.Value;
     public static ITradeMonitoringHub MonitoringHub => MonitoringHubFactory.Value;
+    public static ILogger Logger => LoggerFactory.Value;
 
     private static RealTimeDataPipeline CreatePipeline()
     {

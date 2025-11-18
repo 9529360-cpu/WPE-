@@ -30,6 +30,7 @@ public class BinanceStreamClient : IAsyncDisposable
 
     public event Action<MiniTickerUpdate>? MiniTickerReceived;
     public event Action<string>? ConnectionStatusChanged;
+    private readonly Serilog.ILogger _logger = Serilog.Log.ForContext<BinanceStreamClient>();
 
     public async Task ConnectMiniTickerAsync(IEnumerable<string> symbols, CancellationToken cancellationToken = default)
     {
@@ -151,10 +152,12 @@ public class BinanceStreamClient : IAsyncDisposable
         }
         catch (JsonException je)
         {
+            _logger?.Error(je, "JSON parse error in stream message");
             ConnectionStatusChanged?.Invoke($"行情流异常（JSON 解析）: {je.Message}");
         }
         catch (Exception ex)
         {
+            _logger?.Error(ex, "Unhandled exception processing stream message");
             ConnectionStatusChanged?.Invoke($"行情流异常：{ex.Message}");
         }
 
