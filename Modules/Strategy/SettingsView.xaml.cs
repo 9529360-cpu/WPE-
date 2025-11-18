@@ -102,22 +102,42 @@ public partial class SettingsView : UserControl
         };
     }
 
-    private static void ValidateConfig(StrategyConfig config)
+    private void ValidateConfig(StrategyConfig config)
     {
+        var errors = new System.Collections.Generic.List<string>();
+        
+        // 基础验证
         if (string.IsNullOrWhiteSpace(config.StrategyName))
-            throw new InvalidOperationException("策略名称不能为空");
+            errors.Add("策略名称不能为空");
         if (string.IsNullOrWhiteSpace(config.Symbol))
-            throw new InvalidOperationException("交易对不能为空");
+            errors.Add("交易对不能为空");
         if (string.IsNullOrWhiteSpace(config.Timeframe))
-            throw new InvalidOperationException("请选择时间框架");
+            errors.Add("请选择时间框架");
         if (config.Capital <= 0)
-            throw new InvalidOperationException("投入资金需大于 0");
+            errors.Add("投入资金需大于 0");
+        if (config.Capital > 1000000000)
+            errors.Add("投入资金过大，请检查输入");
+        if (config.Leverage < 1 || config.Leverage > 125)
+            errors.Add("杠杆倍数必须在 1-125 之间");
+        if (config.MaxPositions <= 0 || config.MaxPositions > 100)
+            errors.Add("最大持仓数必须在 1-100 之间");
         if (config.StopLossPercent <= 0)
-            throw new InvalidOperationException("止损百分比需大于 0");
+            errors.Add("止损百分比需大于 0");
+        if (config.StopLossPercent > 50)
+            errors.Add("止损百分比过大（>50%），可能导致过度风险");
         if (config.TakeProfitPercent <= 0)
-            throw new InvalidOperationException("止盈百分比需大于 0");
+            errors.Add("止盈百分比需大于 0");
+        if (config.TakeProfitPercent > 1000)
+            errors.Add("止盈百分比过大，请检查输入");
         if (config.Parameters.Count == 0)
-            throw new InvalidOperationException("至少保留一个策略参数");
+            errors.Add("至少保留一个策略参数");
+        
+        if (errors.Count > 0)
+        {
+            var errorMsg = string.Join(Environment.NewLine, errors.Select(e => $"• {e}"));
+            _logger.Warning($"配置验证失败:\n{errorMsg}");
+            throw new InvalidOperationException($"配置验证失败：\n\n{errorMsg}");
+        }
     }
 
     private void SaveConfig_Click(object sender, RoutedEventArgs e)

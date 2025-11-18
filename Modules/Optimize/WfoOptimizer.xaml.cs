@@ -99,22 +99,41 @@ namespace 币安量化机器人.Modules.Optimize
                 int p2Max = int.Parse(TbP2Max.Text);
                 int p2Step = Math.Max(1, int.Parse(TbP2Step.Text));
 
-                // 防御性编程：检查参数合理性
-                if (p1Min >= p1Max)
-                    throw new ArgumentException("参数1最小值必须小于最大值");
-                if (p2Min >= p2Max)
-                    throw new ArgumentException("参数2最小值必须小于最大值");
+                // 使用ConfigurationValidator进行全面验证
+                var validator = new ConfigurationValidator();
+                if (!validator.ValidateWfoParameters(
+                    isLen, oosLen, p1Min, p1Max, p1Step, p2Min, p2Max, p2Step, MaxGridSize))
+                {
+                    _logger.Warning("WFO参数验证失败");
+                    var errorMsg = validator.GetAllMessages();
+                    MessageBox.Show(
+                        $"参数验证失败：\n\n{errorMsg}\n\n请修正后再试。",
+                        "参数错误",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                // 显示警告（如果有）
+                if (validator.Warnings.Count > 0)
+                {
+                    var warningMsg = validator.GetWarningMessages();
+                    var result = MessageBox.Show(
+                        $"参数验证通过，但有以下警告：\n\n{warningMsg}\n\n是否继续？",
+                        "参数警告",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+                    
+                    if (result != MessageBoxResult.Yes)
+                    {
+                        _logger.Info("用户取消优化（由于参数警告）");
+                        return;
+                    }
+                }
 
                 // 改进的网格生成：确保包含端点
                 var p1Vals = GenerateGrid(p1Min, p1Max, p1Step);
                 var p2Vals = GenerateGrid(p2Min, p2Max, p2Step);
-
-                // 限制搜索空间大小，防止内存溢出
-                if (p1Vals.Length * p2Vals.Length > MaxGridSize)
-                {
-                    _logger.Warning($"搜索空间过大: {p1Vals.Length}×{p2Vals.Length} = {p1Vals.Length * p2Vals.Length}");
-                    throw new ArgumentException($"搜索空间过大 ({p1Vals.Length}×{p2Vals.Length} = {p1Vals.Length * p2Vals.Length})，请减小范围或增大步长。\n建议不超过{MaxGridSize}个组合。");
-                }
 
                 _logger.Info($"开始WFO优化: IS={isLen}, OOS={oosLen}, 网格={p1Vals.Length}×{p2Vals.Length}");
                 StatusText.Text = $"状态：开始优化 ({p1Vals.Length}×{p2Vals.Length} 组合)...";
