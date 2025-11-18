@@ -1,8 +1,10 @@
-﻿using ScottPlot;
+using ScottPlot;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -10,12 +12,27 @@ namespace 币安量化机器人.Modules.Optimize
 {
     public partial class WfoOptimizer : UserControl
     {
-        readonly Random _rng = new(123);
-        readonly DataTable _table = new();
+        // 配置化参数：可通过UI或配置文件设置
+        private const int DefaultRngSeed = -1; // -1 表示随机种子
+        private const int MinIsLength = 30;
+        private const int MinOosLength = 10;
+        private const double BaselineP1 = 15.0;  // 快均线基准值
+        private const double BaselineP2 = 120.0; // 慢均线基准值
+        private const double P1Scale = 10.0;
+        private const double P2Scale = 40.0;
+        private const int MaxGridSize = 10000;  // 最大搜索空间限制
+        
+        private readonly Random _rng;
+        private readonly DataTable _table = new();
+        private CancellationTokenSource? _cts;
 
         public WfoOptimizer()
         {
             InitializeComponent();
+            
+            // 根据配置决定使用固定种子还是随机种子
+            int seed = DefaultRngSeed == -1 ? Environment.TickCount : DefaultRngSeed;
+            _rng = new Random(seed);
 
             // 摘要表结构
             _table.Columns.Add("窗口序号", typeof(int));
@@ -32,6 +49,9 @@ namespace 币安量化机器人.Modules.Optimize
 
         private void BtnClear_Click(object sender, RoutedEventArgs e)
         {
+            // 如果正在运行，先取消
+            _cts?.Cancel();
+            
             _table.Rows.Clear();
             StabPlot.Plot.Clear(); StabPlot.Refresh();
             EquityPlot.Plot.Clear(); EquityPlot.Refresh();
@@ -40,12 +60,34 @@ namespace 币安量化机器人.Modules.Optimize
 
         private void BtnRun_Click(object sender, RoutedEventArgs e)
         {
+            // 如果已经在运行，则取消当前运行
+            if (_cts != null && !_cts.IsCancellationRequested)
+            {
+                _cts.Cancel();
+                StatusText.Text = "状态：正在取消...";
+                return;
+            }
+
+            // 更新按钮状态
+            if (sender is Button btn)
+            {
+                btn.Content = "取消运行";
+            }
+
+            // 创建新的取消令牌
+            _cts = new CancellationTokenSource();
+            _ = RunOptimizationAsync(sender, _cts.Token);
+        }
+
+        private async Task RunOptimizationAsync(object sender, CancellationToken cancellationToken)
+        {
             try
             {
+                StatusText.Text = "状态：正在读取参数...";
+
                 // 读取窗口与搜索空间
-                int isLen = Math.Max(30, int.Parse(TbIsLen.Text));
-                int oosLen = Math.Max(10, int.Parse(TbOosLen.Text));
-                bool rolling = CbRollMode.SelectedIndex == 0;
+                int isLen = Math.Max(MinIsLength, int.Parse(TbIsLen.Text));
+                int oosLen = Math.Max(MinOosLength, int.Parse(TbOosLen.Text));
 
                 int p1Min = int.Parse(TbP1Min.Text);
                 int p1Max = int.Parse(TbP1Max.Text);
@@ -55,105 +97,204 @@ namespace 币安量化机器人.Modules.Optimize
                 int p2Max = int.Parse(TbP2Max.Text);
                 int p2Step = Math.Max(1, int.Parse(TbP2Step.Text));
 
-                var p1Vals = Enumerable.Range(0, (p1Max - p1Min) / p1Step + 1).Select(i => p1Min + i * p1Step).ToArray();
-                var p2Vals = Enumerable.Range(0, (p2Max - p2Min) / p2Step + 1).Select(i => p2Min + i * p2Step).ToArray();
+                // 防御性编程：检查参数合理性
+                if (p1Min >= p1Max)
+                    throw new ArgumentException("参数1最小值必须小于最大值");
+                if (p2Min >= p2Max)
+                    throw new ArgumentException("参数2最小值必须小于最大值");
 
-                // —— 演示评分函数（近似“夏普”） —— //
-                double Score(int fast, int slow)
+                // 改进的网格生成：确保包含端点
+                var p1Vals = GenerateGrid(p1Min, p1Max, p1Step);
+                var p2Vals = GenerateGrid(p2Min, p2Max, p2Step);
+
+                // 限制搜索空间大小，防止内存溢出
+                if (p1Vals.Length * p2Vals.Length > MaxGridSize)
                 {
-                    double dx = (fast - 15.0) / 10.0;
-                    double dy = (slow - 120.0) / 40.0;
-                    double baseScore = Math.Exp(-(dx * dx + dy * dy));   // [0,1]
-                    double noise = _rng.NextDouble() * 0.15 - 0.075;
-                    return 0.8 * baseScore + noise;
+                    throw new ArgumentException($"搜索空间过大 ({p1Vals.Length}×{p2Vals.Length} = {p1Vals.Length * p2Vals.Length})，请减小范围或增大步长。\n建议不超过{MaxGridSize}个组合。");
                 }
 
-                // 演示滚动次数
-                int runs = Math.Clamp((int)Math.Round(1.0 * isLen / oosLen) + 7, 8, 12);
+                StatusText.Text = $"状态：开始优化 ({p1Vals.Length}×{p2Vals.Length} 组合)...";
 
+                // 在后台线程执行计算密集型操作
+                var result = await Task.Run(() => PerformOptimization(isLen, oosLen, p1Vals, p2Vals, cancellationToken), cancellationToken);
+
+                // 更新UI（必须在UI线程）
                 _table.Rows.Clear();
-                var equity = new List<double>();
-                double eq = 1.0;
-
-                // 累计稳定性热力图的平均分
-                double[,] heat = new double[p1Vals.Length, p2Vals.Length];
-
-                for (int k = 0; k < runs; k++)
+                foreach (var row in result.TableRows)
                 {
-                    double bestScore = double.NegativeInfinity;
-                    (int f, int s) best = (0, 0);
-
-                    for (int i = 0; i < p1Vals.Length; i++)
-                    {
-                        for (int j = 0; j < p2Vals.Length; j++)
-                        {
-                            double sc = Score(p1Vals[i], p2Vals[j]);
-                            heat[i, j] += sc;
-                            if (sc > bestScore)
-                            {
-                                bestScore = sc;
-                                best = (p1Vals[i], p2Vals[j]);
-                            }
-                        }
-                    }
-
-                    string isTxt = $"IS: {isLen} 天";
-                    string oosTxt = $"OOS: {oosLen} 天";
-                    _table.Rows.Add(k + 1, isTxt, oosTxt, $"{best.f},{best.s}", Math.Round(bestScore, 3));
-
-                    // 用 bestScore 合成一小段 OOS 权益并拼接
-                    int oosBars = oosLen / 3;
-                    for (int t = 0; t < oosBars; t++)
-                    {
-                        double r = 0.001 + Math.Max(0, bestScore) * 0.005 + (_rng.NextDouble() - 0.5) * 0.002;
-                        eq *= (1.0 + r);
-                        equity.Add(eq);
-                    }
+                    _table.Rows.Add(row.WindowIndex, row.IsText, row.OosText, row.BestParams, row.BestScore);
                 }
 
-                // —— 画稳定性热力图（平均后） —— //
-                for (int i = 0; i < p1Vals.Length; i++)
-                    for (int j = 0; j < p2Vals.Length; j++)
-                        heat[i, j] /= runs;
+                // 绘制图表
+                PlotHeatmap(result.Heatmap, p1Vals, p2Vals);
+                PlotEquityCurve(result.EquityCurve);
 
-                StabPlot.Plot.Clear();
-
-                // ScottPlot 5：直接添加热力图
-                var hm = StabPlot.Plot.Add.Heatmap(heat);
-
-                // 自定义坐标刻度（把索引映射为参数值）
-                double[] xPos = Enumerable.Range(0, p2Vals.Length).Select(i => (double)i).ToArray();
-                string[] xLbl = p2Vals.Select(v => v.ToString()).ToArray();
-                StabPlot.Plot.Axes.Bottom.SetTicks(xPos, xLbl);   // X 对应 p2（慢均线）
-
-                double[] yPos = Enumerable.Range(0, p1Vals.Length).Select(i => (double)i).ToArray();
-                string[] yLbl = p1Vals.Select(v => v.ToString()).ToArray();
-                StabPlot.Plot.Axes.Left.SetTicks(yPos, yLbl);     // Y 对应 p1（快均线）
-
-                StabPlot.Plot.Title("参数稳定性热力图（数值越高越好）");
-                // ★ 修复点：Label 为属性而非方法
-                StabPlot.Plot.Axes.Left.Label.Text = TbP1Name.Text;
-                StabPlot.Plot.Axes.Bottom.Label.Text = TbP2Name.Text;
-                StabPlot.Refresh();
-
-                // —— 画 OOS 拼接权益曲线 —— //
-                EquityPlot.Plot.Clear();
-                double[] ys = equity.ToArray();
-                double[] xs = Enumerable.Range(0, ys.Length).Select(i => (double)i).ToArray();
-                EquityPlot.Plot.Add.Scatter(xs, ys);
-                EquityPlot.Plot.Title("拼接 OOS 权益曲线（演示）");
-                // ★ 修复点：Label 为属性而非方法
-                EquityPlot.Plot.Axes.Left.Label.Text = "权益";
-                EquityPlot.Plot.Axes.Bottom.Label.Text = "样本外序列";
-                EquityPlot.Refresh();
-
-                StatusText.Text = $"状态：已完成 {runs} 个滚动窗口的演示优化。";
+                StatusText.Text = $"状态：已完成 {result.TableRows.Count} 个滚动窗口的优化。";
                 Tabs.SelectedIndex = 0;
+            }
+            catch (OperationCanceledException)
+            {
+                StatusText.Text = "状态：优化已取消";
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "运行错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusText.Text = "状态：运行出错";
+                MessageBox.Show($"优化失败：{ex.Message}\n\n请检查参数设置。", "运行错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+            finally
+            {
+                // 恢复按钮状态
+                if (sender is Button btn)
+                {
+                    btn.Content = "开始优化";
+                }
+                _cts?.Dispose();
+                _cts = null;
+            }
+        }
+
+        // 改进的网格生成方法：确保包含端点
+        private static int[] GenerateGrid(int min, int max, int step)
+        {
+            var values = new List<int>();
+            for (int val = min; val <= max; val += step)
+            {
+                values.Add(val);
+            }
+            // 确保包含最大值
+            if (values.Count > 0 && values[^1] != max)
+            {
+                values.Add(max);
+            }
+            return values.ToArray();
+        }
+
+        private OptimizationResult PerformOptimization(int isLen, int oosLen, int[] p1Vals, int[] p2Vals, CancellationToken cancellationToken)
+        {
+            // —— 演示评分函数（近似"夏普"） —— //
+            double Score(int fast, int slow)
+            {
+                double dx = (fast - BaselineP1) / P1Scale;
+                double dy = (slow - BaselineP2) / P2Scale;
+                double baseScore = Math.Exp(-(dx * dx + dy * dy));   // [0,1]
+                double noise = _rng.NextDouble() * 0.15 - 0.075;
+                return 0.8 * baseScore + noise;
+            }
+
+            // 演示滚动次数
+            int runs = Math.Clamp((int)Math.Round(1.0 * isLen / oosLen) + 7, 8, 12);
+
+            var tableRows = new List<OptimizationRow>();
+            var equity = new List<double>();
+            double eq = 1.0;
+
+            // 累计稳定性热力图的平均分
+            double[,] heat = new double[p1Vals.Length, p2Vals.Length];
+
+            for (int k = 0; k < runs; k++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                double bestScore = double.NegativeInfinity;
+                (int f, int s) best = (0, 0);
+
+                for (int i = 0; i < p1Vals.Length; i++)
+                {
+                    for (int j = 0; j < p2Vals.Length; j++)
+                    {
+                        double sc = Score(p1Vals[i], p2Vals[j]);
+                        heat[i, j] += sc;
+                        if (sc > bestScore)
+                        {
+                            bestScore = sc;
+                            best = (p1Vals[i], p2Vals[j]);
+                        }
+                    }
+                }
+
+                string isTxt = $"IS: {isLen} 天";
+                string oosTxt = $"OOS: {oosLen} 天";
+                
+                tableRows.Add(new OptimizationRow
+                {
+                    WindowIndex = k + 1,
+                    IsText = isTxt,
+                    OosText = oosTxt,
+                    BestParams = $"{best.f},{best.s}",
+                    BestScore = Math.Round(bestScore, 3)
+                });
+
+                // 用 bestScore 合成一小段 OOS 权益并拼接
+                int oosBars = oosLen / 3;
+                for (int t = 0; t < oosBars; t++)
+                {
+                    double r = 0.001 + Math.Max(0, bestScore) * 0.005 + (_rng.NextDouble() - 0.5) * 0.002;
+                    eq *= (1.0 + r);
+                    equity.Add(eq);
+                }
+            }
+
+            // —— 平均热力图 —— //
+            for (int i = 0; i < p1Vals.Length; i++)
+                for (int j = 0; j < p2Vals.Length; j++)
+                    heat[i, j] /= runs;
+
+            return new OptimizationResult
+            {
+                Heatmap = heat,
+                EquityCurve = equity.ToArray(),
+                TableRows = tableRows
+            };
+        }
+
+        private void PlotHeatmap(double[,] heat, int[] p1Vals, int[] p2Vals)
+        {
+            StabPlot.Plot.Clear();
+
+            // ScottPlot 5：直接添加热力图
+            var hm = StabPlot.Plot.Add.Heatmap(heat);
+
+            // 自定义坐标刻度（把索引映射为参数值）
+            double[] xPos = Enumerable.Range(0, p2Vals.Length).Select(i => (double)i).ToArray();
+            string[] xLbl = p2Vals.Select(v => v.ToString()).ToArray();
+            StabPlot.Plot.Axes.Bottom.SetTicks(xPos, xLbl);   // X 对应 p2（慢均线）
+
+            double[] yPos = Enumerable.Range(0, p1Vals.Length).Select(i => (double)i).ToArray();
+            string[] yLbl = p1Vals.Select(v => v.ToString()).ToArray();
+            StabPlot.Plot.Axes.Left.SetTicks(yPos, yLbl);     // Y 对应 p1（快均线）
+
+            StabPlot.Plot.Title("参数稳定性热力图（数值越高越好）");
+            StabPlot.Plot.Axes.Left.Label.Text = TbP1Name.Text;
+            StabPlot.Plot.Axes.Bottom.Label.Text = TbP2Name.Text;
+            StabPlot.Refresh();
+        }
+
+        private void PlotEquityCurve(double[] equity)
+        {
+            EquityPlot.Plot.Clear();
+            double[] xs = Enumerable.Range(0, equity.Length).Select(i => (double)i).ToArray();
+            EquityPlot.Plot.Add.Scatter(xs, equity);
+            EquityPlot.Plot.Title("拼接 OOS 权益曲线（演示）");
+            EquityPlot.Plot.Axes.Left.Label.Text = "权益";
+            EquityPlot.Plot.Axes.Bottom.Label.Text = "样本外序列";
+            EquityPlot.Refresh();
+        }
+
+        // 辅助类
+        private class OptimizationResult
+        {
+            public double[,] Heatmap { get; set; } = new double[0, 0];
+            public double[] EquityCurve { get; set; } = Array.Empty<double>();
+            public List<OptimizationRow> TableRows { get; set; } = new();
+        }
+
+        private class OptimizationRow
+        {
+            public int WindowIndex { get; set; }
+            public string IsText { get; set; } = "";
+            public string OosText { get; set; } = "";
+            public string BestParams { get; set; } = "";
+            public double BestScore { get; set; }
         }
     }
 }

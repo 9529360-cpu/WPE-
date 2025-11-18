@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using 币安量化机器人.Models;
@@ -15,7 +16,12 @@ public partial class SettingsView : UserControl
 {
     private readonly ObservableCollection<StrategyParameterRow> _parameters = new();
     private readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
-    private readonly string _configDirectory = Path.Combine(AppContext.BaseDirectory, "Configs");
+    
+    // 使用用户数据目录而非程序目录，避免权限问题
+    private readonly string _configDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "币安量化机器人",
+        "Configs");
 
     public SettingsView()
     {
@@ -114,10 +120,27 @@ public partial class SettingsView : UserControl
 
     private void SaveConfig_Click(object sender, RoutedEventArgs e)
     {
+        // 立即禁用按钮，防止重复点击
+        if (sender is Button btn)
+            btn.IsEnabled = false;
+
+        _ = SaveConfigAsync(sender);
+    }
+
+    private async Task SaveConfigAsync(object sender)
+    {
         try
         {
-            var config = BuildConfig();
-            ValidateConfig(config);
+            StatusText.Text = "状态：正在验证配置...";
+            
+            // 在后台线程进行验证，避免阻塞UI
+            var config = await Task.Run(() =>
+            {
+                var cfg = BuildConfig();
+                ValidateConfig(cfg);
+                return cfg;
+            });
+            
             StatusText.Text = "状态：配置校验通过";
             MessageBox.Show("策略配置已校验，可导出或提交到后端。", "保存配置", MessageBoxButton.OK, MessageBoxImage.Information);
         }
@@ -126,28 +149,56 @@ public partial class SettingsView : UserControl
             StatusText.Text = "状态：保存失败";
             MessageBox.Show(ex.Message, "保存配置", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+        finally
+        {
+            // 恢复按钮状态
+            if (sender is Button btn)
+                btn.IsEnabled = true;
+        }
     }
 
     private void ExportConfig_Click(object sender, RoutedEventArgs e)
     {
+        // 立即禁用按钮，防止重复点击
+        if (sender is Button btn)
+            btn.IsEnabled = false;
+
+        _ = ExportConfigAsync(sender);
+    }
+
+    private async Task ExportConfigAsync(object sender)
+    {
         try
         {
+            StatusText.Text = "状态：正在导出配置...";
+            
             var config = BuildConfig();
             ValidateConfig(config);
 
-            Directory.CreateDirectory(_configDirectory);
-            var fileName = $"{SanitizeFileName(config.StrategyName)}_{DateTime.Now:yyyyMMdd_HHmmss}.json";
-            var path = Path.Combine(_configDirectory, fileName);
-            var json = JsonSerializer.Serialize(config, _jsonOptions);
-            File.WriteAllText(path, json, Encoding.UTF8);
+            // 在后台线程执行文件IO操作
+            var path = await Task.Run(() =>
+            {
+                Directory.CreateDirectory(_configDirectory);
+                var fileName = $"{SanitizeFileName(config.StrategyName)}_{DateTime.Now:yyyyMMdd_HHmmss}.json";
+                var filePath = Path.Combine(_configDirectory, fileName);
+                var json = JsonSerializer.Serialize(config, _jsonOptions);
+                File.WriteAllText(filePath, json, Encoding.UTF8);
+                return filePath;
+            });
 
-            StatusText.Text = $"状态：已导出 {fileName}";
-            MessageBox.Show($"配置已导出到 {path}", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            StatusText.Text = $"状态：已导出到用户数据目录";
+            MessageBox.Show($"配置已导出到:\n{path}\n\n提示：配置保存在用户数据目录，便于备份和迁移。", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
             StatusText.Text = "状态：导出失败";
-            MessageBox.Show(ex.Message, "导出配置", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"导出失败：{ex.Message}\n\n请检查磁盘空间和权限。", "导出配置", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            // 恢复按钮状态
+            if (sender is Button btn)
+                btn.IsEnabled = true;
         }
     }
 
