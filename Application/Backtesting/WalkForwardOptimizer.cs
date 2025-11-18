@@ -64,7 +64,7 @@ public class WalkForwardOptimizer
         return strategy switch
         {
             Core.Strategies.MeanReversionStrategy meanReversion => new Core.Strategies.MeanReversionStrategy(GetAnalyzer(meanReversion), GetMlGenerator(meanReversion), GetFeatureStore(meanReversion), parameters),
-            Core.Strategies.MomentumStrategy momentum => new Core.Strategies.MomentumStrategy(GetAnalyzer(momentum), parameters),
+            Core.Strategies.MomentumStrategy momentum => new Core.Strategies.MomentumStrategy(GetAnalyzer(momentum), GetMlGenerator(momentum), GetFeatureStore(momentum), parameters),
             _ => throw new NotSupportedException("Unsupported strategy type")
         };
 
@@ -83,6 +83,14 @@ public class WalkForwardOptimizer
         static IMultiTimeframeAnalyzer GetAnalyzer(Core.Strategies.MomentumStrategy strategy)
             => strategy.GetType().GetField("_analyzer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(strategy) as IMultiTimeframeAnalyzer
                ?? throw new InvalidOperationException("Analyzer unavailable");
+
+        static IMachineLearningSignalGenerator GetMlGenerator(Core.Strategies.MomentumStrategy strategy)
+            => strategy.GetType().GetField("_mlSignalGenerator", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(strategy) as IMachineLearningSignalGenerator
+               ?? throw new InvalidOperationException("ML generator unavailable");
+
+        static IFeatureStore GetFeatureStore(Core.Strategies.MomentumStrategy strategy)
+            => strategy.GetType().GetField("_featureStore", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(strategy) as IFeatureStore
+               ?? throw new InvalidOperationException("Feature store unavailable");
     }
 }
 

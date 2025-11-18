@@ -34,7 +34,7 @@ public class BinanceStreamClient : IAsyncDisposable
     public async Task ConnectMiniTickerAsync(IEnumerable<string> symbols, CancellationToken cancellationToken = default)
     {
         var requestedSymbols = symbols.Select(s => s.ToLowerInvariant()).Distinct().ToArray();
-        if (requestedSymbols.Count == 0)
+        if (requestedSymbols.Length == 0)
             throw new InvalidOperationException("必须至少订阅一个交易对");
 
         await StopInternalAsync().ConfigureAwait(false);

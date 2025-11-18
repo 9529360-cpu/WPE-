@@ -72,24 +72,25 @@ public static class ServiceLocator
         var importPath = Path.Combine(dataDirectory, "import");
         Directory.CreateDirectory(importPath);
 
-        var sources = new IDataSource[]
+        // Resolve core data interfaces from Core.Data namespace
+        var sources = new Core.Data.IDataSource[]
         {
-            new DatabaseDataSource($"Data Source={dbPath}"),
-            new ApiDataSource(new HttpClient { Timeout = TimeSpan.FromSeconds(10) }, "https://api.binance.com"),
-            new FileDataSource(importPath)
+            new Infrastructure.Data.DatabaseDataSource($"Data Source={dbPath}"),
+            new Infrastructure.Data.ApiDataSource(new HttpClient { Timeout = TimeSpan.FromSeconds(10) }, "https://api.binance.com"),
+            new Infrastructure.Data.FileDataSource(importPath)
         };
 
-        var qualityRules = new IDataQualityRule[]
+        var qualityRules = new Core.Data.IDataQualityRule[]
         {
-            new NullValueQualityRule(),
-            new RangeQualityRule("close", 0, double.MaxValue),
-            new SpikeDetectionRule("close")
+            new Infrastructure.Data.NullValueQualityRule(),
+            new Infrastructure.Data.RangeQualityRule("close", 0, double.MaxValue),
+            new Infrastructure.Data.SpikeDetectionRule("close")
         };
 
-        var engineers = new IFeatureEngineer[]
+        var engineers = new Core.Data.IFeatureEngineer[]
         {
-            new TechnicalIndicatorEngineer(),
-            new LagFeatureEngineer()
+            new Infrastructure.Data.TechnicalIndicatorEngineer(),
+            new Infrastructure.Data.LagFeatureEngineer()
         };
 
         return new RealTimeDataPipeline(sources, qualityRules, engineers, FeatureStoreFactory.Value);

@@ -42,7 +42,7 @@ public class RiskEngine
 
     private static RiskMetrics CalculateMetrics(PositionSnapshot position, IReadOnlyList<double> returns, decimal accountEquity)
     {
-        var pnlSeries = returns.Select(r => (double)position.PositionAmt * position.MarkPrice * r).ToArray();
+        var pnlSeries = returns.Select(r => (double)position.PositionAmt * (double)position.MarkPrice * r).ToArray();
         var var99 = HistoricalVaR(pnlSeries, 0.99);
         var cvar = ConditionalVaR(pnlSeries, 0.99);
         var volatility = returns.Any() ? Math.Sqrt(returns.Average(r => r * r) * 252) : 0;
