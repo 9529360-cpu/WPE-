@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using 币安量化机器人.Services;
@@ -9,42 +8,14 @@ namespace 币安量化机器人
     public partial class MainWindow : Window
     {
         private readonly ILogger _logger = LoggerFactory.CreateLogger<MainWindow>();
-        
-        // 模块注册表：Tag -> 类型全名
-        private readonly Dictionary<string, string> _viewMap = new()
-        {
-            // 市场与行情
-            ["行情"] = "币安量化机器人.Modules.Market.RealtimeView, 币安量化机器人",
-            ["资金费率"] = "币安量化机器人.Modules.Market.FundingView, 币安量化机器人",
-
-            // 策略与 AI
-            ["策略配置"] = "币安量化机器人.Modules.Strategy.SettingsView, 币安量化机器人",
-            ["策略库"] = "币安量化机器人.Modules.Strategy.TemplateHub, 币安量化机器人",
-            ["AI"] = "币安量化机器人.Modules.AI.ModelHub, 币安量化机器人",
-
-            // 优化与研发
-            ["优化"] = "币安量化机器人.Modules.Optimize.WfoOptimizer, 币安量化机器人",
-            ["回测"] = "币安量化机器人.Modules.Research.BacktestView, 币安量化机器人",
-            ["纸交易"] = "币安量化机器人.Modules.Paper.PaperTradeView, 币安量化机器人",
-
-            // 实盘与风控
-            ["交易"] = "币安量化机器人.Modules.Trade.TradeView, 币安量化机器人",
-            ["持仓订单"] = "币安量化机器人.Modules.Trade.PositionsOrdersView, 币安量化机器人",
-            ["风控"] = "币安量化机器人.Modules.Risk.RiskCenterView, 币安量化机器人",
-            ["预警"] = "币安量化机器人.Modules.Alert.AlertCenterView, 币安量化机器人",
-
-            // 账户与连接
-            ["账户"] = "币安量化机器人.Modules.Account.AccountFundsView, 币安量化机器人",
-            ["API"] = "币安量化机器人.Modules.Account.ApiManagerView, 币安量化机器人",
-
-            // 系统
-            ["设置"] = "币安量化机器人.Modules.Settings.SystemSettingsView, 币安量化机器人",
-            ["诊断"] = "币安量化机器人.Modules.Diagnostics.DiagnosticsView, 币安量化机器人"
-        };
+        private readonly IModuleRegistry _moduleRegistry;
 
         public MainWindow()
         {
             InitializeComponent();
+            
+            // 初始化模块注册表
+            _moduleRegistry = new ModuleRegistry();
             
             SectionTitle.Text = "欢迎使用 · 请选择左侧功能";
             _logger.Info("主窗口已初始化");
@@ -68,7 +39,7 @@ namespace 币安量化机器人
             StatusText.Text = $"状态：正在加载 {tag} 模块...";
             MainContentHost.Children.Clear();
 
-            if (!_viewMap.TryGetValue(tag, out var typeName))
+            if (!_moduleRegistry.IsModuleRegistered(tag))
             {
                 _logger.Warning($"模块未注册: {tag}");
                 MainContentHost.Children.Add(MakePlaceholder(tag, "未注册模块"));
@@ -76,29 +47,19 @@ namespace 币安量化机器人
                 return;
             }
 
-            // 使用"类型全名, 程序集名"解析
-            var type = Type.GetType(typeName, throwOnError: false);
+            var view = _moduleRegistry.CreateModule(tag);
             
-            if (type == null)
+            if (view == null)
             {
-                _logger.Error($"无法找到类型: {typeName}");
-                MainContentHost.Children.Add(MakePlaceholder(tag, $"未找到类型"));
+                _logger.Error($"创建模块失败: {tag}");
+                MainContentHost.Children.Add(MakePlaceholder(tag, "模块创建失败"));
                 StatusText.Text = $"状态：{tag} 模块加载失败";
                 return;
             }
-            
-            if (!typeof(UserControl).IsAssignableFrom(type))
-            {
-                _logger.Error($"类型不是UserControl: {typeName}");
-                MainContentHost.Children.Add(MakePlaceholder(tag, $"类型错误"));
-                StatusText.Text = $"状态：{tag} 模块类型不正确";
-                return;
-            }
 
-            var view = (UserControl)Activator.CreateInstance(type)!;
             MainContentHost.Children.Add(view);
             
-            _logger.Info($"成功加载模块: {tag} ({type.Name})");
+            _logger.Info($"成功加载模块: {tag}");
             StatusText.Text = $"状态：已切换到 {tag} 模块";
         }
 
