@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Strategy Configuration Examples",
+  "description": "Example strategy configurations for the Binance Quantitative Trading Bot",
+  
+  "strategies": [
+    {
+      "name": "Conservative Mean Reversion",
+      "type": "MeanReversion",
+      "description": "A conservative mean reversion strategy suitable for sideways markets",
+      "enabled": true,
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "timeframe": "1h",
+      "parameters": {
+        "entry_z_score": 2.0,
+        "exit_z_score": 0.3,
+        "lookback_period": 20,
+        "base_quantity": 0.01,
+        "max_position_size": 0.1,
+        "use_ml_filter": true
+      },
+      "risk": {
+        "stop_loss_percent": 0.02,
+        "take_profit_percent": 0.04,
+        "max_drawdown_percent": 0.10,
+        "max_daily_trades": 10
+      }
+    },
+    {
+      "name": "Aggressive Mean Reversion",
+      "type": "MeanReversion",
+      "description": "An aggressive mean reversion strategy with tighter entry conditions",
+      "enabled": false,
+      "symbols": ["BTCUSDT"],
+      "timeframe": "15m",
+      "parameters": {
+        "entry_z_score": 1.2,
+        "exit_z_score": 0.5,
+        "lookback_period": 30,
+        "base_quantity": 0.02,
+        "max_position_size": 0.2,
+        "use_ml_filter": true
+      },
+      "risk": {
+        "stop_loss_percent": 0.03,
+        "take_profit_percent": 0.06,
+        "max_drawdown_percent": 0.15,
+        "max_daily_trades": 20
+      }
+    },
+    {
+      "name": "Trend Following Momentum",
+      "type": "Momentum",
+      "description": "A momentum strategy that follows strong trends",
+      "enabled": true,
+      "symbols": ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
+      "timeframe": "4h",
+      "parameters": {
+        "momentum_threshold": 0.02,
+        "momentum_period": 10,
+        "trend_filter": 0.01,
+        "base_quantity": 0.015,
+        "max_position_size": 0.15,
+        "use_ml_signal": true
+      },
+      "risk": {
+        "stop_loss_percent": 0.025,
+        "take_profit_percent": 0.08,
+        "trailing_stop": true,
+        "trailing_stop_percent": 0.03,
+        "max_drawdown_percent": 0.12,
+        "max_daily_trades": 8
+      }
+    },
+    {
+      "name": "Scalping Strategy",
+      "type": "MeanReversion",
+      "description": "High-frequency scalping for small profits",
+      "enabled": false,
+      "symbols": ["BTCUSDT"],
+      "timeframe": "1m",
+      "parameters": {
+        "entry_z_score": 1.5,
+        "exit_z_score": 0.2,
+        "lookback_period": 50,
+        "base_quantity": 0.005,
+        "max_position_size": 0.05,
+        "use_ml_filter": false
+      },
+      "risk": {
+        "stop_loss_percent": 0.005,
+        "take_profit_percent": 0.01,
+        "max_drawdown_percent": 0.05,
+        "max_daily_trades": 50
+      },
+      "notes": "Requires low latency connection and careful monitoring"
+    },
+    {
+      "name": "Multi-Asset Portfolio",
+      "type": "Composite",
+      "description": "Diversified portfolio strategy across multiple assets",
+      "enabled": false,
+      "symbols": ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "DOGEUSDT"],
+      "timeframe": "1d",
+      "parameters": {
+        "rebalance_interval_days": 7,
+        "target_weights": {
+          "BTCUSDT": 0.40,
+          "ETHUSDT": 0.30,
+          "BNBUSDT": 0.15,
+          "ADAUSDT": 0.10,
+          "DOGEUSDT": 0.05
+        },
+        "rebalance_threshold": 0.05
+      },
+      "risk": {
+        "portfolio_stop_loss_percent": 0.15,
+        "max_drawdown_percent": 0.20,
+        "correlation_limit": 0.7
+      }
+    }
+  ],
+  
+  "global_settings": {
+    "max_concurrent_strategies": 3,
+    "max_total_exposure": 0.8,
+    "reserve_cash_ratio": 0.2,
+    "emergency_stop_loss": 0.25
+  },
+  
+  "risk_management": {
+    "global_stop_loss": 0.20,
+    "daily_loss_limit": 0.05,
+    "position_size_method": "kelly",
+    "kelly_fraction": 0.25,
+    "max_leverage": 1.0,
+    "correlation_check": true,
+    "blacklist_after_losses": 3
+  },
+  
+  "execution": {
+    "order_type": "LIMIT",
+    "limit_order_offset_percent": 0.001,
+    "order_timeout_seconds": 30,
+    "retry_failed_orders": true,
+    "max_retries": 3,
+    "slippage_tolerance_percent": 0.002
+  },
+  
+  "monitoring": {
+    "enable_telegram_alerts": true,
+    "alert_on_trade": true,
+    "alert_on_risk_breach": true,
+    "alert_on_error": true,
+    "performance_report_interval_hours": 24
+  },
+  
+  "backtesting": {
+    "initial_capital": 10000,
+    "commission_rate": 0.001,
+    "slippage_rate": 0.0005,
+    "use_realistic_execution": true
+  },
+  
+  "_comments": {
+    "strategies": "List of strategy configurations. Set 'enabled' to true to activate.",
+    "parameters": "Strategy-specific parameters. Adjust based on backtesting results.",
+    "risk": "Risk management parameters for each strategy.",
+    "global_settings": "System-wide settings affecting all strategies.",
+    "risk_management": "Global risk management rules.",
+    "execution": "Trade execution settings.",
+    "monitoring": "Monitoring and alerting configuration.",
+    "backtesting": "Default backtesting parameters."
+  }
+}

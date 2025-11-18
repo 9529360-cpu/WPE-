@@ -21,6 +21,7 @@ public partial class RealtimeView : UserControl
     private readonly BinanceApiClient _api = ServiceLocator.Api;
     private readonly BinanceStreamClient _stream = ServiceLocator.Stream;
     private readonly AiForecastService _aiService = ServiceLocator.Ai;
+    private readonly ILogger _logger = LoggerFactory.CreateLogger<RealtimeView>();
     private ICollectionView? _view;
     private bool _initialized;
     private string _interval = "1m";
@@ -45,12 +46,15 @@ public partial class RealtimeView : UserControl
 
         try
         {
+            _logger.Info("实时行情模块加载");
             StatusText.Text = "状态：正在从 Binance 拉取 24h 行情...";
             await LoadInitialAsync();
             StatusText.Text = $"状态：已加载 {_quotes.Count} 条合约 · 正在订阅实时数据";
+            _logger.Info($"实时行情加载完成：{_quotes.Count} 条合约");
         }
         catch (Exception ex)
         {
+            _logger.Error("实时行情加载失败", ex);
             StatusText.Text = "状态：加载失败";
             MessageBox.Show(ex.Message, "实时行情", MessageBoxButton.OK, MessageBoxImage.Error);
         }
@@ -180,6 +184,7 @@ public partial class RealtimeView : UserControl
 
         try
         {
+            _logger.Info($"开始 AI 预测：{quote.Symbol}");
             StatusText.Text = $"状态：AI 正在分析 {quote.Symbol} ...";
             var request = new ForecastRequest
             {
@@ -191,10 +196,12 @@ public partial class RealtimeView : UserControl
 
             var result = await _aiService.ForecastAsync(request).ConfigureAwait(true);
             UpdateForecast(result);
+            _logger.Info($"AI 预测完成：{result.Symbol} 预期收益={result.ExpectedReturn:P2}");
             StatusText.Text = $"状态：AI 预测已完成（{result.Symbol}）";
         }
         catch (Exception ex)
         {
+            _logger.Error($"AI 预测失败：{quote.Symbol}", ex);
             StatusText.Text = "状态：AI 预测失败";
             MessageBox.Show(ex.Message, "AI 预测", MessageBoxButton.OK, MessageBoxImage.Error);
         }
@@ -256,12 +263,15 @@ public partial class RealtimeView : UserControl
         SearchBox.Text = string.Empty;
         try
         {
+            _logger.Info("刷新实时行情");
             StatusText.Text = "状态：正在刷新行情";
             await LoadInitialAsync();
             StatusText.Text = "状态：行情已刷新";
+            _logger.Info("实时行情刷新成功");
         }
         catch (Exception ex)
         {
+            _logger.Error("行情刷新失败", ex);
             StatusText.Text = "状态：刷新失败";
             MessageBox.Show(ex.Message, "刷新行情", MessageBoxButton.OK, MessageBoxImage.Error);
         }
