@@ -20,6 +20,12 @@ REM 备份当前配置
 echo 正在备份当前 Git 配置...
 echo Backing up current Git configuration...
 copy .git\config .git\config.backup > nul
+if %ERRORLEVEL% NEQ 0 (
+    echo 错误: 无法备份配置文件
+    echo Error: Failed to backup configuration file
+    pause
+    exit /b 1
+)
 echo 配置已备份到 .git\config.backup
 echo Configuration backed up to .git\config.backup
 echo.
