@@ -33,7 +33,7 @@ namespace 币安量化机器人.Modules.Optimize
             InitializeComponent();
             
             // 根据配置决定使用固定种子还是随机种子
-            int seed = DefaultRngSeed == -1 ? Environment.TickCount : DefaultRngSeed;
+            int seed = Environment.TickCount;
             _rng = new Random(seed);
 
             // 摘要表结构
