@@ -22,8 +22,8 @@ namespace 币安量化机器人.Modules.Optimize
                 hm.Colormap = new ScottPlot.Colormaps.Turbo();
                 plt.Add.ColorBar(hm);
                 plt.Title("热力图（演示）");
-                plt.XLabel("X");
-                plt.YLabel("Y");
+                plt.Axes.Bottom.Label.Text = "X";
+                plt.Axes.Left.Label.Text = "Y";
                 Plot.Refresh();
             };
         }
@@ -37,8 +37,8 @@ namespace 币安量化机器人.Modules.Optimize
             hm.Colormap = new ScottPlot.Colormaps.Turbo();
             plt.Add.ColorBar(hm);
             plt.Title(title);
-            plt.XLabel(xLabel);
-            plt.YLabel(yLabel);
+            plt.Axes.Bottom.Label.Text = xLabel;
+            plt.Axes.Left.Label.Text = yLabel;
             Plot.Refresh();
         }
     }

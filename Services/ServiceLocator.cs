@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using 币安量化机器人.Application.Backtesting;
+using Serilog;
 using 币安量化机器人.Application.Services;
 using 币安量化机器人.Core.Abstractions;
 using 币安量化机器人.Core.Models;
@@ -35,6 +36,15 @@ public static class ServiceLocator
     private static readonly Lazy<RiskEngine> RiskFactory = new(() => new RiskEngine(Cache));
     private static readonly Lazy<BinanceStreamClient> StreamFactory = new(() => new BinanceStreamClient());
     private static readonly Lazy<NotificationService> NotificationFactory = new(() => new NotificationService());
+    private static readonly Lazy<Serilog.ILogger> LoggerFactory = new(() =>
+    {
+        // Simple Serilog-based logger for services to use
+        var logger = new LoggerConfiguration()
+            .MinimumLevel.Information()
+            .WriteTo.File("logs\\services.log", rollingInterval: RollingInterval.Day)
+            .CreateLogger();
+        return logger;
+    });
     private static readonly Lazy<AppSettings> SettingsFactory = new(() => AppSettingsService.Current);
     private static readonly Lazy<RiskManager> AdvancedRiskFactory = new(() => new RiskManager());
     private static readonly Lazy<IMultiTimeframeAnalyzer> AnalyzerFactory = new(() => new MultiTimeframeAnalyzer());
@@ -63,6 +73,7 @@ public static class ServiceLocator
     public static StrategyOrchestrator StrategyOrchestrator => StrategyOrchestratorFactory.Value;
     public static WalkForwardOptimizer WalkForward => WalkForwardFactory.Value;
     public static ITradeMonitoringHub MonitoringHub => MonitoringHubFactory.Value;
+    public static Serilog.ILogger Logger => LoggerFactory.Value;
 
     private static RealTimeDataPipeline CreatePipeline()
     {
@@ -72,24 +83,25 @@ public static class ServiceLocator
         var importPath = Path.Combine(dataDirectory, "import");
         Directory.CreateDirectory(importPath);
 
-        var sources = new IDataSource[]
+        // Resolve core data interfaces from Core.Data namespace
+        var sources = new Core.Data.IDataSource[]
         {
-            new DatabaseDataSource($"Data Source={dbPath}"),
-            new ApiDataSource(new HttpClient { Timeout = TimeSpan.FromSeconds(10) }, "https://api.binance.com"),
-            new FileDataSource(importPath)
+            new Infrastructure.Data.DatabaseDataSource($"Data Source={dbPath}"),
+            new Infrastructure.Data.ApiDataSource(new HttpClient { Timeout = TimeSpan.FromSeconds(10) }, "https://api.binance.com"),
+            new Infrastructure.Data.FileDataSource(importPath)
         };
 
-        var qualityRules = new IDataQualityRule[]
+        var qualityRules = new Core.Data.IDataQualityRule[]
         {
-            new NullValueQualityRule(),
-            new RangeQualityRule("close", 0, double.MaxValue),
-            new SpikeDetectionRule("close")
+            new Infrastructure.Data.NullValueQualityRule(),
+            new Infrastructure.Data.RangeQualityRule("close", 0, double.MaxValue),
+            new Infrastructure.Data.SpikeDetectionRule("close")
         };
 
-        var engineers = new IFeatureEngineer[]
+        var engineers = new Core.Data.IFeatureEngineer[]
         {
-            new TechnicalIndicatorEngineer(),
-            new LagFeatureEngineer()
+            new Infrastructure.Data.TechnicalIndicatorEngineer(),
+            new Infrastructure.Data.LagFeatureEngineer()
         };
 
         return new RealTimeDataPipeline(sources, qualityRules, engineers, FeatureStoreFactory.Value);

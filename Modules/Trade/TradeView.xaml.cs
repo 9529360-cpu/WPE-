@@ -72,8 +72,7 @@ public partial class TradeView : UserControl
             StatusText.Text = $"状态：正在发送 {request.Symbol} 单笔订单";
             var result = await _api.PlaceOrderAsync(request);
             StatusText.Text = $"状态：订单 {result.OrderId} 已提交，成交 {result.ExecutedQuantity}";
-            MessageBox.Show($"订单 {result.OrderId} 状态：{result.Status}
-平均成交价：{result.AvgPrice}", "下单成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"订单 {result.OrderId} 状态：{result.Status}\n平均成交价：{result.AvgPrice}", "下单成功", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {

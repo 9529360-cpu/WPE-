@@ -56,8 +56,7 @@ public class DataCacheService
             );";
 
         await using var cmd = connection.CreateCommand();
-        cmd.CommandText = string.Join('
-', new[] { createFunding, createPrices, createAccounts });
+        cmd.CommandText = string.Join(Environment.NewLine, new[] { createFunding, createPrices, createAccounts });
         await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
     }
 

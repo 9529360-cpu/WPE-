@@ -212,10 +212,10 @@ public partial class RealtimeView : UserControl
         DetailPrice.Text = $"最新 {quote.LastPrice:F4} · 指数价 {quote.IndexPrice:F4}";
 
         DetailChange.Text = $"24h 涨跌：{quote.ChangePercent:+0.00;-0.00;0.00}%";
-        DetailChange.Foreground = quote.ChangePercent switch
+            DetailChange.Foreground = quote.ChangePercent switch
         {
-            > 0.0 => new SolidColorBrush(Color.FromRgb(34, 197, 94)),
-            < 0.0 => new SolidColorBrush(Color.FromRgb(239, 68, 68)),
+            > 0.0 => new SolidColorBrush(System.Windows.Media.Color.FromRgb(34, 197, 94)),
+            < 0.0 => new SolidColorBrush(System.Windows.Media.Color.FromRgb(239, 68, 68)),
             _ => Brushes.Gray
         };
 

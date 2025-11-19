@@ -14,9 +14,9 @@ public sealed class TechnicalIndicatorEngineer : IFeatureEngineer
 
     public ValueTask<IReadOnlyDictionary<string, double>> TransformAsync(RawDataFrame frame, CancellationToken cancellationToken = default)
     {
-        var close = Convert.ToDouble(frame.Payload["close"]);
-        var high = Convert.ToDouble(frame.Payload["high"]);
-        var low = Convert.ToDouble(frame.Payload["low"]);
+        var close = frame.Payload.TryGetValue("close", out var closeVal) ? Convert.ToDouble(closeVal) : 0d;
+        var high = frame.Payload.TryGetValue("high", out var highVal) ? Convert.ToDouble(highVal) : close;
+        var low = frame.Payload.TryGetValue("low", out var lowVal) ? Convert.ToDouble(lowVal) : close;
         var range = high - low;
         var features = new Dictionary<string, double>
         {
@@ -43,7 +43,7 @@ public sealed class LagFeatureEngineer : IFeatureEngineer
 
     public ValueTask<IReadOnlyDictionary<string, double>> TransformAsync(RawDataFrame frame, CancellationToken cancellationToken = default)
     {
-        var close = Convert.ToDouble(frame.Payload["close"]);
+        var close = frame.Payload.TryGetValue("close", out var closeVal) ? Convert.ToDouble(closeVal) : 0d;
         _closeHistory.Enqueue(close);
         if (_closeHistory.Count > _lag)
         {
