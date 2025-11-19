@@ -29,10 +29,25 @@ echo 当前 fetch 配置 / Current fetch configuration:
 git config --get remote.origin.fetch
 echo.
 
+REM 检查远程 'origin' 是否存在 / Verify remote 'origin' exists
+git config --get remote.origin.url > nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo 错误: 找不到名为 'origin' 的远程仓库
+    echo Error: Remote 'origin' not found
+    pause
+    exit /b 1
+)
+
 REM 更新 fetch 配置
 echo 更新 fetch 配置以获取所有分支...
 echo Updating fetch configuration to retrieve all branches...
 git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+if %ERRORLEVEL% NEQ 0 (
+    echo 错误: 无法更新 fetch 配置
+    echo Error: Failed to update fetch configuration
+    pause
+    exit /b 1
+)
 
 REM 验证新配置
 echo 新 fetch 配置 / New fetch configuration:
