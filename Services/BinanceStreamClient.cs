@@ -31,6 +31,13 @@ public class BinanceStreamClient : IAsyncDisposable
     public event Action<MiniTickerUpdate>? MiniTickerReceived;
     public event Action<string>? ConnectionStatusChanged;
     private readonly Serilog.ILogger _logger = Serilog.Log.ForContext<BinanceStreamClient>();
+    private readonly IRawStreamRecorder? _recorder;
+
+    // Add optional recorder via constructor for testing / recording
+    public BinanceStreamClient(IRawStreamRecorder? recorder = null)
+    {
+        _recorder = recorder;
+    }
 
     public async Task ConnectMiniTickerAsync(IEnumerable<string> symbols, CancellationToken cancellationToken = default)
     {
@@ -73,7 +80,10 @@ public class BinanceStreamClient : IAsyncDisposable
                     builder.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
                 } while (!result.EndOfMessage);
 
-                HandleMessage(builder.ToString());
+                var raw = builder.ToString();
+                // record raw
+                try { _recorder?.Record("miniTicker", raw); } catch { }
+                HandleMessage(raw);
             }
             catch (OperationCanceledException)
             {
@@ -201,6 +211,13 @@ public class BinanceStreamClient : IAsyncDisposable
             }
             return 0d;
         }
+    }
+
+    // Expose a testable entry which records raw and processes message (keeps backward compatibility)
+    public void ProcessRawMessage(string raw)
+    {
+        try { _recorder?.Record("miniTicker", raw); } catch { }
+        HandleMessage(raw);
     }
 
     public async Task StopAsync()

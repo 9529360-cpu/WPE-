@@ -34,8 +34,20 @@
       </None>
     </ItemGroup>
 
+    <!-- Exclude test sources placed under repository tests/ or Tests/ from main project compilation -->
+    <ItemGroup>
+      <Compile Remove="tests\**\*.cs" />
+      <Compile Remove="Tests\**\*.cs" />
+      <None Remove="tests\**\*.*" />
+      <None Remove="Tests\**\*.*" />
+    </ItemGroup>
+
     <ItemGroup>
       <Folder Include="Tools\IntegrationChecker\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include=".github\workflows\dotnet.yml" />
     </ItemGroup>
 
 </Project>

@@ -15,8 +15,8 @@ namespace 币安量化机器人
                 .WriteTo.File("logs\\app.log", rollingInterval: RollingInterval.Day)
                 .CreateLogger();
 
-            // Optional: redirect Microsoft.Extensions.Logging to Serilog
-            var factory = LoggerFactory.Create(builder => builder.AddSerilog(Log.Logger, dispose: true));
+            // Optional: create an ILoggerFactory that routes Microsoft.Extensions.Logging to Serilog
+            var factory = new Serilog.Extensions.Logging.SerilogLoggerFactory(Log.Logger, dispose: true);
             // Keep factory around if needed by other parts; ServiceLocator uses its own logging patterns currently.
         }
 
