@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net.Http;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using 币安量化机器人.Models;
@@ -217,10 +219,49 @@ public class AutoTradeEngine : IAsyncDisposable
             {
                 break;
             }
-            catch (Exception ex)
+            catch (HttpRequestException ex)
             {
-                UpdateStatus(strategy, AutoTradeState.Error, strategy.Status.Signal, $"策略异常：{ex.Message}");
-                await NotifyAsync($"[{strategy.Config.StrategyName}] 自动交易异常：{ex.Message}", cancellationToken).ConfigureAwait(false);
+                UpdateStatus(strategy, AutoTradeState.Error, strategy.Status.Signal, $"网络请求失败：{ex.Message}");
+                await NotifyAsync($"[{strategy.Config.StrategyName}] 网络请求异常：{ex.Message}", cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(15), cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+            catch (TaskCanceledException ex)
+            {
+                UpdateStatus(strategy, AutoTradeState.Error, strategy.Status.Signal, $"请求超时：{ex.Message}");
+                await NotifyAsync($"[{strategy.Config.StrategyName}] 请求超时：{ex.Message}", cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(15), cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                UpdateStatus(strategy, AutoTradeState.Error, strategy.Status.Signal, $"操作无效：{ex.Message}");
+                await NotifyAsync($"[{strategy.Config.StrategyName}] 配置或数据异常：{ex.Message}", cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(15), cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+            catch (JsonException ex)
+            {
+                UpdateStatus(strategy, AutoTradeState.Error, strategy.Status.Signal, $"数据解析失败：{ex.Message}");
+                await NotifyAsync($"[{strategy.Config.StrategyName}] JSON解析异常：{ex.Message}", cancellationToken).ConfigureAwait(false);
                 try
                 {
                     await Task.Delay(TimeSpan.FromSeconds(15), cancellationToken).ConfigureAwait(false);
